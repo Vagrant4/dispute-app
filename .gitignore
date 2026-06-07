@@ -1,2 +1,18 @@
-﻿.worktrees/
+.worktrees/
 
+node_modules/
+client/node_modules/
+server/node_modules/
+
+client/dist/
+server/dist/
+*.tsbuildinfo
+
+server/prisma/dev.db
+server/prisma/dev.db-journal
+
+server/uploads/*
+!server/uploads/.gitkeep
+
+server/exports/*
+!server/exports/.gitkeep
