@@ -36,11 +36,17 @@ export function calculateNetPay(grossPay: number, deductions: number): number {
 }
 
 function assertNonNegative(value: number, label: string): void {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${label} must be finite`);
+  }
+
   if (value < 0) {
     throw new Error(`${label} cannot be negative`);
   }
 }
 
 function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
+  const factor = 100;
+
+  return Math.round((value + Number.EPSILON * Math.sign(value) * factor) * factor) / factor;
 }
