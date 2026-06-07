@@ -200,6 +200,131 @@ describe('business resource ownership', () => {
     await expect(prisma.project.count({ where: { userId: userB.id } })).resolves.toBe(0);
   });
 
+  it('rejects malformed money values on profile and project payloads', async () => {
+    const user = await registerUser('money-validation@example.com');
+
+    const profileResponse = await putJson(
+      '/profile',
+      {
+        fullName: 'Worker A',
+        phone: '+65 9000 0001',
+        workerIdentifier: 'WA-001',
+        finNric: 'S1234567A',
+        trade: 'Electrical',
+        employmentType: 'HOURLY',
+        defaultHourlyRate: 'abc',
+        defaultDailyRate: null,
+        defaultMonthlySalary: null
+      },
+      user.cookie
+    );
+    expect(profileResponse.status).toBe(400);
+
+    const projectResponse = await postJson(
+      '/projects',
+      projectPayload({
+        defaultHourlyRate: '12.345'
+      }),
+      user.cookie
+    );
+    expect(projectResponse.status).toBe(400);
+  });
+
+  it('rejects invalid calendar dates and an endDate before startDate', async () => {
+    const user = await registerUser('date-validation@example.com');
+
+    const impossibleDateResponse = await postJson('/projects', projectPayload({ startDate: '2026-02-31' }), user.cookie);
+    expect(impossibleDateResponse.status).toBe(400);
+
+    const invalidDateResponse = await postJson('/projects', projectPayload({ startDate: '2026-13-40' }), user.cookie);
+    expect(invalidDateResponse.status).toBe(400);
+
+    const reversedRangeResponse = await postJson(
+      '/projects',
+      projectPayload({ startDate: '2026-06-10', endDate: '2026-06-09' }),
+      user.cookie
+    );
+    expect(reversedRangeResponse.status).toBe(400);
+  });
+
+  it('returns 409 when deleting a company that still has projects', async () => {
+    const user = await registerUser('company-conflict@example.com');
+    const companyResponse = await postJson('/companies', companyPayload(), user.cookie);
+    const company = await jsonBody<CompanyResponse>(companyResponse);
+    await postJson('/projects', projectPayload({ companyId: company.company.id }), user.cookie);
+
+    const deleteResponse = await fetch(`${baseUrl}/companies/${company.company.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: user.cookie }
+    });
+
+    expect(deleteResponse.status).toBe(409);
+  });
+
+  it('returns 409 when deleting a project that has dependent records', async () => {
+    const user = await registerUser('project-conflict@example.com');
+    const projectResponse = await postJson('/projects', projectPayload(), user.cookie);
+    const project = await jsonBody<ProjectResponse>(projectResponse);
+    await prisma.timeEntry.create({
+      data: {
+        userId: user.id,
+        projectId: project.project.id,
+        date: new Date('2026-06-01T00:00:00.000Z'),
+        clockInTime: new Date('2026-06-01T09:00:00.000Z'),
+        clockOutTime: new Date('2026-06-01T17:00:00.000Z'),
+        breakMinutes: 60,
+        totalHours: 7,
+        overtimeHours: 0,
+        workDescription: 'Cable routing',
+        manualEntryFlag: true,
+        locationText: 'Site A',
+        notes: ''
+      }
+    });
+
+    const deleteResponse = await fetch(`${baseUrl}/projects/${project.project.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: user.cookie }
+    });
+
+    expect(deleteResponse.status).toBe(409);
+  });
+
+  it('filters company and project lists to the authenticated user', async () => {
+    const userA = await registerUser('list-a@example.com');
+    const userB = await registerUser('list-b@example.com');
+    const companyAResponse = await postJson('/companies', companyPayload({ name: 'A Builders' }), userA.cookie);
+    const companyA = await jsonBody<CompanyResponse>(companyAResponse);
+    await postJson('/companies', companyPayload({ name: 'B Builders' }), userB.cookie);
+    await postJson('/projects', projectPayload({ companyId: companyA.company.id, projectName: 'A Project' }), userA.cookie);
+    await postJson('/projects', projectPayload({ projectName: 'B Project' }), userB.cookie);
+
+    const companiesResponse = await fetch(`${baseUrl}/companies`, { headers: { Cookie: userA.cookie } });
+    const projectsResponse = await fetch(`${baseUrl}/projects`, { headers: { Cookie: userA.cookie } });
+    const companies = (await companiesResponse.json()) as { companies: Array<{ userId: string; name: string }> };
+    const projects = (await projectsResponse.json()) as { projects: Array<{ userId: string; projectName: string }> };
+
+    expect(companies.companies).toHaveLength(1);
+    expect(companies.companies[0]).toMatchObject({ userId: userA.id, name: 'A Builders' });
+    expect(projects.projects).toHaveLength(1);
+    expect(projects.projects[0]).toMatchObject({ userId: userA.id, projectName: 'A Project' });
+  });
+
+  it('rejects updating a project to another user company', async () => {
+    const userA = await registerUser('project-update-a@example.com');
+    const userB = await registerUser('project-update-b@example.com');
+    const projectResponse = await postJson('/projects', projectPayload(), userA.cookie);
+    const project = await jsonBody<ProjectResponse>(projectResponse);
+    const companyResponse = await postJson('/companies', companyPayload(), userB.cookie);
+    const company = await jsonBody<CompanyResponse>(companyResponse);
+
+    const updateResponse = await putJson(`/projects/${project.project.id}`, { companyId: company.company.id }, userA.cookie);
+
+    expect(updateResponse.status).toBe(403);
+    const storedProject = await prisma.project.findUnique({ where: { id: project.project.id } });
+    expect(storedProject?.companyId).toBeNull();
+  });
+
   async function registerUser(email: string): Promise<{ id: string; cookie: string }> {
     const response = await postJson('/auth/register', {
       email,

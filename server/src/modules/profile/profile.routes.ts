@@ -3,8 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
-
-const nullableMoney = z.union([z.number().nonnegative(), z.string().trim().min(1), z.null()]).optional();
+import { nullableMoney } from '../../utils/validation.js';
 
 const profileSchema = z.object({
   fullName: z.string().trim().min(1, 'fullName is required'),

@@ -3,27 +3,11 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
+import { endDateMustNotBeBeforeStartDate, nullableDate, nullableMoney, requiredDate } from '../../utils/validation.js';
 
-const nullableMoney = z.union([z.number().nonnegative(), z.string().trim().min(1), z.null()]).optional();
 const nullableText = z.string().trim().min(1).nullable().optional();
-const nullableDate = z
-  .string()
-  .trim()
-  .min(1)
-  .datetime({ offset: true })
-  .or(z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/))
-  .nullable()
-  .optional()
-  .transform((value) => (value ? new Date(value) : null));
-const requiredDate = z
-  .string()
-  .trim()
-  .min(1, 'startDate is required')
-  .datetime({ offset: true })
-  .or(z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/))
-  .transform((value) => new Date(value));
 
-const projectSchema = z.object({
+const projectBaseSchema = z.object({
   companyId: nullableText,
   projectName: z.string().trim().min(1, 'projectName is required'),
   siteAddress: z.string().trim().min(1, 'siteAddress is required'),
@@ -36,9 +20,14 @@ const projectSchema = z.object({
   status: z.enum(ProjectStatus).optional().default(ProjectStatus.ACTIVE)
 });
 
-const projectUpdateSchema = projectSchema.partial().refine((data) => Object.keys(data).length > 0, {
-  message: 'At least one project field is required'
-});
+const projectSchema = projectBaseSchema.superRefine(endDateMustNotBeBeforeStartDate);
+
+const projectUpdateSchema = projectBaseSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one project field is required'
+  })
+  .superRefine(endDateMustNotBeBeforeStartDate);
 
 export const projectRouter = Router();
 
@@ -142,6 +131,17 @@ projectRouter.delete('/:id', async (req, res, next) => {
     });
     if (!existingProject) {
       res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const [timeEntryCount, photoEvidenceCount, paySummaryCount, progressClaimReportCount] = await prisma.$transaction([
+      prisma.timeEntry.count({ where: { projectId: existingProject.id, userId: req.user!.id } }),
+      prisma.photoEvidence.count({ where: { projectId: existingProject.id, userId: req.user!.id } }),
+      prisma.paySummary.count({ where: { projectId: existingProject.id, userId: req.user!.id } }),
+      prisma.progressClaimReport.count({ where: { projectId: existingProject.id, userId: req.user!.id } })
+    ]);
+    if (timeEntryCount + photoEvidenceCount + paySummaryCount + progressClaimReportCount > 0) {
+      res.status(409).json({ error: 'Project cannot be deleted while it has dependent records' });
       return;
     }
 

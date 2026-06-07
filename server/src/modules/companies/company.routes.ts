@@ -108,6 +108,14 @@ companyRouter.delete('/:id', async (req, res, next) => {
       return;
     }
 
+    const projectCount = await prisma.project.count({
+      where: { companyId: existingCompany.id, userId: req.user!.id }
+    });
+    if (projectCount > 0) {
+      res.status(409).json({ error: 'Company cannot be deleted while it has projects' });
+      return;
+    }
+
     await prisma.company.delete({ where: { id: existingCompany.id } });
     res.status(204).send();
   } catch (error) {
