@@ -105,7 +105,7 @@ CREATE TABLE "PhotoEvidence" (
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "PhotoEvidence_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "PhotoEvidence_projectId_userId_fkey" FOREIGN KEY ("projectId", "userId") REFERENCES "Project" ("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "PhotoEvidence_timeEntryId_userId_fkey" FOREIGN KEY ("timeEntryId", "userId") REFERENCES "TimeEntry" ("id", "userId") ON DELETE NO ACTION ON UPDATE CASCADE
+    CONSTRAINT "PhotoEvidence_timeEntryId_projectId_userId_fkey" FOREIGN KEY ("timeEntryId", "projectId", "userId") REFERENCES "TimeEntry" ("id", "projectId", "userId") ON DELETE NO ACTION ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -228,6 +228,9 @@ CREATE INDEX "TimeEntry_projectId_idx" ON "TimeEntry"("projectId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "TimeEntry_id_userId_key" ON "TimeEntry"("id", "userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TimeEntry_id_projectId_userId_key" ON "TimeEntry"("id", "projectId", "userId");
 
 -- CreateIndex
 CREATE INDEX "PhotoEvidence_userId_idx" ON "PhotoEvidence"("userId");

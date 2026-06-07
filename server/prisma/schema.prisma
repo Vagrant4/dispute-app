@@ -168,6 +168,7 @@ model TimeEntry {
   @@index([userId])
   @@index([projectId])
   @@unique([id, userId])
+  @@unique([id, projectId, userId])
 }
 
 model PhotoEvidence {
@@ -186,7 +187,7 @@ model PhotoEvidence {
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   project   Project    @relation(fields: [projectId, userId], references: [id, userId], onDelete: Cascade)
-  timeEntry TimeEntry? @relation(fields: [timeEntryId, userId], references: [id, userId], onDelete: NoAction)
+  timeEntry TimeEntry? @relation(fields: [timeEntryId, projectId, userId], references: [id, projectId, userId], onDelete: NoAction)
 
   @@index([userId])
   @@index([projectId])
