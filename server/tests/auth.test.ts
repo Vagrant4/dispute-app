@@ -1,7 +1,9 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { Router } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/db/prisma.js';
+import { requireUser } from '../src/middleware/requireUser.js';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
@@ -21,8 +23,13 @@ describe('auth API', () => {
   let baseUrl: string;
 
   beforeAll(async () => {
-    const { app } = await import('../src/app.js');
-    server = createServer(app);
+    const { createApp } = await import('../src/app.js');
+    const testRouter = Router();
+    testRouter.get('/protected', requireUser, (req, res) => {
+      res.json({ user: req.user });
+    });
+
+    server = createServer(createApp({ testRouter }));
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', resolve);
     });
@@ -161,6 +168,25 @@ describe('auth API', () => {
       email: 'worker@example.com',
       role: 'WORKER'
     });
+  });
+
+  it('does not register test routes on the default app', async () => {
+    const { app } = await import('../src/app.js');
+    const defaultAppServer = createServer(app);
+    await new Promise<void>((resolve) => {
+      defaultAppServer.listen(0, '127.0.0.1', resolve);
+    });
+    const address = defaultAppServer.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}/test/protected`);
+
+      expect(response.status).toBe(404);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        defaultAppServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 
   function postJson(path: string, body: unknown, cookie?: string): Promise<Response> {
