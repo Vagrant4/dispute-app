@@ -3,6 +3,9 @@ import cors from 'cors';
 import express, { type ErrorRequestHandler, type Router } from 'express';
 import { env } from './config/env.js';
 import { authErrorStatus, authRouter } from './modules/auth/auth.routes.js';
+import { companyRouter } from './modules/companies/company.routes.js';
+import { profileRouter } from './modules/profile/profile.routes.js';
+import { projectRouter } from './modules/projects/project.routes.js';
 
 interface CreateAppOptions {
   testRouter?: Router;
@@ -25,6 +28,9 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use('/auth', authRouter);
+  app.use('/profile', profileRouter);
+  app.use('/companies', companyRouter);
+  app.use('/projects', projectRouter);
 
   if (options.testRouter) {
     app.use('/test', options.testRouter);
