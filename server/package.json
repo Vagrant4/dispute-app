@@ -11,7 +11,7 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "latest",
+    "@prisma/client": "^6.19.0",
     "bcryptjs": "latest",
     "cookie-parser": "latest",
     "cors": "latest",
@@ -29,7 +29,7 @@
     "@types/multer": "latest",
     "@types/node": "latest",
     "@types/pdfkit": "latest",
-    "prisma": "latest",
+    "prisma": "^6.19.0",
     "tsx": "latest",
     "typescript": "latest",
     "vitest": "latest"
