@@ -8,6 +8,13 @@ function date(value: string): Date {
 }
 
 async function main() {
+  const databaseUrl = process.env.DATABASE_URL ?? '';
+
+  if (!databaseUrl.startsWith('file:')) {
+    console.log('Skipping demo seed because DATABASE_URL is not a local SQLite file URL.');
+    return;
+  }
+
   const passwordHash = await bcrypt.hash('Password123!', 10);
 
   await prisma.user.upsert({

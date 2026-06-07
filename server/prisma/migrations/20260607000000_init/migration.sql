@@ -1,4 +1,4 @@
-﻿-- CreateTable
+-- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE "Project" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Project_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "Project_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "Project_companyId_userId_fkey" FOREIGN KEY ("companyId", "userId") REFERENCES "Company" ("id", "userId") ON DELETE NO ACTION ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -86,7 +86,7 @@ CREATE TABLE "TimeEntry" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "TimeEntry_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "TimeEntry_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "TimeEntry_projectId_userId_fkey" FOREIGN KEY ("projectId", "userId") REFERENCES "Project" ("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -104,8 +104,8 @@ CREATE TABLE "PhotoEvidence" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "PhotoEvidence_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "PhotoEvidence_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "PhotoEvidence_timeEntryId_fkey" FOREIGN KEY ("timeEntryId") REFERENCES "TimeEntry" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "PhotoEvidence_projectId_userId_fkey" FOREIGN KEY ("projectId", "userId") REFERENCES "Project" ("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "PhotoEvidence_timeEntryId_userId_fkey" FOREIGN KEY ("timeEntryId", "userId") REFERENCES "TimeEntry" ("id", "userId") ON DELETE NO ACTION ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -131,7 +131,7 @@ CREATE TABLE "PaySummary" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "PaySummary_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "PaySummary_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "PaySummary_projectId_userId_fkey" FOREIGN KEY ("projectId", "userId") REFERENCES "Project" ("id", "userId") ON DELETE NO ACTION ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -174,7 +174,7 @@ CREATE TABLE "ProgressClaimReport" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "ProgressClaimReport_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "ProgressClaimReport_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "ProgressClaimReport_projectId_userId_fkey" FOREIGN KEY ("projectId", "userId") REFERENCES "Project" ("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -209,16 +209,25 @@ CREATE UNIQUE INDEX "WorkerProfile_userId_key" ON "WorkerProfile"("userId");
 CREATE INDEX "Company_userId_idx" ON "Company"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Company_id_userId_key" ON "Company"("id", "userId");
+
+-- CreateIndex
 CREATE INDEX "Project_userId_idx" ON "Project"("userId");
 
 -- CreateIndex
 CREATE INDEX "Project_companyId_idx" ON "Project"("companyId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Project_id_userId_key" ON "Project"("id", "userId");
+
+-- CreateIndex
 CREATE INDEX "TimeEntry_userId_idx" ON "TimeEntry"("userId");
 
 -- CreateIndex
 CREATE INDEX "TimeEntry_projectId_idx" ON "TimeEntry"("projectId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TimeEntry_id_userId_key" ON "TimeEntry"("id", "userId");
 
 -- CreateIndex
 CREATE INDEX "PhotoEvidence_userId_idx" ON "PhotoEvidence"("userId");
@@ -248,5 +257,5 @@ CREATE INDEX "ProgressClaimReport_userId_idx" ON "ProgressClaimReport"("userId")
 CREATE INDEX "ProgressClaimReport_projectId_idx" ON "ProgressClaimReport"("projectId");
 
 -- CreateIndex
-CREATE INDEX "AppSetting_userId_idx" ON "AppSetting"("userId");
+CREATE UNIQUE INDEX "AppSetting_userId_key" ON "AppSetting"("userId");
 
