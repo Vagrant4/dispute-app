@@ -385,6 +385,80 @@ describe('progress claim report snapshots and exports', () => {
     await expect(prisma.progressClaimReport.count({ where: { id: report.report.id } })).resolves.toBe(0);
   });
 
+  it('rejects tampered report file paths that point to another user export directory', async () => {
+    const owner = await registerUser('report-tampered-owner@example.com');
+    const other = await registerUser('report-tampered-other@example.com');
+    await updateProfile(owner.cookie);
+    const project = await createProject(owner.cookie);
+    await createTimeEntry(owner.id, project.id, '2026-06-01', 8, 0, 'Owner work', 'FINALIZED');
+    const reportResponse = await generateBasicReport(owner.cookie, project.id);
+    const report = await jsonBody<ReportResponse>(reportResponse);
+    const otherUserPath = join(exportRoot, other.id, 'tampered.pdf');
+    await mkdir(join(exportRoot, other.id), { recursive: true });
+    await writeFile(otherUserPath, 'not owned by report user');
+    await prisma.progressClaimReport.update({
+      where: { id: report.report.id },
+      data: { pdfPath: `.test-exports/reports/${other.id}/tampered.pdf` }
+    });
+
+    const pdfResponse = await fetch(`${baseUrl}/reports/${report.report.id}/pdf`, { headers: { Cookie: owner.cookie } });
+    const deleteResponse = await fetch(`${baseUrl}/reports/${report.report.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: owner.cookie }
+    });
+
+    expect(pdfResponse.status).toBe(500);
+    expect(deleteResponse.status).toBe(500);
+    expect(existsSync(otherUserPath)).toBe(true);
+    await expect(prisma.progressClaimReport.count({ where: { id: report.report.id } })).resolves.toBe(1);
+  });
+
+  it('includes entries and photos on exact start and end date boundaries', async () => {
+    const user = await registerUser('report-boundaries@example.com');
+    await updateProfile(user.cookie);
+    const project = await createProject(user.cookie);
+    await createTimeEntry(user.id, project.id, '2026-05-31', 8, 0, 'Before period', 'FINALIZED');
+    await createTimeEntry(user.id, project.id, '2026-06-01', 8, 0, 'Start boundary work', 'FINALIZED');
+    await createTimeEntry(user.id, project.id, '2026-06-30', 9, 1, 'End boundary work', 'FINALIZED');
+    await createTimeEntry(user.id, project.id, '2026-07-01', 8, 0, 'After period', 'FINALIZED');
+    await createPhoto(user.id, project.id, '2026-06-01T00:00:00.000Z', 'uploads/demo/start-boundary.jpg');
+    await createPhoto(user.id, project.id, '2026-06-30T23:59:59.999Z', 'uploads/demo/end-boundary.jpg');
+    await createPhoto(user.id, project.id, '2026-07-01T00:00:00.000Z', 'uploads/demo/after-boundary.jpg');
+
+    const reportResponse = await generateBasicReport(user.cookie, project.id);
+    const report = await jsonBody<ReportResponse>(reportResponse);
+
+    expect(report.report).toMatchObject({
+      totalDaysWorked: 2,
+      totalHours: 17,
+      totalOvertimeHours: 1
+    });
+    const csv = await readFile(join(process.cwd(), report.report.csvPath), 'utf8');
+    expect(csv).toContain('Start boundary work');
+    expect(csv).toContain('End boundary work');
+    expect(csv).toContain('start-boundary.jpg');
+    expect(csv).toContain('end-boundary.jpg');
+    expect(csv).not.toContain('Before period');
+    expect(csv).not.toContain('After period');
+    expect(csv).not.toContain('after-boundary.jpg');
+  });
+
+  it('removes written export files when report database creation fails', async () => {
+    const user = await registerUser('report-cleanup@example.com');
+    await updateProfile(user.cookie);
+    const project = await createProject(user.cookie);
+    await createTimeEntry(user.id, project.id, '2026-06-01', 8, 0, 'Cleanup work', 'FINALIZED');
+    const createSpy = vi.spyOn(prisma.progressClaimReport, 'create').mockRejectedValueOnce(new Error('simulated db failure'));
+
+    const response = await generateBasicReport(user.cookie, project.id);
+
+    expect(response.status).toBe(500);
+    expect(createSpy).toHaveBeenCalled();
+    const remainingFiles = await readExportFiles(exportRoot);
+    expect(remainingFiles).toEqual(['.gitkeep']);
+    await expect(prisma.progressClaimReport.count({ where: { userId: user.id } })).resolves.toBe(0);
+  });
+
   it('rejects bad periods and foreign projects', async () => {
     const owner = await registerUser('report-validation-owner@example.com');
     const other = await registerUser('report-validation-other@example.com');
@@ -550,6 +624,15 @@ async function resetExportRoot(exportRoot: string): Promise<void> {
   await rm(exportRoot, { recursive: true, force: true });
   await mkdir(exportRoot, { recursive: true });
   await writeFile(join(exportRoot, '.gitkeep'), '');
+}
+
+async function readExportFiles(exportRoot: string): Promise<string[]> {
+  const { readdir } = await import('node:fs/promises');
+  const entries = await readdir(exportRoot, { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name).replace(exportRoot, '').replace(/^[/\\]/, '').replaceAll('\\', '/'))
+    .sort();
 }
 
 const minimalJpeg = Buffer.from(

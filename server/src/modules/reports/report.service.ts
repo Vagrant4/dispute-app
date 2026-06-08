@@ -136,36 +136,41 @@ export async function generateProgressClaimReport(
   });
   const paths = await prepareExportPaths(userId);
   const csv = buildCsv(snapshot, input.claimPeriodStart, input.claimPeriodEnd);
-  await writeFile(paths.absoluteCsvPath, csv, 'utf8');
-  await writePdf(paths.absolutePdfPath, snapshot, input.claimPeriodStart, input.claimPeriodEnd, input.notes ?? '');
+  try {
+    await writeFile(paths.absoluteCsvPath, csv, 'utf8');
+    await writePdf(paths.absolutePdfPath, snapshot, input.claimPeriodStart, input.claimPeriodEnd, input.notes ?? '');
 
-  return prisma.progressClaimReport.create({
-    data: {
-      userId,
-      projectId: project.id,
-      companySnapshotJson: JSON.stringify(snapshot.company),
-      workerSnapshotJson: JSON.stringify(snapshot.worker),
-      projectSnapshotJson: JSON.stringify(snapshot.project),
-      claimPeriodStart: input.claimPeriodStart,
-      claimPeriodEnd: input.claimPeriodEnd,
-      totalDaysWorked,
-      totalHours,
-      totalOvertimeHours,
-      totalClaimAmount: netPay,
-      entriesSnapshotJson: JSON.stringify(snapshot.entries),
-      photosSnapshotJson: JSON.stringify(snapshot.photos),
-      pdfPath: paths.relativePdfPath,
-      csvPath: paths.relativeCsvPath,
-      notes: input.notes ?? ''
-    }
-  });
+    return await prisma.progressClaimReport.create({
+      data: {
+        userId,
+        projectId: project.id,
+        companySnapshotJson: JSON.stringify(snapshot.company),
+        workerSnapshotJson: JSON.stringify(snapshot.worker),
+        projectSnapshotJson: JSON.stringify(snapshot.project),
+        claimPeriodStart: input.claimPeriodStart,
+        claimPeriodEnd: input.claimPeriodEnd,
+        totalDaysWorked,
+        totalHours,
+        totalOvertimeHours,
+        totalClaimAmount: netPay,
+        entriesSnapshotJson: JSON.stringify(snapshot.entries),
+        photosSnapshotJson: JSON.stringify(snapshot.photos),
+        pdfPath: paths.relativePdfPath,
+        csvPath: paths.relativeCsvPath,
+        notes: input.notes ?? ''
+      }
+    });
+  } catch (error) {
+    await cleanupGeneratedExportFiles([paths.absolutePdfPath, paths.absoluteCsvPath]);
+    throw error;
+  }
 }
 
 export async function getReportPdf(userId: string, reportId: string): Promise<ReportFileResult> {
   const report = await getReport(userId, reportId);
   return {
     report,
-    absolutePath: resolveOwnedExportPath(report.pdfPath),
+    absolutePath: resolveOwnedExportPath(userId, report.pdfPath),
     fileName: `progress-claim-${report.id}.pdf`,
     contentType: 'application/pdf'
   };
@@ -175,7 +180,7 @@ export async function getReportCsv(userId: string, reportId: string): Promise<Re
   const report = await getReport(userId, reportId);
   return {
     report,
-    absolutePath: resolveOwnedExportPath(report.csvPath),
+    absolutePath: resolveOwnedExportPath(userId, report.csvPath),
     fileName: `progress-claim-${report.id}.csv`,
     contentType: 'text/csv; charset=utf-8'
   };
@@ -183,8 +188,8 @@ export async function getReportCsv(userId: string, reportId: string): Promise<Re
 
 export async function deleteReport(userId: string, reportId: string): Promise<void> {
   const report = await getReport(userId, reportId);
+  await Promise.all([removeExportFile(userId, report.pdfPath), removeExportFile(userId, report.csvPath)]);
   await prisma.progressClaimReport.delete({ where: { id: report.id } });
-  await Promise.all([removeExportFile(report.pdfPath), removeExportFile(report.csvPath)]);
 }
 
 export function openReportFile(file: ReportFileResult) {
@@ -365,28 +370,27 @@ async function prepareExportPaths(userId: string): Promise<{
   };
 }
 
-async function removeExportFile(filePath: string): Promise<void> {
-  try {
-    const absolutePath = resolveOwnedExportPath(filePath);
-    await rm(absolutePath, { force: true });
-  } catch (error) {
-    if (error instanceof ReportServiceError) return;
-    throw error;
-  }
+async function removeExportFile(userId: string, filePath: string): Promise<void> {
+  const absolutePath = resolveOwnedExportPath(userId, filePath);
+  await rm(absolutePath, { force: true });
 }
 
-function resolveOwnedExportPath(filePath: string): string {
+async function cleanupGeneratedExportFiles(filePaths: string[]): Promise<void> {
+  await Promise.all(filePaths.map((filePath) => rm(filePath, { force: true })));
+}
+
+function resolveOwnedExportPath(userId: string, filePath: string): string {
   const absolutePath = isAbsolute(filePath) ? resolve(filePath) : resolve(process.cwd(), filePath);
-  if (!isPathWithinExportRoot(absolutePath)) {
+  if (!isPathWithinUserExportRoot(userId, absolutePath)) {
     throw new ReportServiceError('Report file path is outside export storage', 500);
   }
 
   return absolutePath;
 }
 
-function isPathWithinExportRoot(filePath: string): boolean {
-  const exportRoot = getExportRoot();
-  const relativePath = relative(exportRoot, resolve(filePath));
+function isPathWithinUserExportRoot(userId: string, filePath: string): boolean {
+  const userExportRoot = join(getExportRoot(), userId);
+  const relativePath = relative(userExportRoot, resolve(filePath));
   return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath);
 }
 
