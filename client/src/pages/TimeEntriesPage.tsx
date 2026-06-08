@@ -13,6 +13,7 @@ import { StatusBadge } from '../components/StatusBadge';
 interface ManualEntryForm {
   projectId: string;
   date: string;
+  clockOutDate: string;
   clockInTime: string;
   clockOutTime: string;
   breakMinutes: string;
@@ -74,7 +75,7 @@ export function TimeEntriesPage() {
         projectId: form.projectId,
         date: form.date,
         clockInTime: toIso(form.date, form.clockInTime),
-        clockOutTime: toIso(form.date, form.clockOutTime),
+        clockOutTime: toIso(form.clockOutDate, form.clockOutTime),
         breakMinutes: Number(form.breakMinutes || 0),
         workDescription: form.workDescription.trim(),
         locationText: form.locationText.trim(),
@@ -136,6 +137,15 @@ export function TimeEntriesPage() {
             <input type="date" value={form.date} onChange={(event) => updateField('date', event.target.value)} required />
           </label>
           <label>
+            Clock out date
+            <input
+              type="date"
+              value={form.clockOutDate}
+              onChange={(event) => updateField('clockOutDate', event.target.value)}
+              required
+            />
+          </label>
+          <label>
             Clock in
             <input type="time" value={form.clockInTime} onChange={(event) => updateField('clockInTime', event.target.value)} required />
           </label>
@@ -178,7 +188,7 @@ export function TimeEntriesPage() {
               <div className="record-card-header">
                 <div>
                   <h3>{projectName(entry.projectId, projects)}</h3>
-                  <p>{formatDate(entry.date)} · {formatClockRange(entry)}</p>
+                  <p>{formatDate(entry.date)} - {formatClockRange(entry)}</p>
                 </div>
                 <div className="badge-stack">
                   <StatusBadge status={entry.status} tone={entry.status === 'FINALIZED' ? 'success' : 'warning'} />
@@ -238,14 +248,20 @@ export function TimeEntriesPage() {
   );
 
   function updateField<Key extends keyof ManualEntryForm>(field: Key, value: ManualEntryForm[Key]) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === 'date' && current.clockOutDate === current.date ? { clockOutDate: value } : {})
+    }));
   }
 }
 
 function createEmptyForm(projectId = ''): ManualEntryForm {
+  const today = localDateInputValue();
   return {
     projectId,
-    date: localDateInputValue(),
+    date: today,
+    clockOutDate: today,
     clockInTime: '09:00',
     clockOutTime: '18:00',
     breakMinutes: '60',
@@ -257,9 +273,9 @@ function createEmptyForm(projectId = ''): ManualEntryForm {
 
 function validateManualEntry(form: ManualEntryForm): string {
   if (!form.projectId) return 'Choose a project before saving a manual entry.';
-  if (!form.date || !form.clockInTime || !form.clockOutTime) return 'Date, clock-in, and clock-out times are required.';
+  if (!form.date || !form.clockOutDate || !form.clockInTime || !form.clockOutTime) return 'Date, clock-in, and clock-out times are required.';
   const clockIn = new Date(toIso(form.date, form.clockInTime));
-  const clockOut = new Date(toIso(form.date, form.clockOutTime));
+  const clockOut = new Date(toIso(form.clockOutDate, form.clockOutTime));
   if (clockOut <= clockIn) return 'Clock out must be after clock in.';
   const breakMinutes = Number(form.breakMinutes || 0);
   if (!Number.isFinite(breakMinutes) || breakMinutes < 0) return 'Break minutes must be zero or more.';

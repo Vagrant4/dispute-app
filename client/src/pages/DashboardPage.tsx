@@ -129,7 +129,7 @@ export function DashboardPage() {
               <div className="record-card-header">
                 <div>
                   <h3>{projectName(entry.projectId, projects)}</h3>
-                  <p>{formatDate(entry.date)} · {formatClockRange(entry)}</p>
+                  <p>{formatDate(entry.date)} - {formatClockRange(entry)}</p>
                 </div>
                 <StatusBadge status={entry.status} tone={entry.status === 'FINALIZED' ? 'success' : 'warning'} />
               </div>

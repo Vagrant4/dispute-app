@@ -27,7 +27,7 @@ export function MapPreview({ clockIn, clockOut }: MapPreviewProps) {
 
     try {
       const map = L.map(containerRef.current, {
-        attributionControl: false,
+        attributionControl: true,
         dragging: false,
         scrollWheelZoom: false,
         doubleClickZoom: false,
@@ -38,6 +38,7 @@ export function MapPreview({ clockIn, clockOut }: MapPreviewProps) {
       mapRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
       }).addTo(map);
 
