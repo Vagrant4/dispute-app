@@ -79,7 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async ({ email, password, profile }: RegisterInput) => {
       const user = await registerRequest(email, password);
-      rememberUser(user);
 
       if (profile) {
         try {
@@ -89,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error(`Account created, but profile setup failed: ${message}`);
         }
       }
+
+      rememberUser(user);
     },
     [rememberUser]
   );

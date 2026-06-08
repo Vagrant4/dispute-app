@@ -78,7 +78,7 @@ describe('AuthProvider', () => {
         'Account created, but profile setup failed: Invalid profile payload'
       )
     );
-    expect(screen.getByTestId('user').textContent).toBe('worker@example.com');
+    expect(screen.getByTestId('user').textContent).toBe('none');
   });
 });
 
