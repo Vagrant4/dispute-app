@@ -36,7 +36,7 @@ describe('apiRequest', () => {
 
     expect(result.user.email).toBe('worker@example.com');
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:3000/auth/login',
+      'http://localhost:4000/auth/login',
       expect.objectContaining({
         credentials: 'include',
         method: 'POST',
@@ -105,12 +105,12 @@ describe('apiRequest', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:3000/companies',
+      'http://localhost:4000/companies',
       expect.objectContaining({ method: 'POST', credentials: 'include' })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:3000/companies/company-1',
+      'http://localhost:4000/companies/company-1',
       expect.objectContaining({
         method: 'PUT',
         credentials: 'include',
@@ -135,7 +135,7 @@ describe('apiRequest', () => {
 
     expect(projects[0]?.projectName).toBe('Lobby Works');
     expect(fetchMock).toHaveBeenLastCalledWith(
-      'http://localhost:3000/projects/project-1',
+      'http://localhost:4000/projects/project-1',
       expect.objectContaining({ method: 'DELETE', credentials: 'include' })
     );
   });
@@ -203,7 +203,7 @@ describe('apiRequest', () => {
     expect(entries[0]?.id).toBe('entry-1');
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:3000/time-entries',
+      'http://localhost:4000/time-entries',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -220,17 +220,17 @@ describe('apiRequest', () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      'http://localhost:3000/time-entries/clock-in',
+      'http://localhost:4000/time-entries/clock-in',
       expect.objectContaining({ method: 'POST' })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
-      'http://localhost:3000/time-entries/entry-3/clock-out',
+      'http://localhost:4000/time-entries/entry-3/clock-out',
       expect.objectContaining({ method: 'POST' })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      'http://localhost:3000/time-entries/entry-3/finalize',
+      'http://localhost:4000/time-entries/entry-3/finalize',
       expect.objectContaining({ method: 'POST' })
     );
   });
@@ -303,7 +303,7 @@ describe('http API helpers', () => {
     const result = await downloadReportFileRequest('report-1', 'pdf');
 
     expect(result.type).toBe('application/pdf');
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:3000/reports/report-1/pdf');
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:4000/reports/report-1/pdf');
     expect(vi.mocked(fetch).mock.calls[0][1]?.credentials).toBe('include');
   });
 
