@@ -142,6 +142,121 @@ describe('settings and admin APIs', () => {
     expect(invalidCurrency.status).toBe(400);
   });
 
+  it('rejects daily hours outside realistic bounds', async () => {
+    const user = await registerUser('settings-daily-bounds@example.com');
+
+    const tooLow = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 0.5,
+        standardWeeklyHours: 44,
+        overtimeMultiplier: 1.5,
+        defaultCurrency: 'SGD'
+      },
+      user.cookie
+    );
+    expect(tooLow.status).toBe(400);
+
+    const tooHigh = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 25,
+        standardWeeklyHours: 44,
+        overtimeMultiplier: 1.5,
+        defaultCurrency: 'SGD'
+      },
+      user.cookie
+    );
+    expect(tooHigh.status).toBe(400);
+  });
+
+  it('rejects weekly hours outside realistic bounds', async () => {
+    const user = await registerUser('settings-weekly-bounds@example.com');
+
+    const response = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 8,
+        standardWeeklyHours: 169,
+        overtimeMultiplier: 1.5,
+        defaultCurrency: 'SGD'
+      },
+      user.cookie
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects weekly hours lower than daily hours', async () => {
+    const user = await registerUser('settings-weekly-under-daily@example.com');
+
+    const response = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 8,
+        standardWeeklyHours: 7,
+        overtimeMultiplier: 1.5,
+        defaultCurrency: 'SGD'
+      },
+      user.cookie
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects overtime multipliers outside realistic bounds', async () => {
+    const user = await registerUser('settings-overtime-bounds@example.com');
+
+    const tooLow = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 8,
+        standardWeeklyHours: 44,
+        overtimeMultiplier: 0.5,
+        defaultCurrency: 'SGD'
+      },
+      user.cookie
+    );
+    expect(tooLow.status).toBe(400);
+
+    const tooHigh = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 8,
+        standardWeeklyHours: 44,
+        overtimeMultiplier: 6,
+        defaultCurrency: 'SGD'
+      },
+      user.cookie
+    );
+    expect(tooHigh.status).toBe(400);
+  });
+
+  it('accepts normal settings values used in calculations', async () => {
+    const user = await registerUser('settings-normal-bounds@example.com');
+
+    const response = await putJson(
+      '/settings',
+      {
+        standardDailyHours: 8,
+        standardWeeklyHours: 44,
+        overtimeMultiplier: 1.5,
+        defaultCurrency: 'sgd'
+      },
+      user.cookie
+    );
+
+    expect(response.status).toBe(200);
+    const body = await jsonBody<SettingsResponse>(response);
+    expect(body.settings).toMatchObject({
+      userId: user.id,
+      standardDailyHours: 8,
+      standardWeeklyHours: 44,
+      overtimeMultiplier: 1.5,
+      defaultCurrency: 'SGD'
+    });
+  });
+
   it('does not let another user affect the first user settings', async () => {
     const userA = await registerUser('settings-owner-a@example.com');
     const userB = await registerUser('settings-owner-b@example.com');

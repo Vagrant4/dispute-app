@@ -3,18 +3,20 @@ import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
 
-const positiveNumber = z.number().finite().positive();
-
 const settingsSchema = z
   .object({
-    standardDailyHours: positiveNumber,
-    standardWeeklyHours: positiveNumber,
-    overtimeMultiplier: positiveNumber,
+    standardDailyHours: z.number().finite().min(1).max(24),
+    standardWeeklyHours: z.number().finite().min(1).max(168),
+    overtimeMultiplier: z.number().finite().min(1).max(5),
     defaultCurrency: z
       .string()
       .trim()
       .regex(/^[A-Za-z]{3}$/, 'defaultCurrency must be a 3-letter currency code')
       .transform((value) => value.toUpperCase())
+  })
+  .refine((settings) => settings.standardWeeklyHours >= settings.standardDailyHours, {
+    message: 'standardWeeklyHours must be greater than or equal to standardDailyHours',
+    path: ['standardWeeklyHours']
   })
   .strict();
 
