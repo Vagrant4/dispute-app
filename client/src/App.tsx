@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './layout/AppShell';
+import { CompaniesPage } from './pages/CompaniesPage';
 import { LoginPage } from './pages/LoginPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { ProjectsPage } from './pages/ProjectsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 
@@ -14,11 +17,6 @@ const pageContent: Record<string, { title: string; description: string; items: s
     title: 'Time Entries',
     description: 'Record daily work time, breaks, notes, and finalised entries in the next CRUD task.',
     items: ['Clock in and clock out', 'Manual time entry', 'Finalise entries for reports']
-  },
-  projects: {
-    title: 'Projects',
-    description: 'Project setup will link work logs, pay summaries, and photo evidence to a site or engagement.',
-    items: ['Site address', 'Work order reference', 'Default rates']
   },
   photos: {
     title: 'Photo Evidence',
@@ -34,11 +32,6 @@ const pageContent: Record<string, { title: string; description: string; items: s
     title: 'Progress Claims',
     description: 'PDF and CSV report generation will turn finalised work logs and photos into claim documentation.',
     items: ['Claim period', 'Report snapshot', 'PDF and CSV exports']
-  },
-  clients: {
-    title: 'Clients / Companies',
-    description: 'Client and company records will support project context without becoming an employer approval system.',
-    items: ['Company contacts', 'UEN and address', 'Project links']
   },
   settings: {
     title: 'Settings',
@@ -60,12 +53,13 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route index element={<PlaceholderPage pageKey="dashboard" />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="time-entries" element={<PlaceholderPage pageKey="time" />} />
-          <Route path="projects" element={<PlaceholderPage pageKey="projects" />} />
+          <Route path="projects" element={<ProjectsPage />} />
           <Route path="photo-evidence" element={<PlaceholderPage pageKey="photos" />} />
           <Route path="pay-summary" element={<PlaceholderPage pageKey="pay" />} />
           <Route path="progress-claims" element={<PlaceholderPage pageKey="claims" />} />
-          <Route path="clients" element={<PlaceholderPage pageKey="clients" />} />
+          <Route path="clients" element={<CompaniesPage />} />
           <Route path="settings" element={<PlaceholderPage pageKey="settings" />} />
           <Route path="admin-placeholder" element={<PlaceholderPage pageKey="admin" />} />
         </Route>

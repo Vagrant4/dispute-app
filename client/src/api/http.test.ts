@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiRequest } from './http';
+import {
+  apiRequest,
+  createCompanyRequest,
+  deleteProjectRequest,
+  listProjectsRequest,
+  updateCompanyRequest
+} from './http';
 
 describe('apiRequest', () => {
   afterEach(() => {
@@ -45,5 +51,69 @@ describe('apiRequest', () => {
     );
 
     await expect(apiRequest('/auth/login', { method: 'POST' })).rejects.toThrow('Invalid email or password');
+  });
+
+  it('maps company CRUD helpers to the ownership-scoped endpoints', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ company: { id: 'company-1', name: 'Build Pte Ltd' } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ company: { id: 'company-1', name: 'Build Pte Ltd' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+    await createCompanyRequest({
+      name: 'Build Pte Ltd',
+      uen: null,
+      contactPerson: 'Tan',
+      email: 'tan@example.com',
+      phone: '+6590000000',
+      address: '1 Site Road',
+      notes: ''
+    });
+    await updateCompanyRequest('company-1', { phone: '+6591111111' });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3000/companies',
+      expect.objectContaining({ method: 'POST', credentials: 'include' })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/companies/company-1',
+      expect.objectContaining({
+        method: 'PUT',
+        credentials: 'include',
+        body: JSON.stringify({ phone: '+6591111111' })
+      })
+    );
+  });
+
+  it('unwraps projects and sends project deletes to the scoped endpoint', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ projects: [{ id: 'project-1', projectName: 'Lobby Works' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const projects = await listProjectsRequest();
+    await deleteProjectRequest('project-1');
+
+    expect(projects[0]?.projectName).toBe('Lobby Works');
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:3000/projects/project-1',
+      expect.objectContaining({ method: 'DELETE', credentials: 'include' })
+    );
   });
 });

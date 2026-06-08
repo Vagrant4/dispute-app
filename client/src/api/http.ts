@@ -36,8 +36,76 @@ export interface WorkerProfileInput {
   defaultMonthlySalary: number | null;
 }
 
+export interface WorkerProfile extends WorkerProfileInput {
+  id: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompanyInput {
+  name: string;
+  uen?: string | null;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
+  notes: string;
+}
+
+export interface Company extends CompanyInput {
+  id: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProjectStatus = 'ACTIVE' | 'COMPLETED' | 'ON_HOLD' | 'CANCELLED';
+
+export interface ProjectInput {
+  companyId?: string | null;
+  projectName: string;
+  siteAddress: string;
+  poOrWorkOrderNumber?: string | null;
+  startDate: string;
+  endDate?: string | null;
+  description: string;
+  defaultHourlyRate: number | null;
+  defaultDailyRate: number | null;
+  status: ProjectStatus;
+}
+
+export interface Project extends Omit<ProjectInput, 'defaultHourlyRate' | 'defaultDailyRate'> {
+  id: string;
+  userId: string;
+  defaultHourlyRate: string | number | null;
+  defaultDailyRate: string | number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AuthResponse {
   user: AuthUser;
+}
+
+interface ProfileResponse {
+  profile: WorkerProfile | null;
+}
+
+interface CompanyResponse {
+  company: Company;
+}
+
+interface CompaniesResponse {
+  companies: Company[];
+}
+
+interface ProjectResponse {
+  project: Project;
+}
+
+interface ProjectsResponse {
+  projects: Project[];
 }
 
 interface SettingsResponse {
@@ -99,8 +167,9 @@ export function logoutRequest(): Promise<void> {
   return apiRequest<void>('/auth/logout', { method: 'POST' });
 }
 
-export function getProfileRequest(): Promise<unknown> {
-  return apiRequest('/profile');
+export async function getProfileRequest(): Promise<WorkerProfile | null> {
+  const response = await apiRequest<ProfileResponse>('/profile');
+  return response.profile;
 }
 
 export async function restoreSessionRequest(): Promise<AuthUser> {
@@ -114,11 +183,65 @@ export async function restoreSessionRequest(): Promise<AuthUser> {
   };
 }
 
-export function saveProfileRequest(profile: WorkerProfileInput): Promise<unknown> {
-  return apiRequest('/profile', {
+export async function saveProfileRequest(profile: WorkerProfileInput): Promise<WorkerProfile> {
+  const response = await apiRequest<ProfileResponse>('/profile', {
     method: 'PUT',
     body: profile
   });
+  if (!response.profile) {
+    throw new ApiError('Profile response was empty', 500);
+  }
+  return response.profile;
+}
+
+export async function listCompaniesRequest(): Promise<Company[]> {
+  const response = await apiRequest<CompaniesResponse>('/companies');
+  return response.companies;
+}
+
+export async function createCompanyRequest(company: CompanyInput): Promise<Company> {
+  const response = await apiRequest<CompanyResponse>('/companies', {
+    method: 'POST',
+    body: company
+  });
+  return response.company;
+}
+
+export async function updateCompanyRequest(id: string, company: Partial<CompanyInput>): Promise<Company> {
+  const response = await apiRequest<CompanyResponse>(`/companies/${id}`, {
+    method: 'PUT',
+    body: company
+  });
+  return response.company;
+}
+
+export function deleteCompanyRequest(id: string): Promise<void> {
+  return apiRequest<void>(`/companies/${id}`, { method: 'DELETE' });
+}
+
+export async function listProjectsRequest(): Promise<Project[]> {
+  const response = await apiRequest<ProjectsResponse>('/projects');
+  return response.projects;
+}
+
+export async function createProjectRequest(project: ProjectInput): Promise<Project> {
+  const response = await apiRequest<ProjectResponse>('/projects', {
+    method: 'POST',
+    body: project
+  });
+  return response.project;
+}
+
+export async function updateProjectRequest(id: string, project: Partial<ProjectInput>): Promise<Project> {
+  const response = await apiRequest<ProjectResponse>(`/projects/${id}`, {
+    method: 'PUT',
+    body: project
+  });
+  return response.project;
+}
+
+export function deleteProjectRequest(id: string): Promise<void> {
+  return apiRequest<void>(`/projects/${id}`, { method: 'DELETE' });
 }
 
 async function readJson<T>(response: Response): Promise<T | null> {
