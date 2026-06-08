@@ -46,9 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restoreSession() {
       try {
-        const restoredUser = readStoredUser() ?? (await restoreSessionRequest());
+        const restoredUser = await restoreSessionRequest();
+        const cachedUser = readStoredUser();
         if (!active) return;
-        rememberUser(restoredUser);
+        rememberUser(withDisplayCache(restoredUser, cachedUser));
       } catch (error) {
         if (!active) return;
         if (!(error instanceof ApiError && error.status === 401)) {
@@ -84,7 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await saveProfileRequest(profile);
         } catch (error) {
-          console.error(error);
+          const message = error instanceof Error ? error.message : 'Profile setup failed';
+          throw new Error(`Account created, but profile setup failed: ${message}`);
         }
       }
     },
@@ -136,4 +138,15 @@ function readStoredUser(): AuthUser | null {
   } catch {
     return null;
   }
+}
+
+function withDisplayCache(verifiedUser: AuthUser, cachedUser: AuthUser | null): AuthUser {
+  if (!cachedUser || cachedUser.id !== verifiedUser.id) {
+    return verifiedUser;
+  }
+
+  return {
+    ...verifiedUser,
+    email: cachedUser.email ?? verifiedUser.email
+  };
 }
