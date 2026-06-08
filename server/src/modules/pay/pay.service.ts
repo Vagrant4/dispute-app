@@ -74,10 +74,12 @@ export async function deletePaySummary(userId: string, paySummaryId: string): Pr
 
 export async function generatePaySummary(userId: string, input: GeneratePaySummaryInput): Promise<PaySummaryWithLineItems> {
   validatePeriod(input.salaryPeriodStart, input.salaryPeriodEnd);
+  validateSupportedRateType(input.rateType);
 
   const project = input.projectId ? await getOwnedProjectOrThrow(userId, input.projectId) : null;
+  const periodBounds = getDateOnlyPeriodBounds(input.salaryPeriodStart, input.salaryPeriodEnd);
   const [timeTotals, setting, profile] = await Promise.all([
-    getFinalizedTimeTotals(userId, input.salaryPeriodStart, input.salaryPeriodEnd, input.projectId),
+    getFinalizedTimeTotals(userId, periodBounds.queryStart, periodBounds.queryEndExclusive, input.projectId),
     prisma.appSetting.findUnique({
       where: { userId },
       select: { overtimeMultiplier: true }
@@ -118,13 +120,27 @@ export async function generatePaySummary(userId: string, input: GeneratePaySumma
     paymentDate: formatDateOnly(new Date()),
     salaryPeriodStart: formatDateOnly(input.salaryPeriodStart),
     salaryPeriodEnd: formatDateOnly(input.salaryPeriodEnd),
-    basicPay,
-    allowances,
-    deductions,
+    rateType: input.rateType,
+    basicRate: moneyToString(input.basicRate),
+    overtimeRate: moneyToString(overtimeRate),
+    regularHours: timeTotals.regularHours,
     overtimeHours: timeTotals.overtimeHours,
-    overtimePay,
-    grossPay,
-    netPay,
+    basicPay: moneyToString(basicPay),
+    overtimePay: moneyToString(overtimePay),
+    totalAllowances: moneyToString(totalAllowances),
+    totalDeductions: moneyToString(totalDeductions),
+    restDayPay: moneyToString(restDayPay),
+    publicHolidayPay: moneyToString(publicHolidayPay),
+    grossPay: moneyToString(grossPay),
+    netPay: moneyToString(netPay),
+    allowances: allowances.map((allowance) => ({
+      description: allowance.description,
+      amount: moneyToString(allowance.amount)
+    })),
+    deductions: deductions.map((deduction) => ({
+      description: deduction.description,
+      amount: moneyToString(deduction.amount)
+    })),
     notes: input.notes ?? ''
   });
 
@@ -178,8 +194,8 @@ async function getOwnedProjectOrThrow(userId: string, projectId: string) {
 
 async function getFinalizedTimeTotals(
   userId: string,
-  salaryPeriodStart: Date,
-  salaryPeriodEnd: Date,
+  queryStart: Date,
+  queryEndExclusive: Date,
   projectId: string | null | undefined
 ): Promise<{ regularHours: number; overtimeHours: number }> {
   const entries = await prisma.timeEntry.findMany({
@@ -188,8 +204,8 @@ async function getFinalizedTimeTotals(
       ...(projectId ? { projectId } : {}),
       status: TimeEntryStatus.FINALIZED,
       date: {
-        gte: salaryPeriodStart,
-        lte: salaryPeriodEnd
+        gte: queryStart,
+        lt: queryEndExclusive
       }
     },
     select: {
@@ -212,6 +228,12 @@ async function getFinalizedTimeTotals(
   );
 }
 
+function validateSupportedRateType(rateType: RateType): void {
+  if (rateType !== RateType.HOURLY) {
+    throw new PaySummaryServiceError('Only HOURLY rateType is supported for V1 pay summary generation', 400);
+  }
+}
+
 function validatePeriod(salaryPeriodStart: Date, salaryPeriodEnd: Date): void {
   if (!Number.isFinite(salaryPeriodStart.getTime()) || !Number.isFinite(salaryPeriodEnd.getTime())) {
     throw new PaySummaryServiceError('Salary period dates must be valid', 400);
@@ -220,6 +242,24 @@ function validatePeriod(salaryPeriodStart: Date, salaryPeriodEnd: Date): void {
   if (salaryPeriodEnd < salaryPeriodStart) {
     throw new PaySummaryServiceError('salaryPeriodEnd must be on or after salaryPeriodStart', 400);
   }
+}
+
+function getDateOnlyPeriodBounds(
+  salaryPeriodStart: Date,
+  salaryPeriodEnd: Date
+): { queryStart: Date; queryEndExclusive: Date } {
+  const queryStart = new Date(Date.UTC(
+    salaryPeriodStart.getUTCFullYear(),
+    salaryPeriodStart.getUTCMonth(),
+    salaryPeriodStart.getUTCDate()
+  ));
+  const queryEndExclusive = new Date(Date.UTC(
+    salaryPeriodEnd.getUTCFullYear(),
+    salaryPeriodEnd.getUTCMonth(),
+    salaryPeriodEnd.getUTCDate() + 1
+  ));
+
+  return { queryStart, queryEndExclusive };
 }
 
 function sumMoney(amounts: number[]): number {
@@ -240,4 +280,8 @@ function roundHours(value: number): number {
 
 function formatDateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+function moneyToString(value: number): string {
+  return new Prisma.Decimal(value).toString();
 }

@@ -10,7 +10,7 @@ export const nullableMoney = z
     if (value === null || value === undefined) return;
 
     if (typeof value === 'number') {
-      if (!Number.isFinite(value) || value < 0 || Math.round(value * 100) !== value * 100) {
+      if (!isValidMoneyNumber(value)) {
         ctx.addIssue({
           code: 'custom',
           message: 'Must be a non-negative money value with up to 2 decimal places'
@@ -32,7 +32,7 @@ export const requiredMoney = z
   .union([z.number(), z.string()])
   .superRefine((value, ctx) => {
     if (typeof value === 'number') {
-      if (!Number.isFinite(value) || value < 0 || Math.round(value * 100) !== value * 100) {
+      if (!isValidMoneyNumber(value)) {
         ctx.addIssue({
           code: 'custom',
           message: 'Must be a non-negative money value with up to 2 decimal places'
@@ -88,6 +88,23 @@ export const requiredDate = z
     return parsedDate;
   });
 
+export const requiredDateOnly = z
+  .string()
+  .trim()
+  .min(1, 'date is required')
+  .transform((value, ctx) => {
+    const parsedDate = parseStrictDateOnly(value);
+    if (!parsedDate) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Must be a valid date in YYYY-MM-DD format'
+      });
+      return z.NEVER;
+    }
+
+    return parsedDate;
+  });
+
 export function endDateMustNotBeBeforeStartDate(data: { startDate?: Date; endDate?: Date | null }, ctx: z.RefinementCtx): void {
   if (data.startDate && data.endDate && data.endDate < data.startDate) {
     ctx.addIssue({
@@ -98,21 +115,43 @@ export function endDateMustNotBeBeforeStartDate(data: { startDate?: Date; endDat
   }
 }
 
-function parseStrictDate(value: string): Date | null {
-  const dateMatch = dateOnlyPattern.exec(value);
-  if (dateMatch) {
-    const [, yearText, monthText, dayText] = dateMatch;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const date = new Date(Date.UTC(year, month - 1, day));
+function isValidMoneyNumber(value: number): boolean {
+  if (!Number.isFinite(value) || value < 0) return false;
 
-    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
-      return null;
-    }
+  const decimalText = value.toString().toLowerCase();
+  if (decimalText.includes('e')) {
+    const expanded = value.toLocaleString('en-US', {
+      useGrouping: false,
+      maximumFractionDigits: 20
+    });
 
-    return date;
+    return moneyPattern.test(expanded);
   }
+
+  const decimalPlaces = decimalText.split('.')[1]?.length ?? 0;
+  return decimalPlaces <= 2;
+}
+
+function parseStrictDateOnly(value: string): Date | null {
+  const dateMatch = dateOnlyPattern.exec(value);
+  if (!dateMatch) return null;
+
+  const [, yearText, monthText, dayText] = dateMatch;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+
+  return date;
+}
+
+function parseStrictDate(value: string): Date | null {
+  const dateOnly = parseStrictDateOnly(value);
+  if (dateOnly) return dateOnly;
 
   const datetimeResult = z.string().datetime({ offset: true }).safeParse(value);
   if (!datetimeResult.success) return null;

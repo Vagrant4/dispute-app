@@ -169,18 +169,27 @@ describe('pay summary API', () => {
       clientCompanyName: 'ABC Construction Pte Ltd',
       salaryPeriodStart: '2026-06-01',
       salaryPeriodEnd: '2026-06-30',
-      basicPay: 450,
+      rateType: 'HOURLY',
+      basicRate: '30',
+      overtimeRate: '45',
+      regularHours: 15,
       overtimeHours: 2,
-      overtimePay: 90,
-      grossPay: 587,
-      netPay: 572,
+      basicPay: '450',
+      overtimePay: '90',
+      totalAllowances: '35',
+      totalDeductions: '15',
+      restDayPay: '5',
+      publicHolidayPay: '7',
+      grossPay: '587',
+      netPay: '572',
       notes: 'June claim'
     });
+    expect(typeof itemised.paymentDate).toBe('string');
     expect(itemised.allowances).toEqual([
-      { description: 'Transport', amount: 25 },
-      { description: 'Meal', amount: 10 }
+      { description: 'Transport', amount: '25' },
+      { description: 'Meal', amount: '10' }
     ]);
-    expect(itemised.deductions).toEqual([{ description: 'Advance', amount: 15 }]);
+    expect(itemised.deductions).toEqual([{ description: 'Advance', amount: '15' }]);
   });
 
   it('uses an explicit overtime rate when provided', async () => {
@@ -207,6 +216,104 @@ describe('pay summary API', () => {
     expectMoney(body.paySummary.basicPay, 160);
     expectMoney(body.paySummary.overtimeRate, 50);
     expectMoney(body.paySummary.overtimePay, 50);
+  });
+
+  it('rejects non-hourly rate types until V1 semantics are implemented', async () => {
+    const user = await registerUser('pay-rate-type@example.com');
+    const project = await createProject(user.cookie);
+
+    for (const rateType of ['DAILY', 'MONTHLY', 'FREELANCER']) {
+      const response = await postJson('/pay-summaries/generate', {
+        projectId: project.id,
+        salaryPeriodStart: '2026-06-01',
+        salaryPeriodEnd: '2026-06-30',
+        rateType,
+        basicRate: 20
+      }, user.cookie);
+
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it('accepts valid cent-value JSON numbers and rejects values with more than 2 decimals', async () => {
+    const user = await registerUser('pay-money-decimals@example.com');
+    const project = await createProject(user.cookie);
+    await createTimeEntry(user.id, project.id, {
+      date: new Date('2026-06-01T00:00:00.000Z'),
+      totalHours: 1,
+      overtimeHours: 0,
+      status: 'FINALIZED'
+    });
+
+    const validResponse = await postJson('/pay-summaries/generate', {
+      projectId: project.id,
+      salaryPeriodStart: '2026-06-01',
+      salaryPeriodEnd: '2026-06-30',
+      rateType: 'HOURLY',
+      basicRate: 4.56,
+      overtimeRate: 0.29,
+      allowances: [{ description: 'Small allowance', amount: 0.29 }]
+    }, user.cookie);
+    const invalidResponse = await postJson('/pay-summaries/generate', {
+      projectId: project.id,
+      salaryPeriodStart: '2026-06-01',
+      salaryPeriodEnd: '2026-06-30',
+      rateType: 'HOURLY',
+      basicRate: 4.567
+    }, user.cookie);
+
+    expect(validResponse.status).toBe(201);
+    expect(invalidResponse.status).toBe(400);
+  });
+
+  it('includes finalized entries on both date-only salary period boundaries', async () => {
+    const user = await registerUser('pay-date-boundaries@example.com');
+    const project = await createProject(user.cookie);
+    await createTimeEntry(user.id, project.id, {
+      date: new Date('2026-06-01T00:00:00.000Z'),
+      totalHours: 2,
+      overtimeHours: 0,
+      status: 'FINALIZED'
+    });
+    await createTimeEntry(user.id, project.id, {
+      date: new Date('2026-06-30T23:59:59.999Z'),
+      totalHours: 3,
+      overtimeHours: 0,
+      status: 'FINALIZED'
+    });
+    await createTimeEntry(user.id, project.id, {
+      date: new Date('2026-07-01T00:00:00.000Z'),
+      totalHours: 5,
+      overtimeHours: 0,
+      status: 'FINALIZED'
+    });
+
+    const response = await postJson('/pay-summaries/generate', {
+      projectId: project.id,
+      salaryPeriodStart: '2026-06-01',
+      salaryPeriodEnd: '2026-06-30',
+      rateType: 'HOURLY',
+      basicRate: 10
+    }, user.cookie);
+
+    expect(response.status).toBe(201);
+    const body = await jsonBody<PaySummaryResponse>(response);
+    expectMoney(body.paySummary.basicPay, 50);
+  });
+
+  it('rejects offset datetime salary periods that could shift calendar dates', async () => {
+    const user = await registerUser('pay-offset-datetime@example.com');
+    const project = await createProject(user.cookie);
+
+    const response = await postJson('/pay-summaries/generate', {
+      projectId: project.id,
+      salaryPeriodStart: '2026-06-01T00:30:00+08:00',
+      salaryPeriodEnd: '2026-06-30T23:30:00-04:00',
+      rateType: 'HOURLY',
+      basicRate: 20
+    }, user.cookie);
+
+    expect(response.status).toBe(400);
   });
 
   it('lists and reads only owned pay summaries', async () => {

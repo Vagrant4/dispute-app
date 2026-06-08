@@ -2,7 +2,7 @@ import { RateType } from '@prisma/client';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { requireUser } from '../../middleware/requireUser.js';
-import { requiredDate, requiredMoney } from '../../utils/validation.js';
+import { requiredDateOnly, requiredMoney } from '../../utils/validation.js';
 import {
   deletePaySummary,
   generatePaySummary,
@@ -21,9 +21,9 @@ const lineItemSchema = z.object({
 const generatePaySummarySchema = z
   .object({
     projectId: z.string().trim().min(1).nullable().optional(),
-    salaryPeriodStart: requiredDate,
-    salaryPeriodEnd: requiredDate,
-    rateType: z.enum(RateType),
+    salaryPeriodStart: requiredDateOnly,
+    salaryPeriodEnd: requiredDateOnly,
+    rateType: z.literal(RateType.HOURLY),
     basicRate: requiredMoney,
     overtimeRate: requiredMoney.optional(),
     restDayPay: requiredMoney.optional().default(0),
