@@ -15,6 +15,11 @@ interface ApiRequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
   headers?: HeadersInit;
 }
 
+interface ApiFormRequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
+  body: FormData;
+  headers?: HeadersInit;
+}
+
 export interface AuthUser {
   id: string;
   email: string | null;
@@ -179,9 +184,161 @@ interface TimeEntriesResponse {
 }
 
 interface SettingsResponse {
-  settings: {
-    userId: string;
-  };
+  settings: AppSettings;
+}
+
+export type EvidenceType =
+  | 'BEFORE_WORK'
+  | 'DURING_WORK'
+  | 'AFTER_WORK'
+  | 'DEFECT'
+  | 'COMPLETED_WORK'
+  | 'MATERIAL_DELIVERY'
+  | 'VARIATION_WORK'
+  | 'OTHER';
+
+export interface PhotoEvidence {
+  id: string;
+  userId: string;
+  projectId: string;
+  timeEntryId: string | null;
+  imagePath: string;
+  caption: string;
+  evidenceType: EvidenceType;
+  timestamp: string;
+  gpsLat: number | null;
+  gpsLng: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhotoEvidenceUploadInput {
+  file: File;
+  projectId: string;
+  timeEntryId?: string | null;
+  evidenceType: EvidenceType;
+  caption?: string;
+  timestamp?: string;
+  gpsLat?: number | null;
+  gpsLng?: number | null;
+}
+
+interface PhotoEvidenceResponse {
+  photoEvidence: PhotoEvidence;
+}
+
+interface PhotoEvidenceListResponse {
+  photoEvidence: PhotoEvidence[];
+}
+
+export interface PayLineItemInput {
+  description: string;
+  amount: number;
+}
+
+export interface GeneratePaySummaryInput {
+  projectId?: string | null;
+  salaryPeriodStart: string;
+  salaryPeriodEnd: string;
+  rateType: 'HOURLY';
+  basicRate: number;
+  overtimeRate?: number;
+  restDayPay?: number;
+  publicHolidayPay?: number;
+  allowances?: PayLineItemInput[];
+  deductions?: PayLineItemInput[];
+  notes?: string;
+}
+
+export interface PaySummary {
+  id: string;
+  userId: string;
+  projectId: string | null;
+  salaryPeriodStart: string;
+  salaryPeriodEnd: string;
+  rateType: 'HOURLY';
+  basicRate: string | number;
+  basicPay: string | number;
+  overtimeRate: string | number;
+  overtimePay: string | number;
+  restDayPay: string | number;
+  publicHolidayPay: string | number;
+  totalAllowances: string | number;
+  totalDeductions: string | number;
+  grossPay: string | number;
+  netPay: string | number;
+  itemisedPayslipJson: string;
+  notes: string;
+  allowances?: Array<{ id?: string; description: string; amount: string | number }>;
+  deductions?: Array<{ id?: string; description: string; amount: string | number }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PaySummaryResponse {
+  paySummary: PaySummary;
+}
+
+interface PaySummariesResponse {
+  paySummaries: PaySummary[];
+}
+
+export interface GenerateReportInput {
+  projectId: string;
+  claimPeriodStart: string;
+  claimPeriodEnd: string;
+  hourlyRate?: number;
+  overtimeRate?: number;
+  allowances?: number;
+  deductions?: number;
+  restDayPay?: number;
+  publicHolidayPay?: number;
+  notes?: string;
+}
+
+export interface ProgressReport {
+  id: string;
+  userId: string;
+  projectId: string;
+  reportType: string;
+  claimPeriodStart: string;
+  claimPeriodEnd: string;
+  totalDaysWorked: number;
+  totalHours: number;
+  totalOvertimeHours: number;
+  totalClaimAmount: string | number;
+  entriesSnapshotJson: string;
+  photosSnapshotJson: string;
+  pdfPath: string;
+  csvPath: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ReportResponse {
+  report: ProgressReport;
+}
+
+interface ReportsResponse {
+  reports: ProgressReport[];
+}
+
+export interface AppSettings {
+  id?: string;
+  userId: string;
+  standardDailyHours: number;
+  standardWeeklyHours: number;
+  overtimeMultiplier: number;
+  defaultCurrency: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type AppSettingsInput = Pick<AppSettings, 'standardDailyHours' | 'standardWeeklyHours' | 'overtimeMultiplier' | 'defaultCurrency'>;
+
+interface AdminResponse {
+  message: string;
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -215,6 +372,36 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   return JSON.parse(text) as T;
+}
+
+async function apiFormRequest<T>(path: string, options: ApiFormRequestOptions): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...options,
+    credentials: 'include',
+    body: options.body
+  });
+
+  if (!response.ok) {
+    const errorBody = await readJson<{ error?: string; message?: string; issues?: unknown }>(response);
+    const message = errorBody?.error ?? errorBody?.message ?? `Request failed with status ${response.status}`;
+    throw new ApiError(message, response.status, errorBody?.issues);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function apiBlobRequest(path: string): Promise<Blob> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    const errorBody = await readJson<{ error?: string; message?: string; issues?: unknown }>(response);
+    const message = errorBody?.error ?? errorBody?.message ?? `Request failed with status ${response.status}`;
+    throw new ApiError(message, response.status, errorBody?.issues);
+  }
+
+  return response.blob();
 }
 
 export async function loginRequest(email: string, password: string): Promise<AuthUser> {
@@ -349,6 +536,92 @@ export async function finalizeTimeEntryRequest(id: string): Promise<TimeEntry> {
     body: {}
   });
   return response.timeEntry;
+}
+
+export async function listPhotoEvidenceRequest(): Promise<PhotoEvidence[]> {
+  const response = await apiRequest<PhotoEvidenceListResponse>('/photo-evidence');
+  return response.photoEvidence;
+}
+
+export async function uploadPhotoEvidenceRequest(input: PhotoEvidenceUploadInput): Promise<PhotoEvidence> {
+  const formData = new FormData();
+  formData.append('file', input.file);
+  formData.append('projectId', input.projectId);
+  if (input.timeEntryId) formData.append('timeEntryId', input.timeEntryId);
+  formData.append('evidenceType', input.evidenceType);
+  formData.append('caption', input.caption ?? '');
+  formData.append('timestamp', input.timestamp ?? new Date().toISOString());
+  if (input.gpsLat !== null && input.gpsLat !== undefined) formData.append('gpsLat', String(input.gpsLat));
+  if (input.gpsLng !== null && input.gpsLng !== undefined) formData.append('gpsLng', String(input.gpsLng));
+
+  const response = await apiFormRequest<PhotoEvidenceResponse>('/photo-evidence/upload', {
+    method: 'POST',
+    body: formData
+  });
+  return response.photoEvidence;
+}
+
+export function deletePhotoEvidenceRequest(id: string): Promise<void> {
+  return apiRequest<void>(`/photo-evidence/${id}`, { method: 'DELETE' });
+}
+
+export async function listPaySummariesRequest(): Promise<PaySummary[]> {
+  const response = await apiRequest<PaySummariesResponse>('/pay-summaries');
+  return response.paySummaries;
+}
+
+export async function generatePaySummaryRequest(input: GeneratePaySummaryInput): Promise<PaySummary> {
+  const response = await apiRequest<PaySummaryResponse>('/pay-summaries/generate', {
+    method: 'POST',
+    body: input
+  });
+  return response.paySummary;
+}
+
+export function deletePaySummaryRequest(id: string): Promise<void> {
+  return apiRequest<void>(`/pay-summaries/${id}`, { method: 'DELETE' });
+}
+
+export async function listReportsRequest(): Promise<ProgressReport[]> {
+  const response = await apiRequest<ReportsResponse>('/reports');
+  return response.reports;
+}
+
+export async function generateProgressClaimReportRequest(input: GenerateReportInput): Promise<ProgressReport> {
+  const response = await apiRequest<ReportResponse>('/reports/progress-claim', {
+    method: 'POST',
+    body: input
+  });
+  return response.report;
+}
+
+export function deleteReportRequest(id: string): Promise<void> {
+  return apiRequest<void>(`/reports/${id}`, { method: 'DELETE' });
+}
+
+export function downloadReportFileRequest(id: string, format: 'pdf' | 'csv'): Promise<Blob> {
+  return apiBlobRequest(`/reports/${id}/${format}`);
+}
+
+export async function getSettingsRequest(): Promise<AppSettings> {
+  const response = await apiRequest<SettingsResponse>('/settings');
+  return response.settings;
+}
+
+export async function saveSettingsRequest(settings: AppSettingsInput): Promise<AppSettings> {
+  const response = await apiRequest<SettingsResponse>('/settings', {
+    method: 'PUT',
+    body: {
+      ...settings,
+      defaultCurrency: settings.defaultCurrency.toUpperCase()
+    }
+  });
+  return response.settings;
+}
+
+export async function getAdminPlaceholderRequest(): Promise<string> {
+  const response = await apiRequest<AdminResponse>('/admin');
+  return response.message;
 }
 
 async function readJson<T>(response: Response): Promise<T | null> {

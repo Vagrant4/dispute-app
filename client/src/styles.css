@@ -380,6 +380,14 @@ h3 {
   padding: 10px 12px;
 }
 
+.warning-note {
+  border-color: #e0c075;
+  background: #fff7de;
+  color: #6f4f10;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .record-card {
   display: grid;
   gap: 14px;
@@ -421,6 +429,38 @@ h3 {
   margin: 0;
   color: #17211a;
   overflow-wrap: anywhere;
+}
+
+.compact-details {
+  border-top: 1px solid #e4ded1;
+  padding-top: 12px;
+}
+
+.evidence-gps-row {
+  display: grid;
+  gap: 8px;
+}
+
+.evidence-gps-row span {
+  align-self: center;
+  color: #536157;
+  font-size: 0.9rem;
+}
+
+.placeholder-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.placeholder-list span {
+  border: 1px solid #d8e2dc;
+  border-radius: 999px;
+  background: #f8fbf8;
+  color: #415048;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 7px 10px;
 }
 
 .clock-panel {
@@ -664,6 +704,10 @@ h3 {
 
   .record-details {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .evidence-gps-row {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .clock-panel {

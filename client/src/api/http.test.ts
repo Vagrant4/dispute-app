@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   apiRequest,
   clockInRequest,
@@ -6,10 +6,14 @@ import {
   createCompanyRequest,
   createTimeEntryRequest,
   deleteProjectRequest,
+  downloadReportFileRequest,
   finalizeTimeEntryRequest,
-  listTimeEntriesRequest,
   listProjectsRequest,
-  updateCompanyRequest
+  listTimeEntriesRequest,
+  saveSettingsRequest,
+  updateCompanyRequest,
+  uploadPhotoEvidenceRequest,
+  type PhotoEvidenceUploadInput
 } from './http';
 
 describe('apiRequest', () => {
@@ -214,6 +218,77 @@ describe('apiRequest', () => {
       5,
       'http://localhost:3000/time-entries/entry-3/finalize',
       expect.objectContaining({ method: 'POST' })
+    );
+  });
+});
+
+describe('http API helpers', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ settings: { userId: 'user-1', defaultCurrency: 'SGD' } })))
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('uploads photo evidence as multipart form data without a JSON content type', async () => {
+    const file = new File(['image'], 'evidence.png', { type: 'image/png' });
+    const input: PhotoEvidenceUploadInput = {
+      file,
+      projectId: 'project-1',
+      timeEntryId: 'time-1',
+      evidenceType: 'DURING_WORK',
+      caption: 'Installed first bracket',
+      timestamp: '2026-06-08T04:00:00.000Z',
+      gpsLat: 1.3,
+      gpsLng: 103.8
+    };
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ photoEvidence: { id: 'photo-1' } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+
+    await uploadPhotoEvidenceRequest(input);
+
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(init?.method).toBe('POST');
+    expect(init?.credentials).toBe('include');
+    expect(init?.body).toBeInstanceOf(FormData);
+    expect(new Headers(init?.headers).has('Content-Type')).toBe(false);
+  });
+
+  it('downloads report files with credentials and returns a blob', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response('pdf', { headers: { 'Content-Type': 'application/pdf' } }));
+
+    const result = await downloadReportFileRequest('report-1', 'pdf');
+
+    expect(result.type).toBe('application/pdf');
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://localhost:3000/reports/report-1/pdf');
+    expect(vi.mocked(fetch).mock.calls[0][1]?.credentials).toBe('include');
+  });
+
+  it('saves settings through the typed endpoint', async () => {
+    await saveSettingsRequest({
+      standardDailyHours: 8,
+      standardWeeklyHours: 44,
+      overtimeMultiplier: 1.5,
+      defaultCurrency: 'sgd'
+    });
+
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(init?.method).toBe('PUT');
+    expect(init?.body).toBe(
+      JSON.stringify({
+        standardDailyHours: 8,
+        standardWeeklyHours: 44,
+        overtimeMultiplier: 1.5,
+        defaultCurrency: 'SGD'
+      })
     );
   });
 });
