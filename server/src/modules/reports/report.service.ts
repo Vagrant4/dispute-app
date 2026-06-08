@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -223,6 +223,18 @@ function buildCsv(snapshot: ProgressClaimSnapshot, claimPeriodStart: Date, claim
     ]);
   }
 
+  rows.push([], ['Photo Evidence'], ['Date', 'Evidence Type', 'Caption', 'File Name', 'Image Path', 'Linked Time Entry']);
+  for (const photo of snapshot.photos) {
+    rows.push([
+      photo.date,
+      photo.evidenceType,
+      photo.caption,
+      photo.fileName,
+      photo.imagePath,
+      photo.timeEntryId ?? ''
+    ]);
+  }
+
   rows.push(
     [],
     ['Total Days Worked', snapshot.totals.totalDaysWorked.toString()],
@@ -306,6 +318,7 @@ function writePdf(
       for (const photo of snapshot.photos) {
         document.fontSize(9).text(`${photo.date} | ${photo.evidenceType} | ${photo.fileName} | ${photo.caption}`);
         document.fontSize(8).text(photo.imagePath);
+        renderEvidencePreview(document, photo.imagePath);
       }
     }
 
@@ -413,6 +426,34 @@ function section(document: PDFKit.PDFDocument, title: string): void {
 
 function line(document: PDFKit.PDFDocument, label: string, value: string): void {
   document.fontSize(9).text(`${label}: ${value}`);
+}
+
+function renderEvidencePreview(document: PDFKit.PDFDocument, imagePath: string): void {
+  const localImagePath = resolveLocalEvidencePath(imagePath);
+  if (!localImagePath) {
+    document.moveDown(0.3);
+    return;
+  }
+
+  try {
+    document.image(localImagePath, { fit: [160, 120] });
+    document.moveDown(0.4);
+  } catch {
+    document.fontSize(8).text('Image preview unavailable; see evidence path above.');
+    document.moveDown(0.3);
+  }
+}
+
+function resolveLocalEvidencePath(imagePath: string): string | null {
+  if (!imagePath || /^[a-z][a-z\d+.-]*:/i.test(imagePath)) return null;
+  const absolutePath = isAbsolute(imagePath) ? resolve(imagePath) : resolve(process.cwd(), imagePath);
+  if (!isPathWithinWorkingDirectory(absolutePath) || !existsSync(absolutePath)) return null;
+  return absolutePath;
+}
+
+function isPathWithinWorkingDirectory(filePath: string): boolean {
+  const relativePath = relative(process.cwd(), resolve(filePath));
+  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
 function csvCell(value: string): string {

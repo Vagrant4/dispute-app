@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import PDFDocument from 'pdfkit';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildProgressClaimSnapshot } from '../src/utils/reportSnapshots.js';
 
 process.env.JWT_SECRET = 'test-secret';
@@ -91,6 +92,10 @@ describe('progress claim report snapshots and exports', () => {
       prisma.user.deleteMany()
     ]);
     await resetExportRoot(exportRoot);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   afterAll(async () => {
@@ -291,6 +296,51 @@ describe('progress claim report snapshots and exports', () => {
     expect(await csvResponse.text()).toContain('Owner work');
   });
 
+  it('includes all in-period snapshot photo evidence in csv exports', async () => {
+    const user = await registerUser('report-csv-evidence@example.com');
+    await updateProfile(user.cookie);
+    const project = await createProject(user.cookie);
+    const finalizedEntry = await createTimeEntry(user.id, project.id, '2026-06-01', 8, 0, 'Entry with linked photo', 'FINALIZED');
+    await createTimeEntry(user.id, project.id, '2026-06-02', 8, 0, 'Draft with photo', 'DRAFT');
+    await createPhoto(user.id, project.id, '2026-06-01T10:00:00.000Z', 'uploads/demo/linked-finalized.jpg', finalizedEntry.id);
+    await createPhoto(user.id, project.id, '2026-06-02T10:00:00.000Z', 'uploads/demo/draft-day-standalone.jpg');
+    await createPhoto(user.id, project.id, '2026-06-15T10:00:00.000Z', 'uploads/demo/no-entry-date.jpg');
+    await createPhoto(user.id, project.id, '2026-07-01T10:00:00.000Z', 'uploads/demo/out-of-period.jpg');
+
+    const reportResponse = await generateBasicReport(user.cookie, project.id);
+    const report = await jsonBody<ReportResponse>(reportResponse);
+    const csv = await readFile(join(process.cwd(), report.report.csvPath), 'utf8');
+
+    expect(csv).toContain('Entry with linked photo');
+    expect(csv).toContain('linked-finalized.jpg');
+    expect(csv).toContain('draft-day-standalone.jpg');
+    expect(csv).toContain('no-entry-date.jpg');
+    expect(csv).not.toContain('out-of-period.jpg');
+  });
+
+  it('attempts to render existing local evidence images in pdf exports and falls back safely', async () => {
+    const user = await registerUser('report-pdf-evidence@example.com');
+    await updateProfile(user.cookie);
+    const project = await createProject(user.cookie);
+    await createTimeEntry(user.id, project.id, '2026-06-01', 8, 0, 'Photo render work', 'FINALIZED');
+    const renderableImagePath = '.test-exports/reports/evidence/renderable.jpg';
+    await mkdir(join(exportRoot, 'evidence'), { recursive: true });
+    await writeFile(join(process.cwd(), renderableImagePath), minimalJpeg);
+    await createPhoto(user.id, project.id, '2026-06-01T10:00:00.000Z', renderableImagePath);
+    await createPhoto(user.id, project.id, '2026-06-02T10:00:00.000Z', 'uploads/demo/missing.jpg');
+    const imageSpy = vi.spyOn(PDFDocument.prototype, 'image');
+
+    const reportResponse = await generateBasicReport(user.cookie, project.id);
+    const report = await jsonBody<ReportResponse>(reportResponse);
+
+    expect(reportResponse.status).toBe(201);
+    expect(existsSync(join(process.cwd(), report.report.pdfPath))).toBe(true);
+    expect(imageSpy).toHaveBeenCalledWith(
+      join(process.cwd(), renderableImagePath),
+      expect.objectContaining({ fit: expect.any(Array) })
+    );
+  });
+
   it('prevents another user from reading downloading or deleting a report', async () => {
     const owner = await registerUser('report-secure-owner@example.com');
     const other = await registerUser('report-secure-other@example.com');
@@ -447,11 +497,12 @@ describe('progress claim report snapshots and exports', () => {
     });
   }
 
-  function createPhoto(userId: string, projectId: string, timestamp: string, imagePath: string) {
+  function createPhoto(userId: string, projectId: string, timestamp: string, imagePath: string, timeEntryId?: string) {
     return prisma.photoEvidence.create({
       data: {
         userId,
         projectId,
+        timeEntryId,
         imagePath,
         caption: 'Completed work photo',
         evidenceType: 'COMPLETED_WORK',
@@ -500,3 +551,8 @@ async function resetExportRoot(exportRoot: string): Promise<void> {
   await mkdir(exportRoot, { recursive: true });
   await writeFile(join(exportRoot, '.gitkeep'), '');
 }
+
+const minimalJpeg = Buffer.from(
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAqf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/ASP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/ASP/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/Al//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IV//2gAMAwEAAgADAAAAEP/EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8QH//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQIBAT8QH//EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEAAT8QH//Z',
+  'base64'
+);
