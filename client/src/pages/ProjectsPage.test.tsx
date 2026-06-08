@@ -65,4 +65,32 @@ describe('ProjectsPage', () => {
     );
     expect(screen.getByText('Lobby Works')).toBeTruthy();
   });
+
+  it('renders project dates from the recorded YYYY-MM-DD portion instead of local timezone conversion', async () => {
+    apiMocks.listProjectsRequest.mockResolvedValue([
+      {
+        id: 'project-1',
+        userId: 'user-1',
+        companyId: null,
+        projectName: 'Lobby Works',
+        siteAddress: '1 Site Road',
+        poOrWorkOrderNumber: null,
+        startDate: '2026-06-01T23:00:00.000Z',
+        endDate: '2026-06-02T23:00:00.000Z',
+        description: 'Install works',
+        defaultHourlyRate: '25',
+        defaultDailyRate: null,
+        status: 'ACTIVE',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z'
+      }
+    ]);
+
+    render(<ProjectsPage />);
+
+    await screen.findByText('Lobby Works');
+
+    expect(screen.getByText('01 Jun 2026')).toBeTruthy();
+    expect(screen.getByText('02 Jun 2026')).toBeTruthy();
+  });
 });

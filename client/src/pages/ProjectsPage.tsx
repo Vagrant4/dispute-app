@@ -26,6 +26,7 @@ const emptyProjectForm: ProjectInput = {
 };
 
 const projectStatuses: ProjectStatus[] = ['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'];
+const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function ProjectsPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -335,7 +336,14 @@ function dateInputValue(value: string): string {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+  const [year, month, day] = dateInputValue(value).split('-');
+  const monthIndex = Number(month) - 1;
+
+  if (!year || !day || monthLabels[monthIndex] === undefined) {
+    return value;
+  }
+
+  return `${day.padStart(2, '0')} ${monthLabels[monthIndex]} ${year}`;
 }
 
 function formatMoney(value: string | number | null): string {
