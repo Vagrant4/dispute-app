@@ -36,6 +36,10 @@ interface TimeEntryResponse {
   };
 }
 
+interface TimeEntriesResponse {
+  timeEntries: TimeEntryResponse['timeEntry'][];
+}
+
 describe('time entries API', () => {
   let server: Server;
   let baseUrl: string;
@@ -94,6 +98,110 @@ describe('time entries API', () => {
     });
   });
 
+  it('lists only the current user time entries', async () => {
+    const userA = await registerUser('list-a@example.com');
+    const userB = await registerUser('list-b@example.com');
+    const projectA = await createProject(userA.cookie);
+    const projectB = await createProject(userB.cookie);
+    const entryAResponse = await postJson('/time-entries', manualEntryPayload(projectA.id, {
+      workDescription: 'Visible entry'
+    }), userA.cookie);
+    const entryA = await jsonBody<TimeEntryResponse>(entryAResponse);
+    await postJson('/time-entries', manualEntryPayload(projectB.id, {
+      workDescription: 'Hidden entry'
+    }), userB.cookie);
+
+    const response = await fetch(`${baseUrl}/time-entries`, {
+      headers: { Cookie: userA.cookie }
+    });
+
+    expect(response.status).toBe(200);
+    const body = await jsonBody<TimeEntriesResponse>(response);
+    expect(body.timeEntries).toHaveLength(1);
+    expect(body.timeEntries[0]).toMatchObject({
+      id: entryA.timeEntry.id,
+      userId: userA.id,
+      projectId: projectA.id,
+      workDescription: 'Visible entry'
+    });
+  });
+
+  it('reads a time entry by id', async () => {
+    const user = await registerUser('read-entry@example.com');
+    const project = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+
+    const response = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      headers: { Cookie: user.cookie }
+    });
+
+    expect(response.status).toBe(200);
+    const body = await jsonBody<TimeEntryResponse>(response);
+    expect(body.timeEntry).toMatchObject({
+      id: created.timeEntry.id,
+      userId: user.id,
+      projectId: project.id,
+      totalHours: 7,
+      overtimeHours: 0
+    });
+  });
+
+  it('updates a time entry and recalculates totals when time fields change', async () => {
+    const user = await registerUser('update-entry@example.com');
+    const project = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+
+    const response = await putJson(`/time-entries/${created.timeEntry.id}`, {
+      clockInTime: '2026-06-01T08:00:00.000Z',
+      clockOutTime: '2026-06-01T19:00:00.000Z',
+      breakMinutes: 30,
+      workDescription: 'Updated installation work',
+      notes: 'Recalculated from updated clock times'
+    }, user.cookie);
+
+    expect(response.status).toBe(200);
+    const body = await jsonBody<TimeEntryResponse>(response);
+    expect(body.timeEntry).toMatchObject({
+      id: created.timeEntry.id,
+      workDescription: 'Updated installation work',
+      notes: 'Recalculated from updated clock times',
+      totalHours: 10.5,
+      overtimeHours: 2.5
+    });
+    expect(body.timeEntry.clockInTime).toBe('2026-06-01T08:00:00.000Z');
+    expect(body.timeEntry.clockOutTime).toBe('2026-06-01T19:00:00.000Z');
+  });
+
+  it('deletes a time entry', async () => {
+    const user = await registerUser('delete-entry@example.com');
+    const project = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+
+    const response = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: user.cookie }
+    });
+    const readAfterDelete = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      headers: { Cookie: user.cookie }
+    });
+
+    expect(response.status).toBe(204);
+    expect(readAfterDelete.status).toBe(404);
+  });
+
+  it('rejects creating a time entry for another user project', async () => {
+    const projectOwner = await registerUser('project-owner@example.com');
+    const currentUser = await registerUser('project-reject@example.com');
+    const otherProject = await createProject(projectOwner.cookie);
+
+    const response = await postJson('/time-entries', manualEntryPayload(otherProject.id), currentUser.cookie);
+
+    expect(response.status).toBe(403);
+  });
+
   it('rejects clock-out before clock-in', async () => {
     const user = await registerUser('clock-before@example.com');
     const project = await createProject(user.cookie);
@@ -102,6 +210,40 @@ describe('time entries API', () => {
       clockInTime: '2026-06-01T17:00:00.000Z',
       clockOutTime: '2026-06-01T09:00:00.000Z'
     }), user.cookie);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects clock-out endpoint when clock-out is before clock-in', async () => {
+    const user = await registerUser('clock-out-before-clock-in@example.com');
+    const project = await createProject(user.cookie);
+    const clockInResponse = await postJson('/time-entries/clock-in', {
+      projectId: project.id,
+      clockInTime: '2026-06-01T17:00:00.000Z'
+    }, user.cookie);
+    const clockIn = await jsonBody<TimeEntryResponse>(clockInResponse);
+
+    const response = await postJson(`/time-entries/${clockIn.timeEntry.id}/clock-out`, {
+      clockOutTime: '2026-06-01T09:00:00.000Z',
+      breakMinutes: 0
+    }, user.cookie);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects clock-out endpoint when break exceeds on-site duration', async () => {
+    const user = await registerUser('clock-out-break-exceeds@example.com');
+    const project = await createProject(user.cookie);
+    const clockInResponse = await postJson('/time-entries/clock-in', {
+      projectId: project.id,
+      clockInTime: '2026-06-01T09:00:00.000Z'
+    }, user.cookie);
+    const clockIn = await jsonBody<TimeEntryResponse>(clockInResponse);
+
+    const response = await postJson(`/time-entries/${clockIn.timeEntry.id}/clock-out`, {
+      clockOutTime: '2026-06-01T10:00:00.000Z',
+      breakMinutes: 61
+    }, user.cookie);
 
     expect(response.status).toBe(400);
   });
@@ -137,6 +279,23 @@ describe('time entries API', () => {
     const body = await jsonBody<TimeEntryResponse>(response);
     expect(body.timeEntry.totalHours).toBe(9.5);
     expect(body.timeEntry.overtimeHours).toBe(2);
+  });
+
+  it('uses the default overtime threshold of 8 hours when no app setting exists', async () => {
+    const user = await registerUser('default-overtime@example.com');
+    await prisma.appSetting.delete({ where: { userId: user.id } });
+    const project = await createProject(user.cookie);
+
+    const response = await postJson('/time-entries', manualEntryPayload(project.id, {
+      clockInTime: '2026-06-01T08:00:00.000Z',
+      clockOutTime: '2026-06-01T18:00:00.000Z',
+      breakMinutes: 60
+    }), user.cookie);
+
+    expect(response.status).toBe(201);
+    const body = await jsonBody<TimeEntryResponse>(response);
+    expect(body.timeEntry.totalHours).toBe(9);
+    expect(body.timeEntry.overtimeHours).toBe(1);
   });
 
   it('creates an active draft entry on clock-in', async () => {
@@ -199,6 +358,31 @@ describe('time entries API', () => {
     expect(response.status).toBe(200);
     const body = await jsonBody<TimeEntryResponse>(response);
     expect(body.timeEntry.status).toBe('FINALIZED');
+  });
+
+  it('returns 409 when deleting a time entry with dependent photo evidence', async () => {
+    const user = await registerUser('delete-conflict@example.com');
+    const project = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+    await prisma.photoEvidence.create({
+      data: {
+        userId: user.id,
+        projectId: project.id,
+        timeEntryId: created.timeEntry.id,
+        imagePath: '/uploads/evidence/delete-conflict.jpg',
+        caption: 'Completed bracket evidence',
+        evidenceType: 'COMPLETED_WORK',
+        timestamp: new Date('2026-06-01T17:30:00.000Z')
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: user.cookie }
+    });
+
+    expect(response.status).toBe(409);
   });
 
   it('denies cross-user access to another user time entry', async () => {
