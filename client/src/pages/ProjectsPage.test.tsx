@@ -93,4 +93,16 @@ describe('ProjectsPage', () => {
     expect(screen.getByText('01 Jun 2026')).toBeTruthy();
     expect(screen.getByText('02 Jun 2026')).toBeTruthy();
   });
+
+  it('uses the local calendar date for the default project start date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T16:30:00.000Z'));
+    vi.resetModules();
+    const { ProjectsPage: TimedProjectsPage } = await import('./ProjectsPage');
+
+    render(<TimedProjectsPage />);
+
+    const startDateInput = screen.getByLabelText('Start date') as HTMLInputElement;
+    expect(startDateInput.value).toBe('2026-06-08');
+  });
 });

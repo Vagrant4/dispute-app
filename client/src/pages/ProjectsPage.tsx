@@ -12,26 +12,13 @@ import {
 } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
 
-const emptyProjectForm: ProjectInput = {
-  projectName: '',
-  companyId: null,
-  siteAddress: '',
-  poOrWorkOrderNumber: null,
-  startDate: new Date().toISOString().slice(0, 10),
-  endDate: null,
-  description: '',
-  defaultHourlyRate: null,
-  defaultDailyRate: null,
-  status: 'ACTIVE'
-};
-
 const projectStatuses: ProjectStatus[] = ['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'];
 const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function ProjectsPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [form, setForm] = useState<ProjectInput>(emptyProjectForm);
+  const [form, setForm] = useState<ProjectInput>(() => createEmptyProjectForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -99,7 +86,7 @@ export function ProjectsPage() {
 
   function resetForm() {
     setEditingId(null);
-    setForm(emptyProjectForm);
+    setForm(createEmptyProjectForm());
   }
 
   return (
@@ -261,6 +248,21 @@ export function ProjectsPage() {
   }
 }
 
+function createEmptyProjectForm(): ProjectInput {
+  return {
+    projectName: '',
+    companyId: null,
+    siteAddress: '',
+    poOrWorkOrderNumber: null,
+    startDate: localDateInputValue(),
+    endDate: null,
+    description: '',
+    defaultHourlyRate: null,
+    defaultDailyRate: null,
+    status: 'ACTIVE'
+  };
+}
+
 function projectToForm(project: Project): ProjectInput {
   return {
     projectName: project.projectName,
@@ -333,6 +335,13 @@ function numberValue(value: number | null): string {
 
 function dateInputValue(value: string): string {
   return value.slice(0, 10);
+}
+
+function localDateInputValue(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(value: string): string {
