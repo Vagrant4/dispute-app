@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   apiRequest,
+  clockInRequest,
+  clockOutRequest,
   createCompanyRequest,
+  createTimeEntryRequest,
   deleteProjectRequest,
+  finalizeTimeEntryRequest,
+  listTimeEntriesRequest,
   listProjectsRequest,
   updateCompanyRequest
 } from './http';
@@ -114,6 +119,101 @@ describe('apiRequest', () => {
     expect(fetchMock).toHaveBeenLastCalledWith(
       'http://localhost:3000/projects/project-1',
       expect.objectContaining({ method: 'DELETE', credentials: 'include' })
+    );
+  });
+
+  it('maps time entry helpers to the scoped clock and manual endpoints', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ timeEntries: [{ id: 'entry-1', projectId: 'project-1' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ timeEntry: { id: 'entry-2', manualEntryFlag: true } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ timeEntry: { id: 'entry-3', clockOutTime: null } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ timeEntry: { id: 'entry-3', clockOutTime: '2026-06-01T18:00:00.000Z' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ timeEntry: { id: 'entry-3', status: 'FINALIZED' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+    const entries = await listTimeEntriesRequest();
+    await createTimeEntryRequest({
+      projectId: 'project-1',
+      date: '2026-06-01',
+      clockInTime: '2026-06-01T09:00:00.000Z',
+      clockOutTime: '2026-06-01T18:00:00.000Z',
+      breakMinutes: 60,
+      workDescription: 'Manual work',
+      locationText: 'Site A',
+      manualEntryFlag: true
+    });
+    await clockInRequest({
+      projectId: 'project-1',
+      clockInTime: '2026-06-01T09:00:00.000Z',
+      locationText: 'Site A',
+      clockInGpsLat: 1.3521,
+      clockInGpsLng: 103.8198
+    });
+    await clockOutRequest('entry-3', {
+      clockOutTime: '2026-06-01T18:00:00.000Z',
+      breakMinutes: 45,
+      clockOutGpsLat: 1.3,
+      clockOutGpsLng: 103.8
+    });
+    await finalizeTimeEntryRequest('entry-3');
+
+    expect(entries[0]?.id).toBe('entry-1');
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/time-entries',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: 'project-1',
+          date: '2026-06-01',
+          clockInTime: '2026-06-01T09:00:00.000Z',
+          clockOutTime: '2026-06-01T18:00:00.000Z',
+          breakMinutes: 60,
+          workDescription: 'Manual work',
+          locationText: 'Site A',
+          manualEntryFlag: true
+        })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3000/time-entries/clock-in',
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'http://localhost:3000/time-entries/entry-3/clock-out',
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      'http://localhost:3000/time-entries/entry-3/finalize',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 });

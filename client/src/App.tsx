@@ -1,23 +1,15 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './layout/AppShell';
 import { CompaniesPage } from './pages/CompaniesPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { TimeEntriesPage } from './pages/TimeEntriesPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 
 const pageContent: Record<string, { title: string; description: string; items: string[] }> = {
-  dashboard: {
-    title: 'Dashboard',
-    description: 'A quick evidence overview will appear here as time entries, projects, and claim reports are added.',
-    items: ['Recent work activity', 'Open claim periods', 'Evidence gaps to resolve']
-  },
-  time: {
-    title: 'Time Entries',
-    description: 'Record daily work time, breaks, notes, and finalised entries in the next CRUD task.',
-    items: ['Clock in and clock out', 'Manual time entry', 'Finalise entries for reports']
-  },
   photos: {
     title: 'Photo Evidence',
     description: 'Photo upload and evidence metadata will be built here with project and time-entry links.',
@@ -52,9 +44,9 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route index element={<PlaceholderPage pageKey="dashboard" />} />
+          <Route index element={<DashboardPage />} />
           <Route path="profile" element={<ProfilePage />} />
-          <Route path="time-entries" element={<PlaceholderPage pageKey="time" />} />
+          <Route path="time-entries" element={<TimeEntriesPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="photo-evidence" element={<PlaceholderPage pageKey="photos" />} />
           <Route path="pay-summary" element={<PlaceholderPage pageKey="pay" />} />

@@ -117,7 +117,9 @@ h3 {
 .auth-form input,
 .crud-form input,
 .crud-form select,
-.crud-form textarea {
+.crud-form textarea,
+.clock-controls input,
+.clock-controls select {
   width: 100%;
   border: 1px solid #cfc8bb;
   border-radius: 8px;
@@ -134,7 +136,9 @@ h3 {
 .auth-form input:focus,
 .crud-form input:focus,
 .crud-form select:focus,
-.crud-form textarea:focus {
+.crud-form textarea:focus,
+.clock-controls input:focus,
+.clock-controls select:focus {
   border-color: #126c58;
   box-shadow: 0 0 0 3px rgb(18 108 88 / 16%);
   outline: none;
@@ -273,6 +277,11 @@ h3 {
   gap: 18px;
 }
 
+.dashboard-page {
+  display: grid;
+  gap: 16px;
+}
+
 .crud-page {
   display: grid;
   gap: 16px;
@@ -367,6 +376,10 @@ h3 {
   color: #536157;
 }
 
+.notice-panel.compact {
+  padding: 10px 12px;
+}
+
 .record-card {
   display: grid;
   gap: 14px;
@@ -408,6 +421,165 @@ h3 {
   margin: 0;
   color: #17211a;
   overflow-wrap: anywhere;
+}
+
+.clock-panel {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #bfd3ca;
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 16px;
+  box-shadow: 0 14px 36px rgb(39 49 41 / 8%);
+}
+
+.clock-panel-header,
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.clock-focus {
+  display: grid;
+  gap: 6px;
+  border-block: 1px solid #e4ded1;
+  padding: 18px 0;
+}
+
+.clock-focus span {
+  color: #126c58;
+  font-size: 2.4rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.clock-focus strong {
+  color: #111b15;
+  font-size: 1.12rem;
+}
+
+.clock-focus p {
+  margin: 0;
+  color: #536157;
+  line-height: 1.45;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-item {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid #d8e2dc;
+  border-radius: 8px;
+  background: #f8fbf8;
+  padding: 10px;
+}
+
+.metric-item span {
+  color: #647269;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metric-item strong {
+  color: #17211a;
+  font-size: 1.05rem;
+}
+
+.clock-controls,
+.quick-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.clock-controls label {
+  display: grid;
+  gap: 7px;
+  color: #28352c;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.clock-button {
+  min-height: 58px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 1.06rem;
+  font-weight: 900;
+}
+
+.clock-in-button {
+  background: #126c58;
+}
+
+.clock-out-button {
+  background: #9f2f21;
+}
+
+.clock-button:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+.dashboard-section {
+  display: grid;
+  gap: 12px;
+}
+
+.section-heading h3 {
+  padding-top: 8px;
+}
+
+.badge-stack {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.map-preview,
+.map-fallback {
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid #d8e2dc;
+  border-radius: 8px;
+  background: #eef5ef;
+}
+
+.map-fallback {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  color: #536157;
+  text-align: center;
+}
+
+.map-pin {
+  width: auto;
+  border: 1px solid #126c58;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #126c58;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 7px 9px;
+  white-space: nowrap;
+}
+
+.clock-out-pin {
+  border-color: #9f2f21;
+  color: #9f2f21;
 }
 
 .status-badge {
@@ -492,5 +664,23 @@ h3 {
 
   .record-details {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clock-panel {
+    padding: 20px;
+  }
+
+  .clock-controls,
+  .quick-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .clock-controls label:first-child {
+    grid-column: span 1;
+  }
+
+  .clock-button {
+    min-height: 64px;
   }
 }

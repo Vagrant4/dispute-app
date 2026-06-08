@@ -108,6 +108,76 @@ interface ProjectsResponse {
   projects: Project[];
 }
 
+export type TimeEntryStatus = 'DRAFT' | 'FINALIZED';
+
+export interface TimeEntry {
+  id: string;
+  userId: string;
+  projectId: string;
+  date: string;
+  clockInTime: string;
+  clockOutTime: string | null;
+  breakMinutes: number;
+  totalHours: number;
+  overtimeHours: number;
+  workDescription: string;
+  manualEntryFlag: boolean;
+  locationText: string;
+  clockInGpsLat: number | null;
+  clockInGpsLng: number | null;
+  clockOutGpsLat: number | null;
+  clockOutGpsLng: number | null;
+  notes: string;
+  status: TimeEntryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TimeEntryInput {
+  projectId: string;
+  date?: string;
+  clockInTime: string;
+  clockOutTime: string;
+  breakMinutes: number;
+  workDescription?: string;
+  locationText?: string;
+  clockInGpsLat?: number | null;
+  clockInGpsLng?: number | null;
+  clockOutGpsLat?: number | null;
+  clockOutGpsLng?: number | null;
+  notes?: string;
+  manualEntryFlag?: true;
+}
+
+export interface ClockInInput {
+  projectId: string;
+  date?: string;
+  clockInTime?: string;
+  workDescription?: string;
+  locationText?: string;
+  clockInGpsLat?: number | null;
+  clockInGpsLng?: number | null;
+  notes?: string;
+}
+
+export interface ClockOutInput {
+  clockOutTime: string;
+  breakMinutes: number;
+  clockOutGpsLat?: number | null;
+  clockOutGpsLng?: number | null;
+  locationText?: string;
+  workDescription?: string;
+  notes?: string;
+}
+
+interface TimeEntryResponse {
+  timeEntry: TimeEntry;
+}
+
+interface TimeEntriesResponse {
+  timeEntries: TimeEntry[];
+}
+
 interface SettingsResponse {
   settings: {
     userId: string;
@@ -242,6 +312,43 @@ export async function updateProjectRequest(id: string, project: Partial<ProjectI
 
 export function deleteProjectRequest(id: string): Promise<void> {
   return apiRequest<void>(`/projects/${id}`, { method: 'DELETE' });
+}
+
+export async function listTimeEntriesRequest(): Promise<TimeEntry[]> {
+  const response = await apiRequest<TimeEntriesResponse>('/time-entries');
+  return response.timeEntries;
+}
+
+export async function createTimeEntryRequest(timeEntry: TimeEntryInput): Promise<TimeEntry> {
+  const response = await apiRequest<TimeEntryResponse>('/time-entries', {
+    method: 'POST',
+    body: timeEntry
+  });
+  return response.timeEntry;
+}
+
+export async function clockInRequest(input: ClockInInput): Promise<TimeEntry> {
+  const response = await apiRequest<TimeEntryResponse>('/time-entries/clock-in', {
+    method: 'POST',
+    body: input
+  });
+  return response.timeEntry;
+}
+
+export async function clockOutRequest(id: string, input: ClockOutInput): Promise<TimeEntry> {
+  const response = await apiRequest<TimeEntryResponse>(`/time-entries/${id}/clock-out`, {
+    method: 'POST',
+    body: input
+  });
+  return response.timeEntry;
+}
+
+export async function finalizeTimeEntryRequest(id: string): Promise<TimeEntry> {
+  const response = await apiRequest<TimeEntryResponse>(`/time-entries/${id}/finalize`, {
+    method: 'POST',
+    body: {}
+  });
+  return response.timeEntry;
 }
 
 async function readJson<T>(response: Response): Promise<T | null> {
