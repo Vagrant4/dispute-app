@@ -1,4 +1,3 @@
-import { TimeEntryStatus } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireUser } from '../../middleware/requireUser.js';
@@ -66,7 +65,7 @@ const updateEntrySchema = z
     projectId: z.string().trim().min(1).optional(),
     date: nullableDate.optional().transform((value) => value ?? undefined),
     clockInTime: dateTime.optional(),
-    clockOutTime: dateTime.nullable().optional(),
+    clockOutTime: dateTime.optional(),
     breakMinutes: z.number().int().min(0).optional(),
     workDescription: optionalText,
     locationText: optionalText,
@@ -74,9 +73,9 @@ const updateEntrySchema = z
     clockInGpsLng: gpsCoordinate,
     clockOutGpsLat: gpsCoordinate,
     clockOutGpsLng: gpsCoordinate,
-    notes: optionalText,
-    status: z.enum(TimeEntryStatus).optional()
+    notes: optionalText
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one time entry field is required'
   });

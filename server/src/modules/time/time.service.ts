@@ -51,7 +51,7 @@ export interface UpdateTimeEntryInput {
   projectId?: string;
   date?: Date;
   clockInTime?: Date;
-  clockOutTime?: Date | null;
+  clockOutTime?: Date;
   breakMinutes?: number;
   workDescription?: string;
   locationText?: string;
@@ -60,7 +60,6 @@ export interface UpdateTimeEntryInput {
   clockOutGpsLat?: number | null;
   clockOutGpsLng?: number | null;
   notes?: string;
-  status?: TimeEntryStatus;
 }
 
 export async function createManualEntry(userId: string, input: CreateManualEntryInput): Promise<TimeEntry> {
@@ -138,10 +137,19 @@ export async function clockOut(userId: string, entryId: string, input: ClockOutI
 
 export async function finalize(userId: string, entryId: string): Promise<TimeEntry> {
   const existing = await getOwnedEntryOrThrow(userId, entryId);
+  if (!existing.clockOutTime) {
+    throw new TimeEntryServiceError('Time entry must be clocked out before it can be finalized', 409);
+  }
+  const totals = await calculateTotals(userId, existing.clockInTime, existing.clockOutTime, existing.breakMinutes);
+  assertCompletedTotals(totals.totalHours, totals.overtimeHours);
 
   return prisma.timeEntry.update({
     where: { id: existing.id },
-    data: { status: TimeEntryStatus.FINALIZED }
+    data: {
+      status: TimeEntryStatus.FINALIZED,
+      totalHours: totals.totalHours,
+      overtimeHours: totals.overtimeHours
+    }
   });
 }
 
@@ -158,8 +166,9 @@ export async function getEntry(userId: string, entryId: string): Promise<TimeEnt
 
 export async function updateEntry(userId: string, entryId: string, input: UpdateTimeEntryInput): Promise<TimeEntry> {
   const existing = await getOwnedEntryOrThrow(userId, entryId);
-  if (input.projectId !== undefined) {
+  if (input.projectId !== undefined && input.projectId !== existing.projectId) {
     await verifyProjectOwnership(userId, input.projectId);
+    await verifyProjectChangeAllowed(userId, existing.id);
   }
 
   const clockInTime = input.clockInTime ?? existing.clockInTime;
@@ -182,8 +191,7 @@ export async function updateEntry(userId: string, entryId: string, input: Update
         clockInGpsLng: input.clockInGpsLng,
         clockOutGpsLat: input.clockOutGpsLat,
         clockOutGpsLng: input.clockOutGpsLng,
-        notes: input.notes,
-        status: input.status
+        notes: input.notes
       }),
       totalHours: totals.totalHours,
       overtimeHours: totals.overtimeHours
@@ -224,6 +232,15 @@ async function verifyProjectOwnership(userId: string, projectId: string): Promis
   }
 }
 
+async function verifyProjectChangeAllowed(userId: string, entryId: string): Promise<void> {
+  const photoEvidenceCount = await prisma.photoEvidence.count({
+    where: { userId, timeEntryId: entryId }
+  });
+  if (photoEvidenceCount > 0) {
+    throw new TimeEntryServiceError('Time entry project cannot be changed while it has linked photo evidence', 409);
+  }
+}
+
 async function calculateTotals(
   userId: string,
   clockInTime: Date,
@@ -256,6 +273,12 @@ async function getStandardDailyHours(userId: string): Promise<number> {
 
 function dateOnly(value: Date): Date {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+}
+
+function assertCompletedTotals(totalHours: number, overtimeHours: number): void {
+  if (!Number.isFinite(totalHours) || totalHours <= 0 || !Number.isFinite(overtimeHours) || overtimeHours < 0) {
+    throw new TimeEntryServiceError('Time entry totals must be complete before it can be finalized', 409);
+  }
 }
 
 function defined<T extends Prisma.TimeEntryUpdateInput>(data: T): T {

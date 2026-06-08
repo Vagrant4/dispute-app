@@ -174,6 +174,73 @@ describe('time entries API', () => {
     expect(body.timeEntry.clockOutTime).toBe('2026-06-01T19:00:00.000Z');
   });
 
+  it('rejects direct status changes through generic update', async () => {
+    const user = await registerUser('update-status-reject@example.com');
+    const project = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+
+    const response = await putJson(`/time-entries/${created.timeEntry.id}`, {
+      status: 'FINALIZED'
+    }, user.cookie);
+    const readResponse = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      headers: { Cookie: user.cookie }
+    });
+    const readBody = await jsonBody<TimeEntryResponse>(readResponse);
+
+    expect(response.status).toBe(400);
+    expect(readBody.timeEntry.status).toBe('DRAFT');
+  });
+
+  it('rejects nulling out clock-out through generic update', async () => {
+    const user = await registerUser('update-null-clock-out-reject@example.com');
+    const project = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+
+    const response = await putJson(`/time-entries/${created.timeEntry.id}`, {
+      clockOutTime: null
+    }, user.cookie);
+    const readResponse = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      headers: { Cookie: user.cookie }
+    });
+    const readBody = await jsonBody<TimeEntryResponse>(readResponse);
+
+    expect(response.status).toBe(400);
+    expect(readBody.timeEntry.clockOutTime).toBe('2026-06-01T17:00:00.000Z');
+    expect(readBody.timeEntry.totalHours).toBe(7);
+  });
+
+  it('returns 409 when changing project on a time entry with linked photo evidence', async () => {
+    const user = await registerUser('update-project-evidence-conflict@example.com');
+    const project = await createProject(user.cookie);
+    const replacementProject = await createProject(user.cookie);
+    const createResponse = await postJson('/time-entries', manualEntryPayload(project.id), user.cookie);
+    const created = await jsonBody<TimeEntryResponse>(createResponse);
+    await prisma.photoEvidence.create({
+      data: {
+        userId: user.id,
+        projectId: project.id,
+        timeEntryId: created.timeEntry.id,
+        imagePath: '/uploads/evidence/update-project-conflict.jpg',
+        caption: 'Evidence tied to original project',
+        evidenceType: 'COMPLETED_WORK',
+        timestamp: new Date('2026-06-01T17:30:00.000Z')
+      }
+    });
+
+    const response = await putJson(`/time-entries/${created.timeEntry.id}`, {
+      projectId: replacementProject.id
+    }, user.cookie);
+    const readResponse = await fetch(`${baseUrl}/time-entries/${created.timeEntry.id}`, {
+      headers: { Cookie: user.cookie }
+    });
+    const readBody = await jsonBody<TimeEntryResponse>(readResponse);
+
+    expect(response.status).toBe(409);
+    expect(readBody.timeEntry.projectId).toBe(project.id);
+  });
+
   it('deletes a time entry', async () => {
     const user = await registerUser('delete-entry@example.com');
     const project = await createProject(user.cookie);
@@ -358,6 +425,30 @@ describe('time entries API', () => {
     expect(response.status).toBe(200);
     const body = await jsonBody<TimeEntryResponse>(response);
     expect(body.timeEntry.status).toBe('FINALIZED');
+  });
+
+  it('rejects finalizing an active clock-in without clock-out', async () => {
+    const user = await registerUser('finalize-active-reject@example.com');
+    const project = await createProject(user.cookie);
+    const clockInResponse = await postJson('/time-entries/clock-in', {
+      projectId: project.id,
+      clockInTime: '2026-06-01T09:00:00.000Z'
+    }, user.cookie);
+    const clockIn = await jsonBody<TimeEntryResponse>(clockInResponse);
+
+    const response = await postJson(`/time-entries/${clockIn.timeEntry.id}/finalize`, {}, user.cookie);
+    const readResponse = await fetch(`${baseUrl}/time-entries/${clockIn.timeEntry.id}`, {
+      headers: { Cookie: user.cookie }
+    });
+    const readBody = await jsonBody<TimeEntryResponse>(readResponse);
+
+    expect([400, 409]).toContain(response.status);
+    expect(readBody.timeEntry).toMatchObject({
+      clockOutTime: null,
+      status: 'DRAFT',
+      totalHours: 0,
+      overtimeHours: 0
+    });
   });
 
   it('returns 409 when deleting a time entry with dependent photo evidence', async () => {
