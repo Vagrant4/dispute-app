@@ -145,7 +145,7 @@ model TimeEntry {
   projectId       String
   date            DateTime
   clockInTime     DateTime
-  clockOutTime    DateTime
+  clockOutTime    DateTime?
   breakMinutes    Int
   totalHours      Float
   overtimeHours   Float

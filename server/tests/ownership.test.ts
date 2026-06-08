@@ -1,20 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { readdirSync, rmSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import type { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
-process.env.DATABASE_URL = 'file:./ownership.test.db';
-
-const ownershipDatabasePath = fileURLToPath(new URL('../prisma/ownership.test.db', import.meta.url));
-const ownershipDatabaseJournalPath = fileURLToPath(new URL('../prisma/ownership.test.db-journal', import.meta.url));
-const serverRoot = fileURLToPath(new URL('..', import.meta.url));
-const prismaCliPath = fileURLToPath(new URL('../node_modules/prisma/build/index.js', import.meta.url));
-const migrationsPath = fileURLToPath(new URL('../prisma/migrations', import.meta.url));
 
 interface AuthUserResponse {
   user: {
@@ -46,9 +36,6 @@ describe('business resource ownership', () => {
   let prisma: PrismaClient;
 
   beforeAll(async () => {
-    resetOwnershipDatabase();
-    applyMigrations();
-
     const db = await import('../src/db/prisma.js');
     prisma = db.prisma;
     const { createApp } = await import('../src/app.js');
@@ -81,7 +68,6 @@ describe('business resource ownership', () => {
       server.close((error) => (error ? reject(error) : resolve()));
     });
     await prisma.$disconnect();
-    resetOwnershipDatabase();
   });
 
   it('keeps profile ownership on the authenticated user when userId is spoofed', async () => {
@@ -395,39 +381,4 @@ function sessionCookie(response: Response): string {
 
 async function jsonBody<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
-}
-
-function applyMigrations(): void {
-  const migrations = readdirSync(migrationsPath, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
-
-  for (const migration of migrations) {
-    execFileSync(
-      process.execPath,
-      [
-        prismaCliPath,
-        'db',
-        'execute',
-        '--schema',
-        'prisma/schema.prisma',
-        '--file',
-        `prisma/migrations/${migration}/migration.sql`
-      ],
-      {
-        cwd: serverRoot,
-        env: {
-          ...process.env,
-          DATABASE_URL: 'file:./ownership.test.db'
-        },
-        stdio: 'inherit'
-      }
-    );
-  }
-}
-
-function resetOwnershipDatabase(): void {
-  rmSync(ownershipDatabasePath, { force: true });
-  rmSync(ownershipDatabaseJournalPath, { force: true });
 }

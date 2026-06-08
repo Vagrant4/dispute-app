@@ -315,7 +315,7 @@ async function main() {
         id: entry.id,
         date: entry.date.toISOString(),
         clockInTime: entry.clockInTime.toISOString(),
-        clockOutTime: entry.clockOutTime.toISOString(),
+        clockOutTime: entry.clockOutTime?.toISOString() ?? null,
         breakMinutes: entry.breakMinutes,
         totalHours: entry.totalHours,
         overtimeHours: entry.overtimeHours,
