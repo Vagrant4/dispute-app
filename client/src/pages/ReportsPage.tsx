@@ -3,6 +3,7 @@ import {
   deleteReportRequest,
   downloadReportFileRequest,
   generateProgressClaimReportRequest,
+  getSettingsRequest,
   listProjectsRequest,
   listReportsRequest,
   type ProgressReport,
@@ -29,6 +30,7 @@ export function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [downloading, setDownloading] = useState('');
+  const [currency, setCurrency] = useState('SGD');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -46,9 +48,14 @@ export function ReportsPage() {
     setLoading(true);
     setError('');
     try {
-      const [nextProjects, nextReports] = await Promise.all([listProjectsRequest(), listReportsRequest()]);
+      const [nextProjects, nextReports, settings] = await Promise.all([
+        listProjectsRequest(),
+        listReportsRequest(),
+        getSettingsRequest()
+      ]);
       setProjects(nextProjects);
       setReports(nextReports);
+      setCurrency(settings.defaultCurrency);
     } catch (loadError) {
       setError(errorMessage(loadError, 'Unable to load reports'));
     } finally {
@@ -93,7 +100,7 @@ export function ReportsPage() {
       document.body.append(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setSuccess(`${format.toUpperCase()} download started.`);
     } catch (downloadError) {
       setError(errorMessage(downloadError, `Unable to download ${format.toUpperCase()}`));
@@ -195,7 +202,7 @@ export function ReportsPage() {
                     <h3>{projectName(report.projectId, projects)}</h3>
                     <p>{formatDate(report.claimPeriodStart)} to {formatDate(report.claimPeriodEnd)}</p>
                   </div>
-                  <strong>{formatMoney(report.totalClaimAmount)}</strong>
+                  <strong>{formatMoney(report.totalClaimAmount, currency)}</strong>
                 </div>
                 <dl className="record-details">
                   <div>
@@ -212,7 +219,7 @@ export function ReportsPage() {
                   </div>
                   <div>
                     <dt>Claim amount</dt>
-                    <dd>{formatMoney(report.totalClaimAmount)}</dd>
+                    <dd>{formatMoney(report.totalClaimAmount, currency)}</dd>
                   </div>
                   <div>
                     <dt>Snapshot entries</dt>
@@ -314,10 +321,10 @@ function formatHours(value: number): string {
   return `${Number(value || 0).toFixed(2)}h`;
 }
 
-function formatMoney(value: string | number): string {
+function formatMoney(value: string | number, currency: string): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 'Not available';
-  return new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD' }).format(amount);
+  return new Intl.NumberFormat('en-SG', { style: 'currency', currency }).format(amount);
 }
 
 function localDateInputValue(date = new Date()): string {

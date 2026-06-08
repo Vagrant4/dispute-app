@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import {
   deletePaySummaryRequest,
   generatePaySummaryRequest,
+  getSettingsRequest,
   listPaySummariesRequest,
   listProjectsRequest,
   type PayLineItemInput,
@@ -47,6 +48,7 @@ export function PaySummaryPage() {
   const [form, setForm] = useState<PayForm>(() => createEmptyForm());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [currency, setCurrency] = useState('SGD');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -58,9 +60,14 @@ export function PaySummaryPage() {
     setLoading(true);
     setError('');
     try {
-      const [nextProjects, nextSummaries] = await Promise.all([listProjectsRequest(), listPaySummariesRequest()]);
+      const [nextProjects, nextSummaries, settings] = await Promise.all([
+        listProjectsRequest(),
+        listPaySummariesRequest(),
+        getSettingsRequest()
+      ]);
       setProjects(nextProjects);
       setSummaries(nextSummaries);
+      setCurrency(settings.defaultCurrency);
     } catch (loadError) {
       setError(errorMessage(loadError, 'Unable to load pay summaries'));
     } finally {
@@ -187,32 +194,32 @@ export function PaySummaryPage() {
                     <h3>{projectName(summary.projectId, projects)}</h3>
                     <p>{formatDate(summary.salaryPeriodStart)} to {formatDate(summary.salaryPeriodEnd)}</p>
                   </div>
-                  <strong>{formatMoney(summary.netPay)}</strong>
+                  <strong>{formatMoney(summary.netPay, currency)}</strong>
                 </div>
                 <dl className="record-details">
                   <div>
                     <dt>Basic pay</dt>
-                    <dd>{formatMoney(summary.basicPay)}</dd>
+                    <dd>{formatMoney(summary.basicPay, currency)}</dd>
                   </div>
                   <div>
                     <dt>Overtime pay</dt>
-                    <dd>{formatMoney(summary.overtimePay)}</dd>
+                    <dd>{formatMoney(summary.overtimePay, currency)}</dd>
                   </div>
                   <div>
                     <dt>Allowances</dt>
-                    <dd>{formatMoney(summary.totalAllowances)}</dd>
+                    <dd>{formatMoney(summary.totalAllowances, currency)}</dd>
                   </div>
                   <div>
                     <dt>Deductions</dt>
-                    <dd>{formatMoney(summary.totalDeductions)}</dd>
+                    <dd>{formatMoney(summary.totalDeductions, currency)}</dd>
                   </div>
                   <div>
                     <dt>Gross pay</dt>
-                    <dd>{formatMoney(summary.grossPay)}</dd>
+                    <dd>{formatMoney(summary.grossPay, currency)}</dd>
                   </div>
                   <div>
                     <dt>Net pay</dt>
-                    <dd>{formatMoney(summary.netPay)}</dd>
+                    <dd>{formatMoney(summary.netPay, currency)}</dd>
                   </div>
                 </dl>
                 {itemised ? (
@@ -330,10 +337,10 @@ function formatDate(value: string): string {
   return value.slice(0, 10);
 }
 
-function formatMoney(value: string | number): string {
+function formatMoney(value: string | number, currency: string): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 'Not available';
-  return new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD' }).format(amount);
+  return new Intl.NumberFormat('en-SG', { style: 'currency', currency }).format(amount);
 }
 
 function displayValue(value: unknown): string {

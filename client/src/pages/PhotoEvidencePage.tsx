@@ -32,6 +32,7 @@ export function PhotoEvidencePage() {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>('DURING_WORK');
   const [caption, setCaption] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsMessage, setGpsMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -100,6 +101,7 @@ export function PhotoEvidencePage() {
       setEvidence((current) => [saved, ...current]);
       setCaption('');
       setFile(null);
+      setFileInputKey((current) => current + 1);
       setTimeEntryId('');
       setGps(null);
       setGpsMessage('');
@@ -195,6 +197,7 @@ export function PhotoEvidencePage() {
             Image
             <input
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              key={fileInputKey}
               type="file"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               required

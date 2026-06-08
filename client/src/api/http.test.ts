@@ -62,6 +62,20 @@ describe('apiRequest', () => {
     await expect(apiRequest('/auth/login', { method: 'POST' })).rejects.toThrow('Invalid email or password');
   });
 
+  it('throws ApiError when a successful JSON response is malformed', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('<html>not json</html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' }
+      })
+    );
+
+    await expect(apiRequest('/profile')).rejects.toMatchObject({
+      status: 200,
+      message: 'Invalid JSON response from /profile'
+    });
+  });
+
   it('maps company CRUD helpers to the ownership-scoped endpoints', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
@@ -260,6 +274,27 @@ describe('http API helpers', () => {
     expect(init?.credentials).toBe('include');
     expect(init?.body).toBeInstanceOf(FormData);
     expect(new Headers(init?.headers).has('Content-Type')).toBe(false);
+  });
+
+  it('throws ApiError when a successful upload response is malformed', async () => {
+    const file = new File(['image'], 'evidence.png', { type: 'image/png' });
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response('<html>not json</html>', {
+        status: 201,
+        headers: { 'Content-Type': 'text/html' }
+      })
+    );
+
+    await expect(
+      uploadPhotoEvidenceRequest({
+        file,
+        projectId: 'project-1',
+        evidenceType: 'DURING_WORK'
+      })
+    ).rejects.toMatchObject({
+      status: 201,
+      message: 'Invalid JSON response from /photo-evidence/upload'
+    });
   });
 
   it('downloads report files with credentials and returns a blob', async () => {

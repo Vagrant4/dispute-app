@@ -371,7 +371,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     return undefined as T;
   }
 
-  return JSON.parse(text) as T;
+  return parseSuccessJson<T>(text, response.status, path);
 }
 
 async function apiFormRequest<T>(path: string, options: ApiFormRequestOptions): Promise<T> {
@@ -387,7 +387,12 @@ async function apiFormRequest<T>(path: string, options: ApiFormRequestOptions): 
     throw new ApiError(message, response.status, errorBody?.issues);
   }
 
-  return (await response.json()) as T;
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return parseSuccessJson<T>(text, response.status, path);
 }
 
 async function apiBlobRequest(path: string): Promise<Blob> {
@@ -632,5 +637,13 @@ async function readJson<T>(response: Response): Promise<T | null> {
     return (await response.json()) as T;
   } catch {
     return null;
+  }
+}
+
+function parseSuccessJson<T>(text: string, status: number, path: string): T {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ApiError(`Invalid JSON response from ${path}`, status);
   }
 }
