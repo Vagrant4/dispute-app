@@ -28,6 +28,28 @@ export const nullableMoney = z
   })
   .transform((value) => (typeof value === 'string' ? value.trim() : value));
 
+export const requiredMoney = z
+  .union([z.number(), z.string()])
+  .superRefine((value, ctx) => {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value) || value < 0 || Math.round(value * 100) !== value * 100) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Must be a non-negative money value with up to 2 decimal places'
+        });
+      }
+      return;
+    }
+
+    if (!moneyPattern.test(value.trim())) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Must be a non-negative money value with up to 2 decimal places'
+      });
+    }
+  })
+  .transform((value) => (typeof value === 'string' ? Number(value.trim()) : value));
+
 export const nullableDate = z
   .string()
   .trim()

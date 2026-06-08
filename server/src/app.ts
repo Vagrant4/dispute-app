@@ -4,6 +4,7 @@ import express, { type ErrorRequestHandler, type Router } from 'express';
 import { env } from './config/env.js';
 import { authErrorStatus, authRouter } from './modules/auth/auth.routes.js';
 import { companyRouter } from './modules/companies/company.routes.js';
+import { payRouter } from './modules/pay/pay.routes.js';
 import { photoRouter } from './modules/photos/photo.routes.js';
 import { profileRouter } from './modules/profile/profile.routes.js';
 import { projectRouter } from './modules/projects/project.routes.js';
@@ -35,6 +36,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use('/projects', projectRouter);
   app.use('/time-entries', timeRouter);
   app.use('/photo-evidence', photoRouter);
+  app.use('/pay-summaries', payRouter);
 
   if (options.testRouter) {
     app.use('/test', options.testRouter);
