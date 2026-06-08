@@ -70,7 +70,7 @@ CREATE TABLE "TimeEntry" (
     "projectId" TEXT NOT NULL,
     "date" DATETIME NOT NULL,
     "clockInTime" DATETIME NOT NULL,
-    "clockOutTime" DATETIME NOT NULL,
+    "clockOutTime" DATETIME,
     "breakMinutes" INTEGER NOT NULL,
     "totalHours" REAL NOT NULL,
     "overtimeHours" REAL NOT NULL,
