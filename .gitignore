@@ -16,6 +16,9 @@ server/prisma/test.db-journal
 server/uploads/*
 !server/uploads/.gitkeep
 .test-uploads/
+.test-exports/
 
 server/exports/*
 !server/exports/.gitkeep
+server/src/exports/*
+!server/src/exports/.gitkeep

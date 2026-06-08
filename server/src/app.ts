@@ -8,6 +8,7 @@ import { payRouter } from './modules/pay/pay.routes.js';
 import { photoRouter } from './modules/photos/photo.routes.js';
 import { profileRouter } from './modules/profile/profile.routes.js';
 import { projectRouter } from './modules/projects/project.routes.js';
+import { reportRouter } from './modules/reports/report.routes.js';
 import { timeRouter } from './modules/time/time.routes.js';
 
 interface CreateAppOptions {
@@ -37,6 +38,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use('/time-entries', timeRouter);
   app.use('/photo-evidence', photoRouter);
   app.use('/pay-summaries', payRouter);
+  app.use('/reports', reportRouter);
 
   if (options.testRouter) {
     app.use('/test', options.testRouter);
