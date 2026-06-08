@@ -1,7 +1,7 @@
 const localJwtSecret = 'claimproof-local-dev-secret';
 const minimumProductionJwtSecretLength = 32;
 
-type EnvSource = Partial<Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'PORT' | 'CLIENT_ORIGIN' | 'JWT_SECRET'>>;
+type EnvSource = Partial<Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'PORT' | 'CLIENT_ORIGIN' | 'JWT_SECRET' | 'UPLOAD_ROOT'>>;
 
 export function createEnv(source: EnvSource = process.env) {
   const nodeEnv = source.NODE_ENV ?? 'development';
@@ -18,7 +18,8 @@ export function createEnv(source: EnvSource = process.env) {
     port: Number(source.PORT ?? 4000),
     clientOrigin: source.CLIENT_ORIGIN ?? 'http://localhost:5173',
     jwtSecret,
-    jwtExpiresIn: '7d'
+    jwtExpiresIn: '7d',
+    uploadRoot: source.UPLOAD_ROOT ?? `${process.cwd()}/uploads`
   } as const;
 }
 

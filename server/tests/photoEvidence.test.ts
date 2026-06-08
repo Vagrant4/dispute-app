@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { PrismaClient } from '@prisma/client';
@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
+process.env.UPLOAD_ROOT = join(process.cwd(), '.test-uploads', 'photo-evidence');
 
 interface AuthUserResponse {
   user: {
@@ -69,7 +70,7 @@ describe('photoEvidence ownership API', () => {
     });
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
-    uploadRoot = join(process.cwd(), 'uploads');
+    uploadRoot = process.env.UPLOAD_ROOT!;
   });
 
   beforeEach(async () => {
@@ -123,7 +124,7 @@ describe('photoEvidence ownership API', () => {
       gpsLat: 1.3521,
       gpsLng: 103.8198
     });
-    expect(body.photoEvidence.imagePath).toMatch(new RegExp(`^uploads/${user.id}/`));
+    expect(body.photoEvidence.imagePath).toMatch(new RegExp(`^\\.test-uploads/photo-evidence/${user.id}/`));
     expect(body.photoEvidence.imagePath).not.toMatch(/^[A-Za-z]:/);
     expect(existsSync(join(process.cwd(), body.photoEvidence.imagePath))).toBe(true);
 
@@ -262,6 +263,56 @@ describe('photoEvidence ownership API', () => {
     await expect(prisma.photoEvidence.count({ where: { userId: user.id } })).resolves.toBe(0);
   });
 
+  it('rejects non-image uploads before creating photo evidence', async () => {
+    const user = await registerUser('photo-text-file@example.com');
+    const project = await createProject(user.cookie);
+
+    const response = await uploadPhoto(
+      user.cookie,
+      {
+        projectId: project.id,
+        evidenceType: 'OTHER'
+      },
+      new Blob(['not an image'], { type: 'text/plain' }),
+      'notes.txt'
+    );
+
+    expect(response.status).toBe(400);
+    await expect(jsonBody<{ error: string }>(response)).resolves.toMatchObject({
+      error: expect.stringMatching(/JPEG, PNG, WebP, HEIC, or HEIF/)
+    });
+    await expect(prisma.photoEvidence.count({ where: { userId: user.id } })).resolves.toBe(0);
+  });
+
+  it('does not delete files outside the configured upload root when imagePath is malformed', async () => {
+    const user = await registerUser('photo-safe-delete@example.com');
+    const project = await createProject(user.cookie);
+    const outsideDir = join(process.cwd(), '.test-uploads', 'outside-photo-evidence-root');
+    const outsideFile = join(outsideDir, 'keep-me.jpg');
+    await mkdir(outsideDir, { recursive: true });
+    await writeFile(outsideFile, 'outside upload root');
+    const outsideImagePath = relative(process.cwd(), outsideFile).replaceAll('\\', '/');
+    const photoEvidence = await prisma.photoEvidence.create({
+      data: {
+        userId: user.id,
+        projectId: project.id,
+        imagePath: outsideImagePath,
+        caption: 'malformed storage path',
+        evidenceType: 'OTHER',
+        timestamp: new Date('2026-06-01T12:00:00.000Z')
+      }
+    });
+
+    const response = await fetch(`${baseUrl}/photo-evidence/${photoEvidence.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: user.cookie }
+    });
+
+    expect(response.status).toBe(204);
+    expect(existsSync(outsideFile)).toBe(true);
+    await rm(outsideDir, { recursive: true, force: true });
+  });
+
   async function registerUser(email: string): Promise<{ id: string; cookie: string }> {
     const response = await postJson('/auth/register', {
       email,
@@ -317,12 +368,17 @@ describe('photoEvidence ownership API', () => {
     return body.timeEntry;
   }
 
-  function uploadPhoto(cookie: string, fields: Record<string, string>): Promise<Response> {
+  function uploadPhoto(
+    cookie: string,
+    fields: Record<string, string>,
+    file: Blob = new Blob(['fake image data'], { type: 'image/jpeg' }),
+    fileName = 'evidence.jpg'
+  ): Promise<Response> {
     const form = new FormData();
     for (const [key, value] of Object.entries(fields)) {
       form.set(key, value);
     }
-    form.set('file', new Blob(['fake image data'], { type: 'image/jpeg' }), 'evidence.jpg');
+    form.set('file', file, fileName);
 
     return fetch(`${baseUrl}/photo-evidence/upload`, {
       method: 'POST',

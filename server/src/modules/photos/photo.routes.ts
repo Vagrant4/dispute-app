@@ -1,14 +1,26 @@
 import { mkdir, rm } from 'node:fs/promises';
-import { extname, join, relative } from 'node:path';
+import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { EvidenceType } from '@prisma/client';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
+import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
 
-const uploadRoot = join(process.cwd(), 'uploads');
+const maxUploadBytes = 10 * 1024 * 1024;
+const acceptedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+const uploadRoot = resolve(env.uploadRoot);
+
+class InvalidPhotoUploadError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number
+  ) {
+    super(message);
+  }
+}
 
 const storage = multer.diskStorage({
   async destination(req, _file, callback) {
@@ -32,7 +44,18 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: maxUploadBytes },
+  fileFilter(_req, file, callback) {
+    if (!acceptedImageMimeTypes.has(file.mimetype)) {
+      callback(new InvalidPhotoUploadError('Photo evidence file must be a JPEG, PNG, WebP, HEIC, or HEIF image', 400));
+      return;
+    }
+
+    callback(null, true);
+  }
+});
 
 const optionalText = z.string().trim().optional().default('');
 const idField = z.string().trim().min(1);
@@ -217,7 +240,17 @@ photoRouter.delete('/:id', async (req, res, next) => {
 });
 
 photoRouter.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (error instanceof InvalidPhotoUploadError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+
   if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({ error: `Photo evidence file must be ${maxUploadBytes / 1024 / 1024} MB or smaller` });
+      return;
+    }
+
     res.status(400).json({ error: error.message });
     return;
   }
@@ -253,15 +286,23 @@ function toRelativeUploadPath(filePath: string): string {
 }
 
 async function removeStoredPhotoFile(imagePath: string): Promise<void> {
-  if (!imagePath.startsWith('uploads/')) return;
-  await removeUploadedFile(join(process.cwd(), imagePath));
+  const filePath = isAbsolute(imagePath) ? imagePath : resolve(process.cwd(), imagePath);
+  if (!isPathWithinUploadRoot(filePath)) return;
+  await removeUploadedFile(filePath);
 }
 
 async function removeUploadedFile(filePath: string): Promise<void> {
+  if (!isPathWithinUploadRoot(filePath)) return;
   await rm(filePath, { force: true });
 }
 
 function sanitizeExtension(extension: string): string {
   const cleaned = extension.toLowerCase().replace(/[^a-z0-9.]/g, '');
   return cleaned.length > 0 && cleaned.length <= 12 ? cleaned : '';
+}
+
+function isPathWithinUploadRoot(filePath: string): boolean {
+  const resolvedFilePath = resolve(filePath);
+  const uploadRootRelativePath = relative(uploadRoot, resolvedFilePath);
+  return uploadRootRelativePath !== '' && !uploadRootRelativePath.startsWith('..') && !isAbsolute(uploadRootRelativePath);
 }
