@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS time_entries (
 CREATE TABLE IF NOT EXISTS photo_evidence (
   id TEXT PRIMARY KEY NOT NULL,
   user_id TEXT NOT NULL,
-  project_id TEXT,
+  project_id TEXT NOT NULL,
   time_entry_id TEXT,
   local_uri TEXT NOT NULL,
   caption TEXT,

@@ -73,6 +73,15 @@ test("mobile SQLite schema uses composite ownership keys and foreign keys", () =
   }
 });
 
+test("mobile SQLite schema requires photo evidence project ownership", () => {
+  const { MOBILE_SCHEMA_SQL } = loadTsModule("src/db/schema.ts");
+
+  assert.match(
+    MOBILE_SCHEMA_SQL,
+    /CREATE TABLE IF NOT EXISTS photo_evidence \([\s\S]*\bproject_id TEXT NOT NULL\b/,
+  );
+});
+
 test("local migration service keeps migration table DDL in one schema constant", () => {
   const { SCHEMA_MIGRATIONS_TABLE_SQL, MOBILE_SCHEMA_SQL } = loadTsModule(
     "src/db/schema.ts",
