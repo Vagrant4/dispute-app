@@ -29,6 +29,18 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   lockedAt: null,
 };
 
+export function getSettingsIdForUser(userId: string): string {
+  return `settings:${userId}`;
+}
+
+export function createDefaultAppSettings(userId = DEFAULT_USER_ID): AppSettings {
+  return validateAppSettings({
+    ...DEFAULT_APP_SETTINGS,
+    id: getSettingsIdForUser(userId),
+    userId,
+  });
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }

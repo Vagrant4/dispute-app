@@ -1,11 +1,11 @@
 import type { LocalDatabase } from "./localDatabase";
 import { REPOSITORY_HEALTH_SQL } from "./schema";
 import {
-  DEFAULT_APP_SETTINGS,
   DEFAULT_SETTINGS_ID,
   DEFAULT_USER_ID,
   type AppSettings,
   type AppSettingsPatch,
+  createDefaultAppSettings,
   validateAppSettings,
   validateSettingsPatch,
 } from "./settingsValidation";
@@ -58,10 +58,7 @@ export class SettingsRepository {
       return fromRow(existing);
     }
 
-    const defaults = validateAppSettings({
-      ...DEFAULT_APP_SETTINGS,
-      userId,
-    });
+    const defaults = createDefaultAppSettings(userId);
     await this.insertSettings(defaults);
     return defaults;
   }

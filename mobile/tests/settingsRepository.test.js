@@ -27,6 +27,19 @@ test("default app settings are valid and Singapore-oriented", () => {
   assert.equal(DEFAULT_APP_SETTINGS.overtimeMultiplier, 1.5);
 });
 
+test("default app settings use distinct ids for different users", () => {
+  const { createDefaultAppSettings } = loadTsModule(
+    "src/db/settingsValidation.ts",
+  );
+
+  const first = createDefaultAppSettings("user-a");
+  const second = createDefaultAppSettings("user-b");
+
+  assert.equal(first.id, "settings:user-a");
+  assert.equal(second.id, "settings:user-b");
+  assert.notEqual(first.id, second.id);
+});
+
 test("settings updates reject unsafe limits and invalid currency", () => {
   const { DEFAULT_APP_SETTINGS, validateSettingsPatch } = loadTsModule(
     "src/db/settingsValidation.ts",
