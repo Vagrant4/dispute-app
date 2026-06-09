@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -155,12 +155,25 @@ ALTER TABLE photo_evidence ADD COLUMN gps_message TEXT;
 CREATE INDEX IF NOT EXISTS idx_photo_evidence_project_id ON photo_evidence(project_id);
 `;
 
+export const GENERATED_DOCUMENTS_PHASE_6_MIGRATION_SQL = `
+ALTER TABLE generated_documents ADD COLUMN file_hash TEXT;
+ALTER TABLE generated_documents ADD COLUMN metadata_json TEXT;
+ALTER TABLE generated_documents ADD COLUMN snapshot_json TEXT;
+CREATE INDEX IF NOT EXISTS idx_generated_documents_project_id ON generated_documents(project_id);
+`;
+
 export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  caption TEXT,\n  captured_at TEXT,",
   "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,",
 ).replace(
+  "  local_uri TEXT,\n  period_start TEXT,",
+  "  local_uri TEXT,\n  file_hash TEXT,\n  metadata_json TEXT,\n  snapshot_json TEXT,\n  period_start TEXT,",
+).replace(
   "CREATE INDEX IF NOT EXISTS idx_photo_evidence_user_id ON photo_evidence(user_id);",
   "CREATE INDEX IF NOT EXISTS idx_photo_evidence_user_id ON photo_evidence(user_id);\nCREATE INDEX IF NOT EXISTS idx_photo_evidence_project_id ON photo_evidence(project_id);",
+).replace(
+  "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);",
+  "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);\nCREATE INDEX IF NOT EXISTS idx_generated_documents_project_id ON generated_documents(project_id);",
 );
 
 export const REPOSITORY_HEALTH_SQL = {
@@ -175,8 +188,13 @@ export const LOCAL_MIGRATIONS = [
     sql: PHASE_2_MOBILE_SCHEMA_SQL,
   },
   {
-    version: CURRENT_SCHEMA_VERSION,
+    version: 2,
     name: "phase_5_photo_evidence_storage",
     sql: PHOTO_EVIDENCE_PHASE_5_MIGRATION_SQL,
+  },
+  {
+    version: 3,
+    name: "phase_6_generated_document_archive",
+    sql: GENERATED_DOCUMENTS_PHASE_6_MIGRATION_SQL,
   },
 ] as const;

@@ -64,6 +64,7 @@ test("createBackupEnvelope wraps table data with ClaimProof SG marker and versio
   const {
     BACKUP_APP_MARKER,
     BACKUP_SCHEMA_VERSION,
+    CURRENT_SCHEMA_VERSION,
     createBackupEnvelope,
   } = loadBackupService();
 
@@ -73,7 +74,7 @@ test("createBackupEnvelope wraps table data with ClaimProof SG marker and versio
 
   assert.equal(envelope.app, BACKUP_APP_MARKER);
   assert.equal(envelope.version, BACKUP_SCHEMA_VERSION);
-  assert.equal(envelope.schema, 2);
+  assert.equal(envelope.schema, CURRENT_SCHEMA_VERSION);
   assert.equal(typeof envelope.exportedAt, "string");
   assert.deepEqual(envelope.tables.app_settings, [
     { id: "settings:user-a", user_id: "user-a" },

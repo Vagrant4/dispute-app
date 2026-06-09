@@ -8,6 +8,7 @@ import { EvidenceLockScreen } from "./src/screens/EvidenceLockScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { PhotoEvidenceScreen } from "./src/screens/PhotoEvidenceScreen";
 import { PrivacyScreen } from "./src/screens/PrivacyScreen";
+import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsScreen";
 import { SettingsBackupScreen } from "./src/screens/SettingsBackupScreen";
 import { StorageDiagnosticsScreen } from "./src/screens/StorageDiagnosticsScreen";
 import { SubscriptionScreen } from "./src/screens/SubscriptionScreen";
@@ -23,6 +24,8 @@ function renderScreen(activeTab: TabId) {
       return <StorageDiagnosticsScreen />;
     case "photos":
       return <PhotoEvidenceScreen />;
+    case "reports":
+      return <ProgressClaimReportsScreen />;
     case "subscription":
       return <SubscriptionScreen />;
     case "lock":

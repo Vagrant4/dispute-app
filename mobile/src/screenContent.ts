@@ -4,6 +4,7 @@ export const tabs = [
   { id: "privacy", label: "Privacy", title: "Privacy Notice" },
   { id: "storage", label: "Storage", title: "Storage Diagnostics" },
   { id: "photos", label: "Photos", title: "Photo Evidence" },
+  { id: "reports", label: "Reports", title: "Progress Claim Reports" },
   { id: "subscription", label: "Plan", title: "Subscription Status" },
   { id: "lock", label: "Lock", title: "Evidence Lock" },
 ] as const;
@@ -67,4 +68,14 @@ export const photoEvidenceContent = {
     "GPS is optional. If location access is denied or unavailable, photo evidence " +
     "can still be saved without coordinates. Coordinates are not a verification " +
     "or authenticity claim.",
+};
+
+export const progressClaimReportContent = {
+  heading: "Generate progress claim reports",
+  body:
+    "Create PDF or CSV progress claim files from local profile, client, project, time, pay, and photo evidence records when available.",
+  localStorage:
+    "Generated documents are archived locally on this device. Use manual share/export when you need to send a file.",
+  noUpload:
+    "ClaimProof SG does not upload reports, email them automatically, or claim legal or MOM compliance.",
 };

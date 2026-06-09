@@ -17,6 +17,7 @@ export {
   BACKUP_SCHEMA_VERSION,
   BACKUP_TABLES,
 } from "./backupTypes";
+export { CURRENT_SCHEMA_VERSION } from "../db/schema";
 
 export type BackupRepositoryPort = {
   exportTables?: () => Promise<BackupTables>;
