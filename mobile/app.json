@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "ClaimProof SG",
+    "slug": "claimproof-sg",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "sg.claimproof.mobile"
+    },
+    "android": {
+      "package": "sg.claimproof.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F766E"
+      }
+    }
+  }
+}

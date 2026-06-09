@@ -8,7 +8,7 @@
     "db:migrate": "npm run db:migrate --workspace server",
     "db:seed": "npm run db:seed --workspace server"
   },
-  "workspaces": ["client", "server"],
+  "workspaces": ["client", "server", "mobile"],
   "devDependencies": {
     "concurrently": "latest"
   }
