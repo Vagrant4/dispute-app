@@ -32,6 +32,7 @@ Core mobile dependencies should be selected from Expo-friendly, open-source libr
 
 - SQLite local database for structured data.
 - Device file system for photos, JSON backups, generated PDFs, and generated CSVs.
+- Secure device storage for sensitive identifiers such as FIN, NRIC, and worker ID.
 - Camera and image picker for evidence capture.
 - Location permission for optional GPS capture.
 - Native share sheet for report export.
@@ -51,6 +52,7 @@ The mobile app stores these locally in SQLite:
 - Progress claim report metadata
 - App settings
 - Subscription entitlement cache
+- Generated document archive metadata
 
 Photos are copied into app-owned local file storage. Photo evidence records store:
 
@@ -64,6 +66,59 @@ Photos are copied into app-owned local file storage. Photo evidence records stor
 - Created date
 
 Generated reports are stored as local files and can be shared or exported manually.
+
+Sensitive identifiers must not be stored as plain SQLite fields in the mobile app. FIN, NRIC, and worker ID should be stored using Expo SecureStore or the closest Expo-supported secure storage approach. SQLite records can store non-sensitive display/profile fields and secure-store lookup keys.
+
+## Generated Document Archive
+
+Mobile V1 must explicitly track generated files in a `GeneratedDocument` local model:
+
+```text
+GeneratedDocument
+
+id
+type
+filePath
+createdAt
+hash
+sourceRecordId optional
+notes optional
+```
+
+Document types should include:
+
+- `PROGRESS_CLAIM_PDF`
+- `TIME_ENTRIES_CSV`
+- `PAY_SUMMARY_CSV`
+- `PROGRESS_CLAIM_CSV`
+- `JSON_BACKUP`
+
+The `hash` field supports later evidence verification and helps detect accidental file changes.
+
+## Evidence Lock
+
+Evidence quality is the product. Mobile V1 must support locking finalized evidence records.
+
+Applicable records:
+
+- Time entries
+- Photo evidence
+- Progress claim reports
+- Generated documents
+
+Record status should support:
+
+- `DRAFT`
+- `FINALIZED`
+- `LOCKED`
+
+When a record is locked, the app must generate:
+
+- A canonical JSON payload for the locked record.
+- A SHA-256 hash of that payload.
+- A locked timestamp.
+
+Locked records should be read-only in the normal UI. If future editing is required, it should create a new revision rather than mutating the locked evidence.
 
 ## Shared Logic
 
@@ -120,19 +175,23 @@ Settings / Backup must show this warning exactly:
 Mobile V1 must include at minimum:
 
 - Export all SQLite records as JSON.
+- Import JSON backup.
 - Export generated reports.
 - Clear backup warning.
 
-Import/restore can be a placeholder if full restore is too large for the first mobile slice. The placeholder must explain that restore is planned and that exported JSON should be kept safe.
+Import/restore is a V1 requirement, not a placeholder. A worker changing phone must be able to restore exported ClaimProof SG records. Import should validate backup version, avoid overwriting local data without an explicit confirmation, and reject malformed JSON with a clear error.
 
 ## Subscription Model
 
 The requested subscription plan is:
 
 - Plan name: ClaimProof SG Basic
-- Price: USD 1 per month
+- Initial idea: USD 1 per month
+- Recommended launch pricing to evaluate before store release: Free tier plus S$4.99/month, or S$49/year
 - Billing cadence: monthly
 - Billing provider foundation: Stripe
+
+The implementation must not hard-code USD 1 as the final launch price. The Stripe foundation should use environment-configured price IDs so pricing can be changed before launch without app changes.
 
 Because the app is intended for Apple App Store and Google Play, subscription implementation must be policy-aware:
 
@@ -201,6 +260,7 @@ Create a mobile foundation with these screens:
 - Settings / backup
 - Subscription status
 - Local storage diagnostics
+- Evidence lock demonstration/status panel
 
 Feature-complete replicas of every web screen can come after the mobile foundation is stable.
 
