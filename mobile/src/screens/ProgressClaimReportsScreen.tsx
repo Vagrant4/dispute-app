@@ -3,18 +3,13 @@ import { Pressable, Text, View } from "react-native";
 
 import { getLocalRepositories } from "../db/repositories";
 import {
-  buildGeneratedDocumentArchiveInput,
-  createGeneratedDocumentId,
-} from "../reports/generatedDocumentArchiveService";
-import {
   deleteGeneratedDocumentFile,
 } from "../reports/generatedDocumentFiles";
 import type {
   GeneratedDocumentRow,
   GeneratedDocumentType,
 } from "../reports/generatedDocumentRepository";
-import { saveProgressClaimCsv } from "../reports/reportCsvExport";
-import { saveProgressClaimPdf } from "../reports/reportPdfExport";
+import { generateAndArchiveProgressClaim } from "../reports/progressClaimReportArchive";
 import { shareGeneratedDocument } from "../reports/reportSharing";
 import { expoSharingAdapter } from "../reports/reportSharingExpo";
 import { progressClaimReportContent } from "../screenContent";
@@ -46,38 +41,13 @@ export function ProgressClaimReportsScreen() {
   async function handleGenerate(type: GeneratedDocumentType) {
     try {
       const repositories = await getLocalRepositories();
-      const snapshot = await repositories.progressClaims.buildLatestProgressClaimSnapshot({
-        userId: LOCAL_USER_ID,
-      });
-      const documentId = createGeneratedDocumentId(
-        type === "progress_claim_pdf" ? "claim-pdf" : "claim-csv",
-      );
-      const exportResult =
-        type === "progress_claim_pdf"
-          ? await saveProgressClaimPdf({
-              snapshot,
-              userId: LOCAL_USER_ID,
-              documentId,
-            })
-          : await saveProgressClaimCsv({
-              snapshot,
-              userId: LOCAL_USER_ID,
-              documentId,
-            });
-      const archiveInput = await buildGeneratedDocumentArchiveInput({
-        id: documentId,
-        userId: LOCAL_USER_ID,
+      const result = await generateAndArchiveProgressClaim({
         type,
-        filePath: exportResult.filePath,
-        snapshot,
-        metadata: {
-          format: type === "progress_claim_pdf" ? "pdf" : "csv",
-          source: "mobile-local-report-screen",
-        },
+        userId: LOCAL_USER_ID,
+        repositories,
       });
 
-      await repositories.generatedDocuments.insertGeneratedDocument(archiveInput);
-      setStatus(`${exportResult.message} Archived locally for manual export.`);
+      setStatus(`${result.message} Archived locally for manual export.`);
       await refreshArchive();
     } catch (error) {
       setStatus(getErrorMessage(error));

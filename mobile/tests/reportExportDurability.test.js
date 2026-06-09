@@ -109,6 +109,58 @@ test("saveProgressClaimCsv rejects when durable app-owned storage is unavailable
   );
 });
 
+test("saveProgressClaimCsv rejects when documentDirectory is unavailable", async () => {
+  const writes = [];
+  const { saveProgressClaimCsv } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: null,
+      EncodingType: { UTF8: "utf8" },
+      makeDirectoryAsync: async () => {},
+      writeAsStringAsync: async (filePath) => {
+        writes.push(filePath);
+      },
+      getInfoAsync: async () => ({ exists: true }),
+    },
+  })("src/reports/reportCsvExport.ts");
+
+  await assert.rejects(
+    () =>
+      saveProgressClaimCsv({
+        snapshot: createSnapshot(),
+        userId: "user-a",
+        documentId: "doc-1",
+      }),
+    /app-owned local report storage is unavailable/,
+  );
+  assert.deepEqual(writes, []);
+});
+
+test("saveProgressClaimCsv rejects when durable file verification fails after write", async () => {
+  const writes = [];
+  const { saveProgressClaimCsv } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "file:///documents/",
+      EncodingType: { UTF8: "utf8" },
+      makeDirectoryAsync: async () => {},
+      writeAsStringAsync: async (filePath) => {
+        writes.push(filePath);
+      },
+      getInfoAsync: async () => ({ exists: false }),
+    },
+  })("src/reports/reportCsvExport.ts");
+
+  await assert.rejects(
+    () =>
+      saveProgressClaimCsv({
+        snapshot: createSnapshot(),
+        userId: "user-a",
+        documentId: "doc-1",
+      }),
+    /verification failed/,
+  );
+  assert.equal(writes.length, 1);
+});
+
 test("saveProgressClaimPdf rejects instead of archiving Expo print cache URI when copy is unavailable", async () => {
   const printCalls = [];
   const { saveProgressClaimPdf } = createTsLoader({
@@ -133,4 +185,97 @@ test("saveProgressClaimPdf rejects instead of archiving Expo print cache URI whe
     /Durable report storage is unavailable/,
   );
   assert.equal(printCalls.length, 1);
+});
+
+test("saveProgressClaimPdf rejects when documentDirectory is blank before copying print cache URI", async () => {
+  const copies = [];
+  const { saveProgressClaimPdf } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "   ",
+      makeDirectoryAsync: async () => {},
+      copyAsync: async (params) => {
+        copies.push(params);
+      },
+      getInfoAsync: async () => ({ exists: true }),
+    },
+    "expo-print": {
+      printToFileAsync: async () => ({ uri: "file:///cache/temporary-print-output.pdf" }),
+    },
+  })("src/reports/reportPdfExport.ts");
+
+  await assert.rejects(
+    () =>
+      saveProgressClaimPdf({
+        snapshot: createSnapshot(),
+        userId: "user-a",
+        documentId: "doc-1",
+      }),
+    /app-owned local report storage is unavailable/,
+  );
+  assert.deepEqual(copies, []);
+});
+
+test("saveProgressClaimPdf rejects when copied file verification fails", async () => {
+  const copies = [];
+  const { saveProgressClaimPdf } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "file:///documents/",
+      makeDirectoryAsync: async () => {},
+      copyAsync: async (params) => {
+        copies.push(params);
+      },
+      getInfoAsync: async () => ({ exists: false }),
+    },
+    "expo-print": {
+      printToFileAsync: async () => ({ uri: "file:///cache/temporary-print-output.pdf" }),
+    },
+  })("src/reports/reportPdfExport.ts");
+
+  await assert.rejects(
+    () =>
+      saveProgressClaimPdf({
+        snapshot: createSnapshot(),
+        userId: "user-a",
+        documentId: "doc-1",
+      }),
+    /verification failed/,
+  );
+  assert.equal(copies.length, 1);
+});
+
+test("generateAndArchiveProgressClaim does not insert archive row when durable export rejects", async () => {
+  const inserted = [];
+  const { generateAndArchiveProgressClaim } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "file:///documents/",
+      EncodingType: { UTF8: "utf8" },
+    },
+    "expo-print": {
+      printToFileAsync: async () => ({ uri: "file:///cache/report.pdf" }),
+    },
+  })("src/reports/progressClaimReportArchive.ts");
+
+  await assert.rejects(
+    () =>
+      generateAndArchiveProgressClaim({
+        type: "progress_claim_csv",
+        userId: "user-a",
+        repositories: {
+          progressClaims: {
+            buildLatestProgressClaimSnapshot: async () => createSnapshot(),
+          },
+          generatedDocuments: {
+            insertGeneratedDocument: async (row) => {
+              inserted.push(row);
+            },
+          },
+        },
+        createDocumentId: () => "doc-1",
+        saveCsv: async () => {
+          throw new Error("Durable report storage is unavailable.");
+        },
+      }),
+    /Durable report storage is unavailable/,
+  );
+  assert.deepEqual(inserted, []);
 });

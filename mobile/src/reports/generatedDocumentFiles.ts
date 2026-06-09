@@ -16,8 +16,7 @@ export function buildGeneratedDocumentPath(params: {
   format: GeneratedDocumentFormat;
   baseDirectory?: string | null;
 }): string {
-  const baseDirectory =
-    params.baseDirectory ?? FileSystem.documentDirectory ?? "file:///";
+  const baseDirectory = getDurableReportBaseDirectory(params.baseDirectory);
   const normalizedBase = baseDirectory.endsWith("/")
     ? baseDirectory
     : `${baseDirectory}/`;
@@ -29,6 +28,18 @@ export function buildGeneratedDocumentPath(params: {
     sanitizePathSegment(params.projectId ?? "no-project"),
     `${sanitizePathSegment(params.documentId)}.${params.format}`,
   ].join("/");
+}
+
+export function getDurableReportBaseDirectory(
+  baseDirectory = FileSystem.documentDirectory,
+): string {
+  if (!baseDirectory || baseDirectory.trim().length === 0) {
+    throw new DurableReportStorageError(
+      "ClaimProof SG app-owned local report storage is unavailable in this runtime, so the report was not archived.",
+    );
+  }
+
+  return baseDirectory;
 }
 
 export async function writeGeneratedDocumentText(params: {
