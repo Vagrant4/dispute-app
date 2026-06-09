@@ -1,6 +1,7 @@
 export const tabs = [
   { id: "home", label: "Home", title: "ClaimProof SG" },
   { id: "backup", label: "Backup", title: "Settings / Backup" },
+  { id: "trial", label: "Trial", title: "Trial Readiness" },
   { id: "privacy", label: "Privacy", title: "Privacy Notice" },
   { id: "storage", label: "Storage", title: "Storage Diagnostics" },
   { id: "photos", label: "Photos", title: "Photo Evidence" },
@@ -36,6 +37,33 @@ export const subscriptionContent = {
     "Future billing access is policy-gated and will be handled through the " +
     "approved path for the product phase that enables subscriptions.",
 };
+
+export const trialReadinessContent = {
+  heading: "Real user trial before Stripe",
+  warning:
+    "V1 is for a 2-week trial with 5 freelancers, 3 subcontractors, and 2 site supervisors before subscription work.",
+  backupReminder:
+    "Export a backup before uninstalling, changing phone, clearing app data, or relying on important records.",
+  localOnly:
+    "Records stay local unless you export, back up, or share them. There is no cloud sync, analytics, account collection, or backend upload in this trial.",
+  goals: [
+    "Validate clock in/out and manual time entries.",
+    "Check photo evidence quality, notes, and optional GPS denial.",
+    "Generate and share PDF/CSV progress claim reports.",
+    "Confirm pay summary and evidence lock are useful for disputes.",
+  ],
+  checklist: [
+    "Create realistic projects and clients.",
+    "Log daily time and project activity.",
+    "Capture photo evidence with useful notes.",
+    "Generate weekly PDF and CSV reports.",
+    "Back up important records before device changes.",
+  ],
+  privacy:
+    "Do not enter real FIN/NRIC unless comfortable. Use realistic non-sensitive names where possible.",
+  limitations:
+    "Known limits: no CPF/MOM automation, employer approval, cloud backup, subscription enforcement, GPS verification, Work Permit tracking, OCR, or photo analysis.",
+} as const;
 
 export const evidenceLockStates = [
   {

@@ -12,12 +12,25 @@ test("mobile scaffold declares required screen labels", () => {
   for (const label of [
     "Home",
     "Settings / Backup",
+    "Trial Readiness",
     "Privacy Notice",
     "Storage Diagnostics",
     "Subscription Status",
     "Evidence Lock",
   ]) {
     assert.match(contentSource, new RegExp(`\\b${label}\\b`));
+  }
+});
+
+test("mobile scaffold declares real user trial readiness copy", () => {
+  for (const requiredCopy of [
+    "2-week trial with 5 freelancers, 3 subcontractors, and 2 site supervisors",
+    "Export a backup before uninstalling, changing phone, clearing app data",
+    "There is no cloud sync, analytics, account collection, or backend upload",
+    "Do not enter real FIN/NRIC unless comfortable",
+    "no CPF/MOM automation",
+  ]) {
+    assert.match(contentSource, new RegExp(requiredCopy));
   }
 });
 

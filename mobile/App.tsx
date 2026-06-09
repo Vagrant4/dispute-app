@@ -12,6 +12,7 @@ import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsSc
 import { SettingsBackupScreen } from "./src/screens/SettingsBackupScreen";
 import { StorageDiagnosticsScreen } from "./src/screens/StorageDiagnosticsScreen";
 import { SubscriptionScreen } from "./src/screens/SubscriptionScreen";
+import { TrialReadinessScreen } from "./src/screens/TrialReadinessScreen";
 import { styles } from "./src/styles";
 
 function renderScreen(activeTab: TabId) {
@@ -20,6 +21,8 @@ function renderScreen(activeTab: TabId) {
       return <SettingsBackupScreen />;
     case "privacy":
       return <PrivacyScreen />;
+    case "trial":
+      return <TrialReadinessScreen />;
     case "storage":
       return <StorageDiagnosticsScreen />;
     case "photos":
