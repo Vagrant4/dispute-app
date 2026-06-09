@@ -1,21 +1,7 @@
 import { Text, View } from "react-native";
 
+import { evidenceLockStates } from "../screenContent";
 import { styles } from "../styles";
-
-const lockStates = [
-  {
-    title: "Draft",
-    description: "The record can still be edited before it is used as evidence.",
-  },
-  {
-    title: "Finalized",
-    description: "The record is marked complete and ready for claim reporting.",
-  },
-  {
-    title: "Locked",
-    description: "The record is protected from later edits for dispute support.",
-  },
-];
 
 export function EvidenceLockScreen() {
   return (
@@ -29,7 +15,7 @@ export function EvidenceLockScreen() {
         </Text>
       </View>
 
-      {lockStates.map((state) => (
+      {evidenceLockStates.map((state) => (
         <View key={state.title} style={styles.card}>
           <View style={styles.statusPill}>
             <Text style={styles.statusPillText}>{state.title}</Text>

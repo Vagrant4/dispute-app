@@ -1,9 +1,7 @@
 import { Text, View } from "react-native";
 
+import { backupWarning } from "../screenContent";
 import { styles } from "../styles";
-
-const backupWarning =
-  "ClaimProof SG stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
 
 export function SettingsBackupScreen() {
   return (

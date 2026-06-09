@@ -1,0 +1,51 @@
+export const tabs = [
+  { id: "home", label: "Home", title: "ClaimProof SG" },
+  { id: "backup", label: "Backup", title: "Settings / Backup" },
+  { id: "privacy", label: "Privacy", title: "Privacy Notice" },
+  { id: "storage", label: "Storage", title: "Storage Diagnostics" },
+  { id: "subscription", label: "Plan", title: "Subscription Status" },
+  { id: "lock", label: "Lock", title: "Evidence Lock" },
+] as const;
+
+export type TabId = (typeof tabs)[number]["id"];
+
+export const backupWarning =
+  "ClaimProof SG stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
+
+export const privacyContent = {
+  heading: "Local-first in V1",
+  body:
+    "ClaimProof SG V1 is designed around local-first records. Work logs, " +
+    "evidence notes, and status information are intended to stay on this " +
+    "device unless you choose an export or backup action in a later phase.",
+  analyticsHeading: "No analytics in V1",
+  analyticsBody:
+    "This mobile foundation does not include analytics, tracking SDKs, cloud " +
+    "sync, or background evidence uploads.",
+};
+
+export const subscriptionContent = {
+  heading: "Status unavailable",
+  billingPath: "Billing path",
+  noCheckout:
+    "Billing is not active in this mobile foundation. No direct Stripe " +
+    "checkout button is provided in the app.",
+  policyGated:
+    "Future billing access is policy-gated and will be handled through the " +
+    "approved path for the product phase that enables subscriptions.",
+};
+
+export const evidenceLockStates = [
+  {
+    title: "Draft",
+    description: "The record can still be edited before it is used as evidence.",
+  },
+  {
+    title: "Finalized",
+    description: "The record is marked complete and ready for claim reporting.",
+  },
+  {
+    title: "Locked",
+    description: "The record is protected from later edits for dispute support.",
+  },
+] as const;

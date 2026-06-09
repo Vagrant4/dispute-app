@@ -8,16 +8,18 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/screenContent.test.js"
   },
   "dependencies": {
-    "expo": "latest",
-    "expo-status-bar": "latest",
-    "react": "latest",
-    "react-native": "latest"
+    "expo": "~56.0.9",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0"
   },
   "devDependencies": {
-    "@types/react": "latest",
-    "typescript": "latest"
+    "@types/react": "~19.2.14",
+    "typescript": "~6.0.3"
   }
 }
