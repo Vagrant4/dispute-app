@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "expo": "~56.0.9",
+    "expo-crypto": "^56.0.4",
     "expo-sqlite": "~56.0.4",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
