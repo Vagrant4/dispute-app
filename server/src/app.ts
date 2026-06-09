@@ -11,6 +11,7 @@ import { profileRouter } from './modules/profile/profile.routes.js';
 import { projectRouter } from './modules/projects/project.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
 import { settingsRouter } from './modules/settings/settings.routes.js';
+import { subscriptionRouter } from './modules/subscription/subscription.routes.js';
 import { timeRouter } from './modules/time/time.routes.js';
 
 interface CreateAppOptions {
@@ -42,6 +43,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use('/pay-summaries', payRouter);
   app.use('/reports', reportRouter);
   app.use('/settings', settingsRouter);
+  app.use('/subscription', subscriptionRouter);
   app.use('/admin', adminRouter);
 
   if (options.testRouter) {

@@ -28,14 +28,12 @@ export const privacyContent = {
 };
 
 export const subscriptionContent = {
-  heading: "Status unavailable",
-  billingPath: "Billing path",
+  heading: "Foundation only",
+  billingPath: "Future billing path",
   noCheckout:
-    "Billing is not active in this mobile foundation. No direct Stripe " +
-    "checkout button is provided in the app.",
+    "ClaimProof SG subscription billing is not active in V1. No payment is collected in this app. No Stripe checkout is available in the mobile app.",
   policyGated:
-    "Future billing access is policy-gated and will be handled through the " +
-    "approved path for the product phase that enables subscriptions.",
+    "Pricing will be decided after the real-user trial. Future mobile digital subscriptions are policy-gated and must use an approved App Store or Google Play path unless policy and legal review confirms another allowed strategy.",
 };
 
 export const trialReadinessContent = {

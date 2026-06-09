@@ -46,3 +46,14 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
     assert.match(contentSource, new RegExp(`\\b${lockState}\\b`));
   }
 });
+
+test("mobile subscription screen copy keeps V1 billing disabled and policy safe", () => {
+  for (const requiredCopy of [
+    "subscription billing is not active in V1",
+    "No payment is collected in this app",
+    "Pricing will be decided after the real-user trial",
+    "No Stripe checkout is available in the mobile app",
+  ]) {
+    assert.match(contentSource, new RegExp(requiredCopy));
+  }
+});
