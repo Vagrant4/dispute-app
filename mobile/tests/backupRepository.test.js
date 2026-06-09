@@ -160,3 +160,58 @@ test("BackupRepository overwrites local records in dependency-safe table order",
   assert.ok(sqlCalls.includes("BEGIN IMMEDIATE TRANSACTION;"));
   assert.ok(sqlCalls.includes("COMMIT;"));
 });
+
+test("importBackupJson restores through BackupRepository and fake LocalDatabase", async () => {
+  const load = createTsLoader();
+  const {
+    BACKUP_APP_MARKER,
+    BACKUP_SCHEMA_VERSION,
+    importBackupJson,
+  } = load("src/backup/backupService.ts");
+  const { BackupRepository } = load("src/backup/backupRepository.ts");
+  const database = createFakeDatabase({
+    clients: [{ id: "old-client", user_id: "user-a", name: "Old Client" }],
+    projects: [
+      {
+        id: "old-project",
+        user_id: "user-a",
+        client_id: "old-client",
+        name: "Old Project",
+      },
+    ],
+  });
+
+  await importBackupJson(
+    JSON.stringify({
+      app: BACKUP_APP_MARKER,
+      version: BACKUP_SCHEMA_VERSION,
+      schema: 1,
+      exportedAt: new Date().toISOString(),
+      tables: {
+        clients: [{ id: "new-client", user_id: "user-a", name: "New Client" }],
+        projects: [
+          {
+            id: "new-project",
+            user_id: "user-a",
+            client_id: "new-client",
+            name: "New Project",
+          },
+        ],
+      },
+    }),
+    new BackupRepository(database),
+    { mode: "overwrite" },
+  );
+
+  assert.deepEqual(database.tables.get("clients"), [
+    { id: "new-client", user_id: "user-a", name: "New Client" },
+  ]);
+  assert.deepEqual(database.tables.get("projects"), [
+    {
+      id: "new-project",
+      user_id: "user-a",
+      client_id: "new-client",
+      name: "New Project",
+    },
+  ]);
+});
