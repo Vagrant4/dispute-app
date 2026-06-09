@@ -31,6 +31,11 @@ describe('env config', () => {
     expect(env.stripe.priceIds.yearly).toBe('');
   });
 
+  it('defaults blank Stripe billing mode placeholders to disabled', () => {
+    expect(createEnv({ NODE_ENV: 'development', STRIPE_BILLING_MODE: '' }).stripe.billingMode).toBe('disabled');
+    expect(createEnv({ NODE_ENV: 'development', STRIPE_BILLING_MODE: '   ' }).stripe.billingMode).toBe('disabled');
+  });
+
   it('parses Stripe subscription placeholder config when provided', () => {
     const env = createEnv({
       NODE_ENV: 'development',

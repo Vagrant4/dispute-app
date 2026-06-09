@@ -54,7 +54,7 @@ export const env = createEnv();
 export const isProduction = env.nodeEnv === 'production';
 
 function parseStripeBillingMode(value: string | undefined): StripeBillingMode {
-  const billingMode = value ?? 'disabled';
+  const billingMode = value?.trim() || 'disabled';
   if (stripeBillingModes.includes(billingMode as StripeBillingMode)) {
     return billingMode as StripeBillingMode;
   }
