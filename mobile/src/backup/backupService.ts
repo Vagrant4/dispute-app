@@ -62,7 +62,11 @@ export function parseBackupJson(json: string): BackupEnvelope {
     throw new Error(`Unsupported backup version: ${String(parsed.version)}.`);
   }
 
-  if (parsed.schema !== CURRENT_SCHEMA_VERSION) {
+  if (
+    typeof parsed.schema !== "number" ||
+    parsed.schema < 1 ||
+    parsed.schema > CURRENT_SCHEMA_VERSION
+  ) {
     throw new Error(`Unsupported local schema version: ${String(parsed.schema)}.`);
   }
 

@@ -6,6 +6,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { tabs, type TabId } from "./src/screenContent";
 import { EvidenceLockScreen } from "./src/screens/EvidenceLockScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { PhotoEvidenceScreen } from "./src/screens/PhotoEvidenceScreen";
 import { PrivacyScreen } from "./src/screens/PrivacyScreen";
 import { SettingsBackupScreen } from "./src/screens/SettingsBackupScreen";
 import { StorageDiagnosticsScreen } from "./src/screens/StorageDiagnosticsScreen";
@@ -20,6 +21,8 @@ function renderScreen(activeTab: TabId) {
       return <PrivacyScreen />;
     case "storage":
       return <StorageDiagnosticsScreen />;
+    case "photos":
+      return <PhotoEvidenceScreen />;
     case "subscription":
       return <SubscriptionScreen />;
     case "lock":

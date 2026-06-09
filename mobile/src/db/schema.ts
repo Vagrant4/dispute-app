@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -19,7 +19,7 @@ export const SCHEMA_MIGRATIONS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS schema_mi
   applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );`;
 
-export const MOBILE_SCHEMA_SQL = `
+export const PHASE_2_MOBILE_SCHEMA_SQL = `
 ${SCHEMA_MIGRATIONS_TABLE_SQL}
 
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -147,6 +147,22 @@ CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_document
 CREATE INDEX IF NOT EXISTS idx_subscription_entitlements_user_id ON subscription_entitlements(user_id);
 `;
 
+export const PHOTO_EVIDENCE_PHASE_5_MIGRATION_SQL = `
+ALTER TABLE photo_evidence ADD COLUMN evidence_type TEXT NOT NULL DEFAULT 'OTHER';
+ALTER TABLE photo_evidence ADD COLUMN gps_latitude REAL;
+ALTER TABLE photo_evidence ADD COLUMN gps_longitude REAL;
+ALTER TABLE photo_evidence ADD COLUMN gps_message TEXT;
+CREATE INDEX IF NOT EXISTS idx_photo_evidence_project_id ON photo_evidence(project_id);
+`;
+
+export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
+  "  caption TEXT,\n  captured_at TEXT,",
+  "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,",
+).replace(
+  "CREATE INDEX IF NOT EXISTS idx_photo_evidence_user_id ON photo_evidence(user_id);",
+  "CREATE INDEX IF NOT EXISTS idx_photo_evidence_user_id ON photo_evidence(user_id);\nCREATE INDEX IF NOT EXISTS idx_photo_evidence_project_id ON photo_evidence(project_id);",
+);
+
 export const REPOSITORY_HEALTH_SQL = {
   settingsCount: "SELECT COUNT(*) AS count FROM app_settings",
   generatedDocumentsCount: "SELECT COUNT(*) AS count FROM generated_documents",
@@ -154,8 +170,13 @@ export const REPOSITORY_HEALTH_SQL = {
 
 export const LOCAL_MIGRATIONS = [
   {
-    version: CURRENT_SCHEMA_VERSION,
+    version: 1,
     name: "phase_2_local_storage",
-    sql: MOBILE_SCHEMA_SQL,
+    sql: PHASE_2_MOBILE_SCHEMA_SQL,
+  },
+  {
+    version: CURRENT_SCHEMA_VERSION,
+    name: "phase_5_photo_evidence_storage",
+    sql: PHOTO_EVIDENCE_PHASE_5_MIGRATION_SQL,
   },
 ] as const;

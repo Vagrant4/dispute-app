@@ -20,7 +20,7 @@ export function HomeScreen() {
         <View style={styles.list}>
           <Text style={styles.body}>Authentication and sync are not connected.</Text>
           <Text style={styles.body}>SQLite storage is reserved for a later phase.</Text>
-          <Text style={styles.body}>Camera, gallery, GPS, and reports are not active yet.</Text>
+          <Text style={styles.body}>Camera, gallery, and optional GPS are prepared for photo evidence.</Text>
         </View>
       </View>
     </>

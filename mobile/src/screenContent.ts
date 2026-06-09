@@ -3,6 +3,7 @@ export const tabs = [
   { id: "backup", label: "Backup", title: "Settings / Backup" },
   { id: "privacy", label: "Privacy", title: "Privacy Notice" },
   { id: "storage", label: "Storage", title: "Storage Diagnostics" },
+  { id: "photos", label: "Photos", title: "Photo Evidence" },
   { id: "subscription", label: "Plan", title: "Subscription Status" },
   { id: "lock", label: "Lock", title: "Evidence Lock" },
 ] as const;
@@ -49,3 +50,21 @@ export const evidenceLockStates = [
     description: "The record is protected from later edits for dispute support.",
   },
 ] as const;
+
+export const photoEvidenceContent = {
+  heading: "Capture evidence for a project",
+  body:
+    "Use camera or gallery photos as local evidence for work progress, defects, " +
+    "deliveries, variations, and completed work. Saving a photo evidence row " +
+    "requires a project.",
+  permissionDenied:
+    "Photo permission was not granted. ClaimProof SG can still keep existing " +
+    "records, and you can enable camera or gallery access later in device settings.",
+  localStorageBody:
+    "Photos imported here are copied into app-owned local storage when the " +
+    "device runtime supports it. They are not uploaded or shared from this phase.",
+  gpsOptional:
+    "GPS is optional. If location access is denied or unavailable, photo evidence " +
+    "can still be saved without coordinates. Coordinates are not a verification " +
+    "or authenticity claim.",
+};
