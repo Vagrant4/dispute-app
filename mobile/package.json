@@ -9,10 +9,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/screenContent.test.js"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "expo": "~56.0.9",
+    "expo-sqlite": "~56.0.4",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
