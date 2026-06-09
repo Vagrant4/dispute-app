@@ -12,6 +12,7 @@
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
+    "@claimproof/shared": "file:../packages/shared",
     "expo": "~56.0.9",
     "expo-crypto": "^56.0.4",
     "expo-file-system": "~56.0.7",

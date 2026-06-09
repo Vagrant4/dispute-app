@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
+    "@claimproof/shared": "file:../packages/shared",
     "@prisma/client": "6.19.3",
     "bcryptjs": "latest",
     "cookie-parser": "latest",
