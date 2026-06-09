@@ -1,6 +1,11 @@
-import { MOBILE_TABLES } from "../db/schema";
 import type { LocalDatabase } from "../db/localDatabase";
-import type { BackupEnvelope, BackupRow, BackupTables, BackupTableName } from "./backupTypes";
+import {
+  BACKUP_TABLES,
+  type BackupEnvelope,
+  type BackupRow,
+  type BackupTables,
+  type BackupTableName,
+} from "./backupTypes";
 
 type BackupSqlValue = string | number | boolean | null | Uint8Array | ArrayBuffer;
 
@@ -12,10 +17,17 @@ const DELETE_ORDER: BackupTableName[] = [
   "clients",
   "subscription_entitlements",
   "app_settings",
-  "schema_migrations",
 ];
 
-const INSERT_ORDER: BackupTableName[] = [...MOBILE_TABLES];
+const INSERT_ORDER: BackupTableName[] = [
+  "app_settings",
+  "clients",
+  "subscription_entitlements",
+  "projects",
+  "time_entries",
+  "photo_evidence",
+  "generated_documents",
+];
 
 export class BackupRepository {
   constructor(private readonly database: LocalDatabase) {}
@@ -23,7 +35,7 @@ export class BackupRepository {
   async exportTables(): Promise<BackupTables> {
     const tables: BackupTables = {};
 
-    for (const tableName of MOBILE_TABLES) {
+    for (const tableName of BACKUP_TABLES) {
       tables[tableName] = await this.database.getAllAsync<BackupRow>(
         `SELECT * FROM ${quoteIdentifier(tableName)};`,
       );
@@ -35,7 +47,6 @@ export class BackupRepository {
   async applyBackup(envelope: BackupEnvelope): Promise<void> {
     await this.database.execAsync("BEGIN IMMEDIATE TRANSACTION;");
     try {
-      await this.database.execAsync("PRAGMA foreign_keys = OFF;");
       for (const tableName of DELETE_ORDER) {
         await this.database.execAsync(`DELETE FROM ${quoteIdentifier(tableName)}`);
       }
@@ -47,11 +58,10 @@ export class BackupRepository {
         }
       }
 
-      await this.database.execAsync("PRAGMA foreign_keys = ON;");
+      await this.assertForeignKeysValid();
       await this.database.execAsync("COMMIT;");
     } catch (error) {
       await this.database.execAsync("ROLLBACK;");
-      await this.database.execAsync("PRAGMA foreign_keys = ON;");
       throw error;
     }
   }
@@ -72,6 +82,16 @@ export class BackupRepository {
       `INSERT INTO ${quoteIdentifier(tableName)} (${columnSql}) VALUES (${placeholderSql});`,
       values,
     );
+  }
+
+  private async assertForeignKeysValid(): Promise<void> {
+    const violations = await this.database.getAllAsync<Record<string, unknown>>(
+      "PRAGMA foreign_key_check;",
+    );
+
+    if (violations.length > 0) {
+      throw new Error("Backup restore failed foreign key validation.");
+    }
   }
 }
 

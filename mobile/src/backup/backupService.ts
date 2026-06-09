@@ -1,8 +1,9 @@
-import { CURRENT_SCHEMA_VERSION, MOBILE_TABLES } from "../db/schema";
+import { CURRENT_SCHEMA_VERSION } from "../db/schema";
 import {
   BACKUP_APP_MARKER,
   BACKUP_CREATED_BY,
   BACKUP_SCHEMA_VERSION,
+  BACKUP_TABLES,
   type BackupEnvelope,
   type BackupImportOptions,
   type BackupImportResult,
@@ -14,6 +15,7 @@ export {
   BACKUP_APP_MARKER,
   BACKUP_CREATED_BY,
   BACKUP_SCHEMA_VERSION,
+  BACKUP_TABLES,
 } from "./backupTypes";
 
 export type BackupRepositoryPort = {
@@ -68,12 +70,16 @@ export function parseBackupJson(json: string): BackupEnvelope {
     throw new Error("Backup JSON must contain a tables object.");
   }
 
+  if (parsed.tables.schema_migrations !== undefined) {
+    throw new Error("schema_migrations cannot be restored from backup.");
+  }
+
   const tables: BackupTables = {};
 
-  for (const tableName of MOBILE_TABLES) {
+  for (const tableName of BACKUP_TABLES) {
     const tableRows = parsed.tables[tableName];
     if (tableRows === undefined) {
-      continue;
+      throw new Error(`Backup is missing required table ${tableName}.`);
     }
     if (!Array.isArray(tableRows)) {
       throw new Error(`Backup table ${tableName} must be an array.`);
@@ -125,7 +131,7 @@ function getImportedTableCounts(
 ): Partial<Record<BackupTableName, number>> {
   const counts: Partial<Record<BackupTableName, number>> = {};
 
-  for (const tableName of MOBILE_TABLES) {
+  for (const tableName of BACKUP_TABLES) {
     const rows = tables[tableName];
     if (rows) {
       counts[tableName] = rows.length;

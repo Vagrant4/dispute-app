@@ -1,10 +1,20 @@
-import { CURRENT_SCHEMA_VERSION, MOBILE_TABLES } from "../db/schema";
+import { CURRENT_SCHEMA_VERSION } from "../db/schema";
 
 export const BACKUP_APP_MARKER = "ClaimProof SG Mobile";
 export const BACKUP_SCHEMA_VERSION = 1;
 export const BACKUP_CREATED_BY = "claimproof-sg-mobile";
 
-export type BackupTableName = (typeof MOBILE_TABLES)[number];
+export const BACKUP_TABLES = [
+  "app_settings",
+  "clients",
+  "projects",
+  "time_entries",
+  "photo_evidence",
+  "generated_documents",
+  "subscription_entitlements",
+] as const;
+
+export type BackupTableName = (typeof BACKUP_TABLES)[number];
 export type BackupRow = Record<string, unknown>;
 export type BackupTables = Partial<Record<BackupTableName, BackupRow[]>>;
 

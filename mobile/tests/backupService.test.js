@@ -47,6 +47,19 @@ function loadBackupService() {
   return load("src/backup/backupService.ts");
 }
 
+function createCompleteTables(overrides = {}) {
+  return {
+    app_settings: [],
+    clients: [],
+    projects: [],
+    time_entries: [],
+    photo_evidence: [],
+    generated_documents: [],
+    subscription_entitlements: [],
+    ...overrides,
+  };
+}
+
 test("createBackupEnvelope wraps table data with ClaimProof SG marker and version", () => {
   const {
     BACKUP_APP_MARKER,
@@ -54,10 +67,9 @@ test("createBackupEnvelope wraps table data with ClaimProof SG marker and versio
     createBackupEnvelope,
   } = loadBackupService();
 
-  const envelope = createBackupEnvelope({
+  const envelope = createBackupEnvelope(createCompleteTables({
     app_settings: [{ id: "settings:user-a", user_id: "user-a" }],
-    clients: [],
-  });
+  }));
 
   assert.equal(envelope.app, BACKUP_APP_MARKER);
   assert.equal(envelope.version, BACKUP_SCHEMA_VERSION);
@@ -89,7 +101,7 @@ test("parseBackupJson rejects wrong app marker and unsupported version", () => {
           version: BACKUP_SCHEMA_VERSION,
           schema: 1,
           exportedAt: new Date().toISOString(),
-          tables: {},
+          tables: createCompleteTables(),
         }),
       ),
     /not a ClaimProof SG mobile backup/,
@@ -103,7 +115,7 @@ test("parseBackupJson rejects wrong app marker and unsupported version", () => {
           version: BACKUP_SCHEMA_VERSION + 1,
           schema: 1,
           exportedAt: new Date().toISOString(),
-          tables: {},
+          tables: createCompleteTables(),
         }),
       ),
     /Unsupported backup version/,
@@ -122,12 +134,52 @@ test("parseBackupJson rejects known table payloads that are not arrays", () => {
           version: BACKUP_SCHEMA_VERSION,
           schema: 1,
           exportedAt: new Date().toISOString(),
-          tables: {
+          tables: createCompleteTables({
             clients: { id: "client-a" },
-          },
+          }),
         }),
       ),
     /Backup table clients must be an array/,
+  );
+});
+
+test("parseBackupJson rejects partial destructive restore table payloads", () => {
+  const { BACKUP_APP_MARKER, BACKUP_SCHEMA_VERSION, parseBackupJson } =
+    loadBackupService();
+
+  assert.throws(
+    () =>
+      parseBackupJson(
+        JSON.stringify({
+          app: BACKUP_APP_MARKER,
+          version: BACKUP_SCHEMA_VERSION,
+          schema: 1,
+          exportedAt: new Date().toISOString(),
+          tables: { clients: [] },
+        }),
+      ),
+    /Backup is missing required table app_settings/,
+  );
+});
+
+test("parseBackupJson rejects schema migration table payloads", () => {
+  const { BACKUP_APP_MARKER, BACKUP_SCHEMA_VERSION, parseBackupJson } =
+    loadBackupService();
+
+  assert.throws(
+    () =>
+      parseBackupJson(
+        JSON.stringify({
+          app: BACKUP_APP_MARKER,
+          version: BACKUP_SCHEMA_VERSION,
+          schema: 1,
+          exportedAt: new Date().toISOString(),
+          tables: createCompleteTables({
+            schema_migrations: [{ version: 999, name: "untrusted" }],
+          }),
+        }),
+      ),
+    /schema_migrations cannot be restored from backup/,
   );
 });
 
@@ -151,7 +203,7 @@ test("importBackupJson requires explicit overwrite mode", async () => {
           version: BACKUP_SCHEMA_VERSION,
           schema: 1,
           exportedAt: new Date().toISOString(),
-          tables: { clients: [] },
+          tables: createCompleteTables(),
         }),
         repository,
       ),
@@ -178,12 +230,22 @@ test("importBackupJson applies a valid backup when overwrite mode is explicit", 
       version: BACKUP_SCHEMA_VERSION,
       schema: 1,
       exportedAt: new Date().toISOString(),
-      tables: { clients: [{ id: "client-a", user_id: "user-a" }] },
+      tables: createCompleteTables({
+        clients: [{ id: "client-a", user_id: "user-a" }],
+      }),
     }),
     repository,
     { mode: "overwrite" },
   );
 
   assert.equal(applied.length, 1);
-  assert.deepEqual(result.importedTableCounts, { clients: 1 });
+  assert.deepEqual(result.importedTableCounts, {
+    app_settings: 0,
+    clients: 1,
+    projects: 0,
+    time_entries: 0,
+    photo_evidence: 0,
+    generated_documents: 0,
+    subscription_entitlements: 0,
+  });
 });
