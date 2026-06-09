@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run build --workspace @claimproof/shared",
     "dev": "tsx watch src/server.ts",
+    "prebuild": "npm run build --workspace @claimproof/shared",
     "build": "tsc -p tsconfig.json",
+    "pretest": "npm run build --workspace @claimproof/shared",
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
