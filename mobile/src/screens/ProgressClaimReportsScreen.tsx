@@ -164,7 +164,7 @@ export function ProgressClaimReportsScreen() {
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={styles.rowLabel}>{document.file_name}</Text>
                   <Text style={styles.muted}>
-                    {document.document_type} · {document.period_start ?? "No start"} to{" "}
+                    {document.document_type} - {document.period_start ?? "No start"} to{" "}
                     {document.period_end ?? "No end"}
                   </Text>
                 </View>

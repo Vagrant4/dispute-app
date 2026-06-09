@@ -2,6 +2,13 @@ import * as FileSystem from "expo-file-system/legacy";
 
 export type GeneratedDocumentFormat = "pdf" | "csv";
 
+export class DurableReportStorageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DurableReportStorageError";
+  }
+}
+
 export function buildGeneratedDocumentPath(params: {
   userId: string;
   projectId?: string | null;
@@ -28,24 +35,43 @@ export async function writeGeneratedDocumentText(params: {
   filePath: string;
   contents: string;
 }): Promise<{ filePath: string; written: boolean; message: string }> {
-  if (!FileSystem.writeAsStringAsync || !FileSystem.makeDirectoryAsync) {
-    return {
-      filePath: params.filePath,
-      written: false,
-      message: "Generated document file writing is unavailable in this runtime.",
-    };
-  }
+  const fileSystem = getDurableWriteFileSystem("write generated report files");
 
   const directory = params.filePath.slice(0, params.filePath.lastIndexOf("/"));
-  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-  await FileSystem.writeAsStringAsync(params.filePath, params.contents, {
+  await fileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  await fileSystem.writeAsStringAsync(params.filePath, params.contents, {
     encoding: FileSystem.EncodingType.UTF8,
   });
+  await assertDurableFileExists(params.filePath, fileSystem);
 
   return {
     filePath: params.filePath,
     written: true,
     message: "Generated document saved in local app storage.",
+  };
+}
+
+export async function copyGeneratedDocumentFile(params: {
+  sourceUri: string;
+  destinationUri: string;
+}): Promise<{ filePath: string; copied: boolean; message: string }> {
+  const fileSystem = getDurableCopyFileSystem("copy generated report files");
+
+  const directory = params.destinationUri.slice(
+    0,
+    params.destinationUri.lastIndexOf("/"),
+  );
+  await fileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  await fileSystem.copyAsync({
+    from: params.sourceUri,
+    to: params.destinationUri,
+  });
+  await assertDurableFileExists(params.destinationUri, fileSystem);
+
+  return {
+    filePath: params.destinationUri,
+    copied: true,
+    message: "Generated document copied into local app storage.",
   };
 }
 
@@ -74,6 +100,63 @@ export async function deleteGeneratedDocumentFile(
           ? error.message
           : "Generated document file delete failed.",
     };
+  }
+}
+
+function getDurableWriteFileSystem(action: string): {
+  getInfoAsync: NonNullable<typeof FileSystem.getInfoAsync>;
+  makeDirectoryAsync: NonNullable<typeof FileSystem.makeDirectoryAsync>;
+  writeAsStringAsync: NonNullable<typeof FileSystem.writeAsStringAsync>;
+} {
+  if (
+    !FileSystem.makeDirectoryAsync ||
+    !FileSystem.getInfoAsync ||
+    !FileSystem.writeAsStringAsync
+  ) {
+    throw new DurableReportStorageError(
+      `Durable report storage is unavailable in this runtime, so ClaimProof SG cannot ${action} or archive the report.`,
+    );
+  }
+
+  return {
+    getInfoAsync: FileSystem.getInfoAsync,
+    makeDirectoryAsync: FileSystem.makeDirectoryAsync,
+    writeAsStringAsync: FileSystem.writeAsStringAsync,
+  };
+}
+
+function getDurableCopyFileSystem(action: string): {
+  copyAsync: NonNullable<typeof FileSystem.copyAsync>;
+  getInfoAsync: NonNullable<typeof FileSystem.getInfoAsync>;
+  makeDirectoryAsync: NonNullable<typeof FileSystem.makeDirectoryAsync>;
+} {
+  if (
+    !FileSystem.makeDirectoryAsync ||
+    !FileSystem.getInfoAsync ||
+    !FileSystem.copyAsync
+  ) {
+    throw new DurableReportStorageError(
+      `Durable report storage is unavailable in this runtime, so ClaimProof SG cannot ${action} or archive the report.`,
+    );
+  }
+
+  return {
+    copyAsync: FileSystem.copyAsync,
+    getInfoAsync: FileSystem.getInfoAsync,
+    makeDirectoryAsync: FileSystem.makeDirectoryAsync,
+  };
+}
+
+async function assertDurableFileExists(
+  filePath: string,
+  fileSystem: Pick<typeof FileSystem, "getInfoAsync">,
+): Promise<void> {
+  const info = await fileSystem.getInfoAsync(filePath);
+
+  if (!info.exists) {
+    throw new DurableReportStorageError(
+      "Durable report storage verification failed. The generated file was not found in app-owned report storage, so it was not archived.",
+    );
   }
 }
 
