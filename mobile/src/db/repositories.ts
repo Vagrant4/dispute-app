@@ -1,7 +1,9 @@
+import { BackupRepository } from "../backup/backupRepository";
 import { openAndInitializeLocalDatabase } from "./localDatabase";
 import { SettingsRepository, type RepositoryHealth } from "./settingsRepository";
 
 export type LocalRepositories = {
+  backup: BackupRepository;
   settings: SettingsRepository;
   getHealth: () => Promise<RepositoryHealth>;
 };
@@ -14,9 +16,11 @@ export async function getLocalRepositories(): Promise<LocalRepositories> {
   }
 
   const database = await openAndInitializeLocalDatabase();
+  const backup = new BackupRepository(database);
   const settings = new SettingsRepository(database);
 
   cachedRepositories = {
+    backup,
     settings,
     getHealth: () => settings.getHealth(),
   };

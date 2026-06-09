@@ -9,7 +9,7 @@ import {
 
 export type LocalDatabase = Pick<
   SQLite.SQLiteDatabase,
-  "execAsync" | "getFirstAsync" | "runAsync"
+  "execAsync" | "getAllAsync" | "getFirstAsync" | "runAsync"
 >;
 
 type MigrationRow = {
