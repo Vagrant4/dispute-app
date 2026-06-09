@@ -50,3 +50,46 @@ test("repository diagnostics SQL counts settings and generated documents", () =>
     /COUNT\(\*\).*generated_documents/i,
   );
 });
+
+test("mobile SQLite schema enforces one settings row per user", () => {
+  const { MOBILE_SCHEMA_SQL } = loadTsModule("src/db/schema.ts");
+
+  assert.match(
+    MOBILE_SCHEMA_SQL,
+    /CREATE UNIQUE INDEX IF NOT EXISTS ux_app_settings_user_id ON app_settings\(user_id\)/,
+  );
+});
+
+test("mobile SQLite schema uses composite ownership keys and foreign keys", () => {
+  const { MOBILE_SCHEMA_SQL } = loadTsModule("src/db/schema.ts");
+
+  for (const expectedSql of [
+    "UNIQUE (id, user_id)",
+    "FOREIGN KEY (client_id, user_id) REFERENCES clients(id, user_id)",
+    "FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)",
+    "FOREIGN KEY (time_entry_id, project_id, user_id) REFERENCES time_entries(id, project_id, user_id)",
+  ]) {
+    assert.match(MOBILE_SCHEMA_SQL, new RegExp(expectedSql.replace(/[()]/g, "\\$&")));
+  }
+});
+
+test("local migration service keeps migration table DDL in one schema constant", () => {
+  const { SCHEMA_MIGRATIONS_TABLE_SQL, MOBILE_SCHEMA_SQL } = loadTsModule(
+    "src/db/schema.ts",
+  );
+
+  assert.ok(SCHEMA_MIGRATIONS_TABLE_SQL.includes("schema_migrations"));
+  assert.ok(MOBILE_SCHEMA_SQL.includes(SCHEMA_MIGRATIONS_TABLE_SQL.trim()));
+});
+
+test("local migration service applies migration SQL and version row atomically", () => {
+  const source = readFileSync(
+    path.join(__dirname, "..", "src", "db", "localDatabase.ts"),
+    "utf8",
+  );
+
+  assert.match(source, /BEGIN IMMEDIATE TRANSACTION/);
+  assert.match(source, /INSERT OR IGNORE INTO schema_migrations/);
+  assert.match(source, /COMMIT/);
+  assert.match(source, /ROLLBACK/);
+});

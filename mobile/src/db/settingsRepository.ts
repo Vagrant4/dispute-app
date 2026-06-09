@@ -1,7 +1,6 @@
 import type { LocalDatabase } from "./localDatabase";
 import { REPOSITORY_HEALTH_SQL } from "./schema";
 import {
-  DEFAULT_SETTINGS_ID,
   DEFAULT_USER_ID,
   type AppSettings,
   type AppSettingsPatch,
@@ -49,18 +48,18 @@ export class SettingsRepository {
   constructor(private readonly database: LocalDatabase) {}
 
   async getSettings(userId = DEFAULT_USER_ID): Promise<AppSettings> {
-    const existing = await this.database.getFirstAsync<AppSettingsRow>(
-      "SELECT id, user_id, currency, daily_hours, weekly_hours, overtime_multiplier, status, lock_hash, locked_at FROM app_settings WHERE user_id = ? LIMIT 1",
-      [userId],
-    );
-
-    if (existing) {
-      return fromRow(existing);
-    }
-
     const defaults = createDefaultAppSettings(userId);
     await this.insertSettings(defaults);
-    return defaults;
+    const current = await this.database.getFirstAsync<AppSettingsRow>(
+      "SELECT id, user_id, currency, daily_hours, weekly_hours, overtime_multiplier, status, lock_hash, locked_at FROM app_settings WHERE id = ? AND user_id = ? LIMIT 1",
+      [defaults.id, userId],
+    );
+
+    if (!current) {
+      throw new Error(`App settings could not be initialized for user ${userId}`);
+    }
+
+    return fromRow(current);
   }
 
   async updateSettings(
@@ -110,7 +109,7 @@ WHERE id = ? AND user_id = ?
   private async insertSettings(settings: AppSettings): Promise<void> {
     await this.database.runAsync(
       `
-INSERT INTO app_settings (
+INSERT OR IGNORE INTO app_settings (
   id,
   user_id,
   currency,
@@ -123,7 +122,7 @@ INSERT INTO app_settings (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
       [
-        settings.id || DEFAULT_SETTINGS_ID,
+        settings.id,
         settings.userId,
         settings.currency,
         settings.dailyHours,

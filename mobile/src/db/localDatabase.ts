@@ -4,6 +4,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   LOCAL_DATABASE_NAME,
   LOCAL_MIGRATIONS,
+  SCHEMA_MIGRATIONS_TABLE_SQL,
 } from "./schema";
 
 export type LocalDatabase = Pick<
@@ -23,23 +24,24 @@ export async function initializeLocalDatabase(
   database: LocalDatabase,
 ): Promise<void> {
   await database.execAsync("PRAGMA foreign_keys = ON;");
-  await database.execAsync(`
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  version INTEGER PRIMARY KEY NOT NULL,
-  name TEXT NOT NULL,
-  applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-`);
+  await database.execAsync(SCHEMA_MIGRATIONS_TABLE_SQL);
 
   const current = await getCurrentMigrationVersion(database);
 
   for (const migration of LOCAL_MIGRATIONS) {
     if (migration.version > current) {
-      await database.execAsync(migration.sql);
-      await database.runAsync(
-        "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
-        [migration.version, migration.name],
-      );
+      await database.execAsync("BEGIN IMMEDIATE TRANSACTION;");
+      try {
+        await database.execAsync(migration.sql);
+        await database.runAsync(
+          "INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?, ?)",
+          [migration.version, migration.name],
+        );
+        await database.execAsync("COMMIT;");
+      } catch (error) {
+        await database.execAsync("ROLLBACK;");
+        throw error;
+      }
     }
   }
 }

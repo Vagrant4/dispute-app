@@ -13,12 +13,14 @@ export const MOBILE_TABLES = [
   "subscription_entitlements",
 ] as const;
 
-export const MOBILE_SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS schema_migrations (
+export const SCHEMA_MIGRATIONS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+);`;
+
+export const MOBILE_SCHEMA_SQL = `
+${SCHEMA_MIGRATIONS_TABLE_SQL}
 
 CREATE TABLE IF NOT EXISTS app_settings (
   id TEXT PRIMARY KEY NOT NULL,
@@ -31,7 +33,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
   lock_hash TEXT,
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id)
 );
 
 CREATE TABLE IF NOT EXISTS clients (
@@ -44,7 +47,8 @@ CREATE TABLE IF NOT EXISTS clients (
   lock_hash TEXT,
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -60,7 +64,8 @@ CREATE TABLE IF NOT EXISTS projects (
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (client_id) REFERENCES clients(id)
+  UNIQUE (id, user_id),
+  FOREIGN KEY (client_id, user_id) REFERENCES clients(id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS time_entries (
@@ -77,7 +82,9 @@ CREATE TABLE IF NOT EXISTS time_entries (
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (project_id) REFERENCES projects(id)
+  UNIQUE (id, user_id),
+  UNIQUE (id, project_id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS photo_evidence (
@@ -93,8 +100,9 @@ CREATE TABLE IF NOT EXISTS photo_evidence (
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (project_id) REFERENCES projects(id),
-  FOREIGN KEY (time_entry_id) REFERENCES time_entries(id)
+  UNIQUE (id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id),
+  FOREIGN KEY (time_entry_id, project_id, user_id) REFERENCES time_entries(id, project_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS generated_documents (
@@ -111,7 +119,8 @@ CREATE TABLE IF NOT EXISTS generated_documents (
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (project_id) REFERENCES projects(id)
+  UNIQUE (id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS subscription_entitlements (
@@ -125,10 +134,11 @@ CREATE TABLE IF NOT EXISTS subscription_entitlements (
   lock_hash TEXT,
   locked_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_app_settings_user_id ON app_settings(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_app_settings_user_id ON app_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_time_entries_user_id ON time_entries(user_id);
