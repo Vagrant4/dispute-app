@@ -116,3 +116,65 @@ test("createEvidenceLock uses the supplied locked timestamp", async () => {
   assert.equal(lock.lockedAt, "2026-06-09T08:30:00.000Z");
   assert.equal(lock.hash.length, 64);
 });
+
+test("createEvidenceLock uses an injected deterministic hash provider", async () => {
+  const { createEvidenceLock } = loadEvidenceLock();
+  const seen = [];
+
+  const lock = await createEvidenceLock(
+    { id: "claim-1", amountCents: 45000 },
+    "2026-06-09T08:30:00.000Z",
+    {
+      hashProviders: [
+        async (canonicalJson) => {
+          seen.push(canonicalJson);
+          return "deterministic-test-hash";
+        },
+      ],
+    },
+  );
+
+  assert.equal(lock.hash, "deterministic-test-hash");
+  assert.deepEqual(seen, ['{"amountCents":45000,"id":"claim-1"}']);
+});
+
+test("hash provider failure falls back to the next injected provider", async () => {
+  const { createEvidenceLock } = loadEvidenceLock();
+  const calls = [];
+
+  const lock = await createEvidenceLock(
+    { id: "claim-1" },
+    "2026-06-09T08:30:00.000Z",
+    {
+      hashProviders: [
+        async () => {
+          calls.push("first");
+          throw new Error("first provider unavailable");
+        },
+        async () => {
+          calls.push("second");
+          return "fallback-hash";
+        },
+      ],
+    },
+  );
+
+  assert.equal(lock.hash, "fallback-hash");
+  assert.deepEqual(calls, ["first", "second"]);
+});
+
+test("hash provider failures throw a clear error when no provider succeeds", async () => {
+  const { createEvidenceLock } = loadEvidenceLock();
+
+  await assert.rejects(
+    () =>
+      createEvidenceLock({ id: "claim-1" }, "2026-06-09T08:30:00.000Z", {
+        hashProviders: [
+          async () => {
+            throw new Error("provider unavailable");
+          },
+        ],
+      }),
+    /SHA-256 hashing failed for all configured providers/,
+  );
+});

@@ -50,28 +50,35 @@ test("buildEvidenceLockUpdate produces local row lock fields", async () => {
   const { buildEvidenceLockUpdate } = loadEvidenceLockRepository();
 
   const update = await buildEvidenceLockUpdate(
-    { id: "time-1", activity: "Install cabinet", durationMinutes: 120 },
+    {
+      id: "time-1",
+      status: "draft",
+      activity: "Install cabinet",
+      durationMinutes: 120,
+    },
     "2026-06-09T09:00:00.000Z",
   );
 
-  assert.equal(update.status, "LOCKED");
+  assert.equal(update.status, "locked");
   assert.equal(update.lockedAt, "2026-06-09T09:00:00.000Z");
   assert.equal(update.lockHash.length, 64);
 });
 
-test("locked-record update guard rejects edits when status is LOCKED", () => {
+test("locked-record update guard rejects edits when status is locked in any casing", () => {
   const { assertCanUpdateUnlockedRecord } = loadEvidenceLockRepository();
 
-  assert.throws(
-    () =>
-      assertCanUpdateUnlockedRecord({
-        id: "time-1",
-        status: "LOCKED",
-        lockHash: "abc",
-        lockedAt: "2026-06-09T09:00:00.000Z",
-      }),
-    /Locked evidence records are read-only/,
-  );
+  for (const status of ["locked", "LOCKED"]) {
+    assert.throws(
+      () =>
+        assertCanUpdateUnlockedRecord({
+          id: "time-1",
+          status,
+          lockHash: "abc",
+          lockedAt: "2026-06-09T09:00:00.000Z",
+        }),
+      /Locked evidence records are read-only/,
+    );
+  }
 });
 
 test("locked-record update guard allows draft edits", () => {
@@ -85,4 +92,97 @@ test("locked-record update guard allows draft edits", () => {
       lockedAt: null,
     }),
   );
+});
+
+test("locked-record update guard fails closed for missing status", () => {
+  const { assertCanUpdateUnlockedRecord } = loadEvidenceLockRepository();
+
+  assert.throws(
+    () =>
+      assertCanUpdateUnlockedRecord({
+        id: "time-1",
+      }),
+    /Evidence record status is required/,
+  );
+});
+
+test("locked-record update guard fails closed for unknown status", () => {
+  const { assertCanUpdateUnlockedRecord } = loadEvidenceLockRepository();
+
+  assert.throws(
+    () =>
+      assertCanUpdateUnlockedRecord({
+        id: "time-1",
+        status: "pending-review",
+      }),
+    /Unsupported evidence record status/,
+  );
+});
+
+test("canonical evidence payload excludes unstable audit metadata", async () => {
+  const { getLockableEvidencePayload } = loadEvidenceLockRepository();
+  const { createEvidenceLock } = createTsLoader()("src/evidence/evidenceLock.ts");
+
+  const firstPayload = getLockableEvidencePayload({
+    id: "time-1",
+    user_id: "user-a",
+    activity: "Install cabinet",
+    duration_minutes: 120,
+    status: "draft",
+    lock_hash: null,
+    locked_at: null,
+    created_at: "2026-06-09T08:00:00.000Z",
+    updated_at: "2026-06-09T08:00:00.000Z",
+  });
+  const secondPayload = getLockableEvidencePayload({
+    id: "time-1",
+    user_id: "user-a",
+    activity: "Install cabinet",
+    duration_minutes: 120,
+    status: "draft",
+    lock_hash: null,
+    locked_at: null,
+    created_at: "2026-06-09T08:00:00.000Z",
+    updated_at: "2026-06-10T08:00:00.000Z",
+  });
+
+  assert.deepEqual(firstPayload, {
+    id: "time-1",
+    user_id: "user-a",
+    activity: "Install cabinet",
+    duration_minutes: 120,
+  });
+
+  const firstLock = await createEvidenceLock(firstPayload, "2026-06-09T09:00:00.000Z");
+  const secondLock = await createEvidenceLock(secondPayload, "2026-06-09T09:00:00.000Z");
+
+  assert.equal(firstLock.hash, secondLock.hash);
+});
+
+test("evidence content changes still change lock payload hash", async () => {
+  const { getLockableEvidencePayload } = loadEvidenceLockRepository();
+  const { createEvidenceLock } = createTsLoader()("src/evidence/evidenceLock.ts");
+
+  const firstLock = await createEvidenceLock(
+    getLockableEvidencePayload({
+      id: "time-1",
+      status: "draft",
+      activity: "Install cabinet",
+      durationMinutes: 120,
+      updatedAt: "2026-06-09T08:00:00.000Z",
+    }),
+    "2026-06-09T09:00:00.000Z",
+  );
+  const secondLock = await createEvidenceLock(
+    getLockableEvidencePayload({
+      id: "time-1",
+      status: "draft",
+      activity: "Install cabinet",
+      durationMinutes: 121,
+      updatedAt: "2026-06-09T08:00:00.000Z",
+    }),
+    "2026-06-09T09:00:00.000Z",
+  );
+
+  assert.notEqual(firstLock.hash, secondLock.hash);
 });

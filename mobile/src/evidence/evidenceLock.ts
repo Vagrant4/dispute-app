@@ -6,6 +6,12 @@ export type EvidenceLock = {
   lockedAt: string;
 };
 
+export type EvidenceHashProvider = (canonicalJson: string) => Promise<string> | string;
+
+export type EvidenceLockOptions = {
+  hashProviders?: readonly EvidenceHashProvider[];
+};
+
 type ExpoCryptoModule = {
   CryptoDigestAlgorithm?: {
     SHA256?: string;
@@ -32,12 +38,16 @@ export function canonicalStringify(value: unknown): string {
 export async function createEvidenceLock(
   record: EvidenceRecord,
   lockedAt = new Date().toISOString(),
+  options: EvidenceLockOptions = {},
 ): Promise<EvidenceLock> {
   const canonicalJson = canonicalStringify(record);
 
   return {
     canonicalJson,
-    hash: await sha256Hex(canonicalJson),
+    hash: await hashWithProviders(
+      canonicalJson,
+      options.hashProviders ?? getRuntimeHashProviders(),
+    ),
     lockedAt,
   };
 }
@@ -45,9 +55,32 @@ export async function createEvidenceLock(
 export async function verifyEvidenceLock(
   record: EvidenceRecord,
   expectedHash: string,
+  options: EvidenceLockOptions = {},
 ): Promise<boolean> {
-  const lock = await createEvidenceLock(record);
+  const lock = await createEvidenceLock(record, new Date().toISOString(), options);
   return lock.hash === expectedHash;
+}
+
+export async function hashWithProviders(
+  canonicalJson: string,
+  hashProviders: readonly EvidenceHashProvider[],
+): Promise<string> {
+  if (hashProviders.length === 0) {
+    throw new Error("SHA-256 hashing failed for all configured providers.");
+  }
+
+  for (const hashProvider of hashProviders) {
+    try {
+      const hash = await hashProvider(canonicalJson);
+      if (typeof hash === "string" && hash.length > 0) {
+        return hash;
+      }
+    } catch {
+      // Try the next provider so mobile can fall back across available runtimes.
+    }
+  }
+
+  throw new Error("SHA-256 hashing failed for all configured providers.");
 }
 
 function toCanonicalValue(value: unknown): unknown {
@@ -74,51 +107,49 @@ function toCanonicalValue(value: unknown): unknown {
   return canonical;
 }
 
-async function sha256Hex(data: string): Promise<string> {
+function getRuntimeHashProviders(): readonly EvidenceHashProvider[] {
+  return [sha256WithWebCrypto, sha256WithExpoCrypto, sha256WithNodeCrypto];
+}
+
+async function sha256WithWebCrypto(data: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
-  if (subtle) {
-    const digest = await subtle.digest("SHA-256", new TextEncoder().encode(data));
-    return bytesToHex(new Uint8Array(digest));
+  if (!subtle) {
+    throw new Error("Web Crypto SHA-256 is not available.");
   }
 
-  const expoHash = await sha256WithExpoCrypto(data);
-  if (expoHash) {
-    return expoHash;
-  }
-
-  const nodeHash = sha256WithNodeCrypto(data);
-  if (nodeHash) {
-    return nodeHash;
-  }
-
-  throw new Error("SHA-256 hashing is not available in this runtime.");
+  const digest = await subtle.digest("SHA-256", new TextEncoder().encode(data));
+  return bytesToHex(new Uint8Array(digest));
 }
 
-async function sha256WithExpoCrypto(data: string): Promise<string | null> {
+async function sha256WithExpoCrypto(data: string): Promise<string> {
   if (typeof require !== "function") {
-    return null;
+    throw new Error("Expo Crypto SHA-256 is not available.");
   }
 
-  try {
-    const expoCrypto = require("expo-crypto") as ExpoCryptoModule;
-    const algorithm = expoCrypto.CryptoDigestAlgorithm?.SHA256 ?? "SHA-256";
-    return (await expoCrypto.digestStringAsync?.(algorithm, data)) ?? null;
-  } catch {
-    return null;
+  const expoCrypto = require("expo-crypto") as ExpoCryptoModule;
+  const algorithm = expoCrypto.CryptoDigestAlgorithm?.SHA256 ?? "SHA-256";
+  const hash = await expoCrypto.digestStringAsync?.(algorithm, data);
+
+  if (!hash) {
+    throw new Error("Expo Crypto SHA-256 is not available.");
   }
+
+  return hash;
 }
 
-function sha256WithNodeCrypto(data: string): string | null {
+function sha256WithNodeCrypto(data: string): string {
   if (typeof require !== "function") {
-    return null;
+    throw new Error("Node Crypto SHA-256 is not available.");
   }
 
-  try {
-    const nodeCrypto = require("node:crypto") as NodeCryptoModule;
-    return nodeCrypto.createHash?.("sha256").update(data).digest("hex") ?? null;
-  } catch {
-    return null;
+  const nodeCrypto = require("node:crypto") as NodeCryptoModule;
+  const hash = nodeCrypto.createHash?.("sha256").update(data).digest("hex");
+
+  if (!hash) {
+    throw new Error("Node Crypto SHA-256 is not available.");
   }
+
+  return hash;
 }
 
 function bytesToHex(bytes: Uint8Array): string {
