@@ -16,7 +16,10 @@ function createTsLoader() {
     const sourcePath = path.join(__dirname, "..", normalized);
     const source = readFileSync(sourcePath, "utf8");
     const compiled = ts.transpileModule(source, {
-      compilerOptions: { module: ts.ModuleKind.CommonJS },
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
     }).outputText;
     const module = { exports: {} };
     cache.set(normalized, module);

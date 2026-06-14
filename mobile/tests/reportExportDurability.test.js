@@ -4,6 +4,22 @@ const path = require("node:path");
 const test = require("node:test");
 const ts = require("typescript");
 
+const expoCryptoMock = {
+  CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+  digestStringAsync: async (_algorithm, data) => deterministicHexDigest(data),
+};
+
+function deterministicHexDigest(data) {
+  let seed = 0;
+  for (const char of data) {
+    seed = (seed * 31 + char.charCodeAt(0)) >>> 0;
+  }
+
+  return Array.from({ length: 64 }, (_, index) =>
+    ((seed + index) % 16).toString(16),
+  ).join("");
+}
+
 function createTsLoader(mocks = {}) {
   const cache = new Map();
 
@@ -30,6 +46,9 @@ function createTsLoader(mocks = {}) {
       }
       if (Object.hasOwn(mocks, request)) {
         return mocks[request];
+      }
+      if (request === "expo-crypto") {
+        return expoCryptoMock;
       }
       return require(request);
     }

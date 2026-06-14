@@ -7,7 +7,7 @@ import {
   type BackupTableName,
 } from "./backupTypes";
 
-type BackupSqlValue = string | number | boolean | null | Uint8Array | ArrayBuffer;
+type BackupSqlValue = string | number | boolean | null | Uint8Array;
 
 const DELETE_ORDER: BackupTableName[] = [
   "photo_evidence",
@@ -109,8 +109,7 @@ function toBackupSqlValue(
     typeof value === "string" ||
     typeof value === "number" ||
     typeof value === "boolean" ||
-    value instanceof Uint8Array ||
-    value instanceof ArrayBuffer
+    value instanceof Uint8Array
   ) {
     return value;
   }

@@ -4,6 +4,22 @@ const path = require("node:path");
 const test = require("node:test");
 const ts = require("typescript");
 
+const expoCryptoMock = {
+  CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+  digestStringAsync: async (_algorithm, data) => deterministicHexDigest(data),
+};
+
+function deterministicHexDigest(data) {
+  let seed = 0;
+  for (const char of data) {
+    seed = (seed * 31 + char.charCodeAt(0)) >>> 0;
+  }
+
+  return Array.from({ length: 64 }, (_, index) =>
+    ((seed + index) % 16).toString(16),
+  ).join("");
+}
+
 function createTsLoader() {
   const cache = new Map();
 
@@ -28,6 +44,9 @@ function createTsLoader() {
           .replaceAll("\\", "/");
         return load(nextPath);
       }
+      if (request === "expo-crypto") {
+        return expoCryptoMock;
+      }
       return require(request);
     }
 
@@ -45,6 +64,15 @@ function createTsLoader() {
 function loadEvidenceLock() {
   return createTsLoader()("src/evidence/evidenceLock.ts");
 }
+
+test("mobile evidence lock source does not import Node crypto", () => {
+  const source = readFileSync(
+    path.join(__dirname, "..", "src/evidence/evidenceLock.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(source, /node:crypto|from\s+["']crypto["']|require\(["']crypto["']\)/);
+});
 
 test("canonical stringify is stable regardless of object key order", () => {
   const { canonicalStringify } = loadEvidenceLock();

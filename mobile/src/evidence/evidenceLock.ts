@@ -1,3 +1,5 @@
+import * as ExpoCrypto from "expo-crypto";
+
 export type EvidenceRecord = Record<string, unknown>;
 
 export type EvidenceLock = {
@@ -18,18 +20,6 @@ type ExpoCryptoModule = {
   };
   digestStringAsync?: (algorithm: string, data: string) => Promise<string>;
 };
-
-type NodeCryptoModule = {
-  createHash?: (algorithm: string) => {
-    update: (data: string) => {
-      digest: (encoding: "hex") => string;
-    };
-  };
-};
-
-declare const require:
-  | ((moduleName: string) => unknown)
-  | undefined;
 
 export function canonicalStringify(value: unknown): string {
   return JSON.stringify(toCanonicalValue(value));
@@ -108,7 +98,7 @@ function toCanonicalValue(value: unknown): unknown {
 }
 
 function getRuntimeHashProviders(): readonly EvidenceHashProvider[] {
-  return [sha256WithWebCrypto, sha256WithExpoCrypto, sha256WithNodeCrypto];
+  return [sha256WithExpoCrypto, sha256WithWebCrypto];
 }
 
 async function sha256WithWebCrypto(data: string): Promise<string> {
@@ -122,31 +112,12 @@ async function sha256WithWebCrypto(data: string): Promise<string> {
 }
 
 async function sha256WithExpoCrypto(data: string): Promise<string> {
-  if (typeof require !== "function") {
-    throw new Error("Expo Crypto SHA-256 is not available.");
-  }
-
-  const expoCrypto = require("expo-crypto") as ExpoCryptoModule;
+  const expoCrypto = ExpoCrypto as ExpoCryptoModule;
   const algorithm = expoCrypto.CryptoDigestAlgorithm?.SHA256 ?? "SHA-256";
   const hash = await expoCrypto.digestStringAsync?.(algorithm, data);
 
   if (!hash) {
     throw new Error("Expo Crypto SHA-256 is not available.");
-  }
-
-  return hash;
-}
-
-function sha256WithNodeCrypto(data: string): string {
-  if (typeof require !== "function") {
-    throw new Error("Node Crypto SHA-256 is not available.");
-  }
-
-  const nodeCrypto = require("node:crypto") as NodeCryptoModule;
-  const hash = nodeCrypto.createHash?.("sha256").update(data).digest("hex");
-
-  if (!hash) {
-    throw new Error("Node Crypto SHA-256 is not available.");
   }
 
   return hash;

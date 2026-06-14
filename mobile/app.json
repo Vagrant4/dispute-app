@@ -19,9 +19,7 @@
       }
     },
     "plugins": [
-      "expo-status-bar",
-      "expo-sqlite",
-      "expo-sharing"
+      "expo-sqlite"
     ]
   }
 }
