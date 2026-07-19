@@ -8,18 +8,20 @@ const contentSource = readFileSync(
   "utf8",
 );
 
-test("mobile scaffold declares required screen labels", () => {
+test("mobile production navigation declares simplified field-work destinations", () => {
   for (const label of [
-    "Home",
-    "Settings / Backup",
-    "Trial Readiness",
-    "Privacy Notice",
-    "Storage Diagnostics",
-    "Subscription Status",
-    "Evidence Lock",
+    "Time",
+    "Evidence",
+    "Export",
+    "Settings",
   ]) {
     assert.match(contentSource, new RegExp(`\\b${label}\\b`));
   }
+  assert.doesNotMatch(contentSource, /label: "Today"/);
+  assert.doesNotMatch(contentSource, /label: "Work"/);
+  assert.doesNotMatch(contentSource, /label: "Reports"/);
+  assert.doesNotMatch(contentSource, /label: "Trial"/);
+  assert.doesNotMatch(contentSource, /label: "Storage"/);
 });
 
 test("mobile scaffold declares real user trial readiness copy", () => {
@@ -37,7 +39,7 @@ test("mobile scaffold declares real user trial readiness copy", () => {
 test("mobile scaffold keeps required backup warning and status copy", () => {
   assert.match(
     contentSource,
-    /ClaimProof SG stores records locally on this device\. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up\./,
+    /dispute stores records locally on this device\. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up\./,
   );
   assert.match(contentSource, /No analytics in V1/);
   assert.match(contentSource, /policy-gated/);

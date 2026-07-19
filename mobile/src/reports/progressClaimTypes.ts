@@ -27,14 +27,23 @@ export type ProjectSnapshot = {
 export type TimeEntrySnapshotInput = {
   id: string;
   workDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
   durationMinutes: number;
   activity: string;
+  dayType?: "normal" | "off_day" | "holiday" | null;
+  locationText?: string | null;
+  clockInGpsLatitude?: number | null;
+  clockInGpsLongitude?: number | null;
+  clockOutGpsLatitude?: number | null;
+  clockOutGpsLongitude?: number | null;
 };
 
 export type PhotoEvidenceSnapshotInput = {
   id: string;
   timeEntryId?: string | null;
   localUri: string;
+  printUri?: string | null;
   caption?: string | null;
   evidenceType?: string | null;
   capturedAt?: string | null;
@@ -44,7 +53,11 @@ export type PaySnapshotInput = {
   hourlyRateCents?: number | null;
   currency?: string;
   dailyNormalMinutes?: number;
+  normalWorkStartTime?: string;
+  normalWorkEndTime?: string;
   overtimeMultiplier?: number;
+  offDayMultiplier?: number;
+  holidayMultiplier?: number;
   allowancesCents?: number;
   deductionsCents?: number;
 };
@@ -68,16 +81,30 @@ export type DailyWorkLogItem = {
   activity: string;
   normalHours: number;
   overtimeHours: number;
+  offDayHours: number;
+  holidayHours: number;
+  dayTypes: string[];
+  locations: WorkLocationSnapshot[];
   durationMinutes: number;
   photoEvidenceIds: string[];
+};
+
+export type WorkLocationSnapshot = {
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type ProgressClaimTotals = {
   totalDaysWorked: number;
   totalNormalHours: number;
   totalOvertimeHours: number;
+  totalOffDayHours: number;
+  totalHolidayHours: number;
   basicPayCents: number;
   overtimePayCents: number;
+  offDayPayCents: number;
+  holidayPayCents: number;
   allowancesCents: number;
   deductionsCents: number;
   grossPayCents: number;
@@ -99,7 +126,11 @@ export type ProgressClaimSnapshot = {
     currency: string;
     hourlyRateCents: number;
     dailyNormalMinutes: number;
+    normalWorkStartTime: string;
+    normalWorkEndTime: string;
     overtimeMultiplier: number;
+    offDayMultiplier: number;
+    holidayMultiplier: number;
   };
   totals: ProgressClaimTotals;
   dailyWorkLog: DailyWorkLogItem[];

@@ -35,7 +35,7 @@ export function getDurableReportBaseDirectory(
 ): string {
   if (!baseDirectory || baseDirectory.trim().length === 0) {
     throw new DurableReportStorageError(
-      "ClaimProof SG app-owned local report storage is unavailable in this runtime, so the report was not archived.",
+      "dispute app-owned local report storage is unavailable in this runtime, so the report was not archived.",
     );
   }
 
@@ -125,7 +125,7 @@ function getDurableWriteFileSystem(action: string): {
     !FileSystem.writeAsStringAsync
   ) {
     throw new DurableReportStorageError(
-      `Durable report storage is unavailable in this runtime, so ClaimProof SG cannot ${action} or archive the report.`,
+      `Durable report storage is unavailable in this runtime, so dispute cannot ${action} or archive the report.`,
     );
   }
 
@@ -147,7 +147,7 @@ function getDurableCopyFileSystem(action: string): {
     !FileSystem.copyAsync
   ) {
     throw new DurableReportStorageError(
-      `Durable report storage is unavailable in this runtime, so ClaimProof SG cannot ${action} or archive the report.`,
+      `Durable report storage is unavailable in this runtime, so dispute cannot ${action} or archive the report.`,
     );
   }
 

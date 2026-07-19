@@ -77,12 +77,19 @@ test("buildProgressClaimSnapshot totals days hours overtime and claim amount", (
       {
         id: "time-1",
         workDate: "2026-06-01",
+        startTime: "2026-06-01T08:00:00",
+        endTime: "2026-06-01T19:00:00",
         durationMinutes: 600,
         activity: "Installed lighting, quoted \"Phase A\"",
+        locationText: "10 Anson Road, Singapore 079903",
+        clockInGpsLatitude: 1.2765,
+        clockInGpsLongitude: 103.8458,
       },
       {
         id: "time-2",
         workDate: "2026-06-02",
+        startTime: "2026-06-02T09:00:00",
+        endTime: "2026-06-02T13:00:00",
         durationMinutes: 240,
         activity: "Testing and cleanup",
       },
@@ -99,7 +106,11 @@ test("buildProgressClaimSnapshot totals days hours overtime and claim amount", (
     ],
     pay: {
       dailyNormalMinutes: 480,
+      normalWorkStartTime: "08:00",
+      normalWorkEndTime: "17:00",
       overtimeMultiplier: 1.5,
+      offDayMultiplier: 2,
+      holidayMultiplier: 2,
       allowancesCents: 10000,
       deductionsCents: 5000,
     },
@@ -109,12 +120,28 @@ test("buildProgressClaimSnapshot totals days hours overtime and claim amount", (
   assert.equal(snapshot.totals.totalDaysWorked, 2);
   assert.equal(snapshot.totals.totalNormalHours, 12);
   assert.equal(snapshot.totals.totalOvertimeHours, 2);
+  assert.equal(snapshot.totals.totalOffDayHours, 0);
+  assert.equal(snapshot.totals.totalHolidayHours, 0);
   assert.equal(snapshot.totals.basicPayCents, 60000);
   assert.equal(snapshot.totals.overtimePayCents, 15000);
+  assert.equal(snapshot.totals.offDayPayCents, 0);
+  assert.equal(snapshot.totals.holidayPayCents, 0);
   assert.equal(snapshot.totals.grossPayCents, 85000);
   assert.equal(snapshot.totals.netPayCents, 80000);
   assert.equal(snapshot.totals.totalClaimAmountCents, 80000);
   assert.equal(snapshot.dailyWorkLog.length, 2);
+  assert.equal(snapshot.dailyWorkLog[0].normalHours, 8);
+  assert.equal(snapshot.dailyWorkLog[0].overtimeHours, 2);
+  assert.deepEqual(snapshot.dailyWorkLog[0].dayTypes, ["normal"]);
+  assert.deepEqual(snapshot.dailyWorkLog[0].locations, [
+    {
+      address: "10 Anson Road, Singapore 079903",
+      latitude: 1.2765,
+      longitude: 103.8458,
+    },
+  ]);
+  assert.equal(snapshot.rateCalculation.normalWorkStartTime, "08:00");
+  assert.equal(snapshot.rateCalculation.normalWorkEndTime, "17:00");
   assert.equal(snapshot.dailyWorkLog[0].photoEvidenceIds[0], "photo-1");
   assert.match(snapshot.disclaimer, /does not replace legal, accounting, or MOM advice/);
   assert.deepEqual(snapshot.signature, {
@@ -122,4 +149,55 @@ test("buildProgressClaimSnapshot totals days hours overtime and claim amount", (
     clientAcknowledgement: "",
     signedAt: "",
   });
+});
+
+test("buildProgressClaimSnapshot applies off day and holiday multipliers to marked entries", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()(
+    "src/reports/progressClaimSnapshot.ts",
+  );
+
+  const snapshot = buildProgressClaimSnapshot({
+    generatedAt: "2026-06-09T12:00:00.000Z",
+    project: {
+      name: "Special rate work",
+      hourlyRateCents: 5000,
+      currency: "SGD",
+    },
+    timeEntries: [
+      {
+        id: "time-off",
+        workDate: "2026-06-06",
+        startTime: "2026-06-06T08:00:00",
+        endTime: "2026-06-06T12:00:00",
+        durationMinutes: 240,
+        activity: "Off day urgent work",
+        dayType: "off_day",
+      },
+      {
+        id: "time-holiday",
+        workDate: "2026-06-07",
+        startTime: "2026-06-07T08:00:00",
+        endTime: "2026-06-07T11:00:00",
+        durationMinutes: 180,
+        activity: "Holiday repair work",
+        dayType: "holiday",
+      },
+    ],
+    pay: {
+      hourlyRateCents: 5000,
+      offDayMultiplier: 2,
+      holidayMultiplier: 3,
+    },
+  });
+
+  assert.equal(snapshot.totals.totalNormalHours, 0);
+  assert.equal(snapshot.totals.totalOvertimeHours, 0);
+  assert.equal(snapshot.totals.totalOffDayHours, 4);
+  assert.equal(snapshot.totals.totalHolidayHours, 3);
+  assert.equal(snapshot.totals.offDayPayCents, 40000);
+  assert.equal(snapshot.totals.holidayPayCents, 45000);
+  assert.equal(snapshot.totals.grossPayCents, 85000);
+  assert.equal(snapshot.totals.totalClaimAmountCents, 85000);
+  assert.deepEqual(snapshot.dailyWorkLog[0].dayTypes, ["off_day"]);
+  assert.deepEqual(snapshot.dailyWorkLog[1].dayTypes, ["holiday"]);
 });

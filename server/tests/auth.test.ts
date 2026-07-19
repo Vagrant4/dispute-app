@@ -9,6 +9,10 @@ process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 
 interface AuthUserResponse {
+  devVerificationCode: string;
+  devVerificationToken: string;
+  verificationRequired?: boolean;
+  message?: string;
   user: {
     id: string;
     email: string;
@@ -48,6 +52,8 @@ describe('auth API', () => {
       prisma.project.deleteMany(),
       prisma.company.deleteMany(),
       prisma.workerProfile.deleteMany(),
+      prisma.emailVerificationToken.deleteMany(),
+      prisma.userSubscription.deleteMany(),
       prisma.appSetting.deleteMany(),
       prisma.user.deleteMany()
     ]);
@@ -60,7 +66,7 @@ describe('auth API', () => {
     await prisma.$disconnect();
   });
 
-  it('registers a worker without returning passwordHash', async () => {
+  it('registers a worker as pending email verification without returning passwordHash', async () => {
     const response = await postJson('/auth/register', {
       email: 'worker@example.com',
       password: 'Password123!'
@@ -71,20 +77,24 @@ describe('auth API', () => {
     expect(body.user).toMatchObject({
       email: 'worker@example.com',
       role: 'WORKER',
-      status: 'ACTIVE'
+      status: 'PENDING_EMAIL_VERIFICATION'
     });
+    expect(body.verificationRequired).toBe(true);
+    expect(body.devVerificationCode).toMatch(/^\d{6}$/);
     expect(body.user.passwordHash).toBeUndefined();
-    expect(response.headers.get('set-cookie')).toContain('claimproof_session=');
+    expect(response.headers.get('set-cookie')).toBeNull();
 
     const storedUser = await prisma.user.findUnique({
       where: { email: 'worker@example.com' },
-      include: { appSetting: true }
+      include: { appSetting: true, emailVerificationTokens: true }
     });
     expect(storedUser?.passwordHash).not.toBe('Password123!');
+    expect(storedUser?.emailVerifiedAt).toBeNull();
     expect(storedUser?.appSetting?.defaultCurrency).toBe('SGD');
+    expect(storedUser?.emailVerificationTokens).toHaveLength(1);
   });
 
-  it('rejects duplicate registration', async () => {
+  it('resends verification code for duplicate pending registration', async () => {
     await postJson('/auth/register', {
       email: 'worker@example.com',
       password: 'Password123!'
@@ -95,10 +105,19 @@ describe('auth API', () => {
       password: 'Password123!'
     });
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(201);
+    const body = await jsonBody<AuthUserResponse>(response);
+    expect(body.verificationRequired).toBe(true);
+    expect(body.message).toContain('new verification code');
+
+    const storedUser = await prisma.user.findUnique({
+      where: { email: 'worker@example.com' },
+      include: { emailVerificationTokens: true }
+    });
+    expect(storedUser?.emailVerificationTokens).toHaveLength(2);
   });
 
-  it('logs in with valid credentials', async () => {
+  it('rejects login before email verification', async () => {
     await postJson('/auth/register', {
       email: 'worker@example.com',
       password: 'Password123!'
@@ -109,11 +128,53 @@ describe('auth API', () => {
       password: 'Password123!'
     });
 
+    expect(response.status).toBe(403);
+  });
+
+  it('verifies email and then logs in with valid credentials', async () => {
+    const registered = await postJson('/auth/register', {
+      email: 'worker@example.com',
+      password: 'Password123!'
+    });
+    const registeredBody = await jsonBody<AuthUserResponse>(registered);
+
+    const verifyResponse = await postJson('/auth/verify-email', {
+      email: 'worker@example.com',
+      code: registeredBody.devVerificationCode
+    });
+    expect(verifyResponse.status).toBe(200);
+    expect(verifyResponse.headers.get('set-cookie')).toContain('claimproof_session=');
+
+    const response = await postJson('/auth/login', {
+      email: 'worker@example.com',
+      password: 'Password123!'
+    });
+
     expect(response.status).toBe(200);
     const body = await jsonBody<AuthUserResponse>(response);
-    expect(body.user.email).toBe('worker@example.com');
+    expect(body.user).toMatchObject({
+      email: 'worker@example.com',
+      status: 'ACTIVE'
+    });
     expect(body.user.passwordHash).toBeUndefined();
     expect(response.headers.get('set-cookie')).toContain('claimproof_session=');
+  });
+
+  it('verifies email from the emailed token link', async () => {
+    const registered = await postJson('/auth/register', {
+      email: 'worker@example.com',
+      password: 'Password123!'
+    });
+    const registeredBody = await jsonBody<AuthUserResponse>(registered);
+
+    const response = await fetch(
+      `${baseUrl}/auth/verify-email?token=${encodeURIComponent(registeredBody.devVerificationToken)}`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(response.headers.get('set-cookie')).toContain('claimproof_session=');
+    expect(await response.text()).toContain('Email verified');
   });
 
   it('rejects login with the wrong password', async () => {
@@ -131,11 +192,7 @@ describe('auth API', () => {
   });
 
   it('clears auth state on logout', async () => {
-    const registered = await postJson('/auth/register', {
-      email: 'worker@example.com',
-      password: 'Password123!'
-    });
-    const cookie = sessionCookie(registered);
+    const cookie = await registerAndVerify('worker@example.com');
 
     const response = await postJson('/auth/logout', {}, cookie);
 
@@ -152,11 +209,7 @@ describe('auth API', () => {
   });
 
   it('accepts protected requests with valid auth', async () => {
-    const registered = await postJson('/auth/register', {
-      email: 'worker@example.com',
-      password: 'Password123!'
-    });
-    const cookie = sessionCookie(registered);
+    const cookie = await registerAndVerify('worker@example.com');
 
     const response = await fetch(`${baseUrl}/test/protected`, {
       headers: { Cookie: cookie }
@@ -198,6 +251,20 @@ describe('auth API', () => {
       },
       body: JSON.stringify(body)
     });
+  }
+
+  async function registerAndVerify(email: string): Promise<string> {
+    const registered = await postJson('/auth/register', {
+      email,
+      password: 'Password123!'
+    });
+    const body = await jsonBody<AuthUserResponse>(registered);
+    const verified = await postJson('/auth/verify-email', {
+      email,
+      code: body.devVerificationCode
+    });
+    expect(verified.status).toBe(200);
+    return sessionCookie(verified);
   }
 });
 

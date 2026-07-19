@@ -4,6 +4,7 @@ import { GeneratedDocumentRepository } from "../reports/generatedDocumentReposit
 import { ProgressClaimSourceRepository } from "../reports/progressClaimSourceRepository";
 import { openAndInitializeLocalDatabase } from "./localDatabase";
 import { SettingsRepository, type RepositoryHealth } from "./settingsRepository";
+import { WorkRepository } from "../work/workRepository";
 
 export type LocalRepositories = {
   backup: BackupRepository;
@@ -11,6 +12,7 @@ export type LocalRepositories = {
   photoEvidence: PhotoEvidenceRepository;
   progressClaims: ProgressClaimSourceRepository;
   settings: SettingsRepository;
+  work: WorkRepository;
   getHealth: () => Promise<RepositoryHealth>;
 };
 
@@ -27,6 +29,7 @@ export async function getLocalRepositories(): Promise<LocalRepositories> {
   const photoEvidence = new PhotoEvidenceRepository(database);
   const progressClaims = new ProgressClaimSourceRepository(database);
   const settings = new SettingsRepository(database);
+  const work = new WorkRepository(database);
 
   cachedRepositories = {
     backup,
@@ -34,6 +37,7 @@ export async function getLocalRepositories(): Promise<LocalRepositories> {
     photoEvidence,
     progressClaims,
     settings,
+    work,
     getHealth: () => settings.getHealth(),
   };
 

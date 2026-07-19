@@ -10,7 +10,11 @@ import type {
 type SettingsRow = {
   currency: string;
   daily_hours: number;
+  normal_work_start_time: string | null;
+  normal_work_end_time: string | null;
   overtime_multiplier: number;
+  off_day_multiplier: number | null;
+  holiday_multiplier: number | null;
 };
 
 type ProjectRow = {
@@ -31,8 +35,16 @@ type ClientRow = {
 type TimeEntryRow = {
   id: string;
   work_date: string;
+  start_time: string | null;
+  end_time: string | null;
   duration_minutes: number;
   activity: string;
+  day_type: "normal" | "off_day" | "holiday" | null;
+  location_text: string | null;
+  clock_in_gps_latitude: number | null;
+  clock_in_gps_longitude: number | null;
+  clock_out_gps_latitude: number | null;
+  clock_out_gps_longitude: number | null;
 };
 
 type PhotoEvidenceRow = {
@@ -62,7 +74,7 @@ export class ProgressClaimSourceRepository {
     generatedAt?: string;
   }): Promise<ProgressClaimSnapshotInput> {
     const settings = await this.database.getFirstAsync<SettingsRow>(
-      `SELECT currency, daily_hours, overtime_multiplier
+      `SELECT currency, daily_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier
       FROM app_settings
       WHERE user_id = ?`,
       [params.userId],
@@ -96,7 +108,11 @@ export class ProgressClaimSourceRepository {
         pay: {
           currency: settings?.currency ?? "SGD",
           dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
+          normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
+          normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",
           overtimeMultiplier: settings?.overtime_multiplier ?? 1.5,
+          offDayMultiplier: settings?.off_day_multiplier ?? 2,
+          holidayMultiplier: settings?.holiday_multiplier ?? 2,
         },
       };
     }
@@ -109,7 +125,7 @@ export class ProgressClaimSourceRepository {
         [project.client_id, params.userId],
       ),
       this.database.getAllAsync<TimeEntryRow>(
-        `SELECT id, work_date, duration_minutes, activity
+        `SELECT id, work_date, start_time, end_time, duration_minutes, activity, day_type, location_text, clock_in_gps_latitude, clock_in_gps_longitude, clock_out_gps_latitude, clock_out_gps_longitude
         FROM time_entries
         WHERE project_id = ? AND user_id = ?
         ORDER BY work_date ASC, id ASC`,
@@ -146,7 +162,11 @@ export class ProgressClaimSourceRepository {
         currency: settings?.currency ?? project.currency,
         hourlyRateCents: project.hourly_rate_cents,
         dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
+        normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
+        normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",
         overtimeMultiplier: settings?.overtime_multiplier ?? 1.5,
+        offDayMultiplier: settings?.off_day_multiplier ?? 2,
+        holidayMultiplier: settings?.holiday_multiplier ?? 2,
       },
     };
   }
@@ -170,8 +190,16 @@ function mapTimeEntries(rows: TimeEntryRow[]): TimeEntrySnapshotInput[] {
   return rows.map((row) => ({
     id: row.id,
     workDate: row.work_date,
+    startTime: row.start_time,
+    endTime: row.end_time,
     durationMinutes: row.duration_minutes,
     activity: row.activity,
+    dayType: row.day_type,
+    locationText: row.location_text,
+    clockInGpsLatitude: row.clock_in_gps_latitude,
+    clockInGpsLongitude: row.clock_in_gps_longitude,
+    clockOutGpsLatitude: row.clock_out_gps_latitude,
+    clockOutGpsLongitude: row.clock_out_gps_longitude,
   }));
 }
 

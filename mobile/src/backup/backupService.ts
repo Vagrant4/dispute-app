@@ -2,6 +2,7 @@ import { CURRENT_SCHEMA_VERSION } from "../db/schema";
 import {
   BACKUP_APP_MARKER,
   BACKUP_CREATED_BY,
+  LEGACY_BACKUP_APP_MARKERS,
   BACKUP_SCHEMA_VERSION,
   BACKUP_TABLES,
   type BackupEnvelope,
@@ -14,6 +15,7 @@ import {
 export {
   BACKUP_APP_MARKER,
   BACKUP_CREATED_BY,
+  LEGACY_BACKUP_APP_MARKERS,
   BACKUP_SCHEMA_VERSION,
   BACKUP_TABLES,
 } from "./backupTypes";
@@ -55,8 +57,13 @@ export function parseBackupJson(json: string): BackupEnvelope {
     throw new Error("Backup JSON must contain a backup object.");
   }
 
-  if (parsed.app !== BACKUP_APP_MARKER) {
-    throw new Error("This is not a ClaimProof SG mobile backup.");
+  if (
+    parsed.app !== BACKUP_APP_MARKER &&
+    !LEGACY_BACKUP_APP_MARKERS.includes(
+      parsed.app as (typeof LEGACY_BACKUP_APP_MARKERS)[number],
+    )
+  ) {
+    throw new Error("This is not a dispute mobile backup.");
   }
 
   if (parsed.version !== BACKUP_SCHEMA_VERSION) {

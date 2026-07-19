@@ -1,25 +1,49 @@
 {
   "expo": {
-    "name": "ClaimProof SG",
+    "name": "dispute",
     "slug": "claimproof-sg",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#050706"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "sg.claimproof.mobile"
+      "bundleIdentifier": "sg.claimproof.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "dispute uses the camera only when you choose to capture work evidence.",
+        "NSPhotoLibraryUsageDescription": "dispute lets you choose photos to attach as local work evidence.",
+        "NSLocationWhenInUseUsageDescription": "dispute can attach optional location context to work records and photos. The app still works without location."
+      }
     },
     "android": {
       "package": "sg.claimproof.mobile",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#0F766E"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#B7FF2A"
       }
     },
     "plugins": [
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      "expo-sharing"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fa2f721b-7ac5-4d56-82ca-58c3efff0fbd"
+      }
+    },
+    "owner": "vagrant4"
   }
 }

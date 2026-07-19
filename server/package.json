@@ -7,9 +7,11 @@
     "dev": "tsx watch src/server.ts",
     "prebuild": "npm run build --workspace @claimproof/shared",
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/server.js",
     "pretest": "npm run build --workspace @claimproof/shared",
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "prisma:generate": "prisma generate"
   },
@@ -19,11 +21,13 @@
     "bcryptjs": "latest",
     "cookie-parser": "latest",
     "cors": "latest",
+    "dotenv": "^16.6.1",
     "express": "latest",
     "jsonwebtoken": "latest",
     "multer": "latest",
+    "nodemailer": "^9.0.3",
     "pdfkit": "latest",
-    "zod": "latest"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/cookie-parser": "latest",
@@ -32,6 +36,7 @@
     "@types/jsonwebtoken": "latest",
     "@types/multer": "latest",
     "@types/node": "latest",
+    "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "latest",
     "prisma": "6.19.3",
     "tsx": "latest",

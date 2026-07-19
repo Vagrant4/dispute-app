@@ -207,7 +207,7 @@ test("BackupRepository overwrites local records in dependency-safe table order",
   const repository = new BackupRepository(database);
 
   await repository.applyBackup({
-    app: "ClaimProof SG Mobile",
+    app: "dispute mobile",
     version: 1,
     schema: 1,
     exportedAt: new Date().toISOString(),

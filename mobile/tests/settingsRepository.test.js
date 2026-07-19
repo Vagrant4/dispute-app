@@ -24,7 +24,11 @@ test("default app settings are valid and Singapore-oriented", () => {
   assert.equal(DEFAULT_APP_SETTINGS.currency, "SGD");
   assert.equal(DEFAULT_APP_SETTINGS.dailyHours, 8);
   assert.equal(DEFAULT_APP_SETTINGS.weeklyHours, 44);
+  assert.equal(DEFAULT_APP_SETTINGS.normalWorkStartTime, "08:00");
+  assert.equal(DEFAULT_APP_SETTINGS.normalWorkEndTime, "17:00");
   assert.equal(DEFAULT_APP_SETTINGS.overtimeMultiplier, 1.5);
+  assert.equal(DEFAULT_APP_SETTINGS.offDayMultiplier, 2);
+  assert.equal(DEFAULT_APP_SETTINGS.holidayMultiplier, 2);
 });
 
 test("default app settings use distinct ids for different users", () => {
@@ -53,9 +57,17 @@ test("settings updates reject unsafe limits and invalid currency", () => {
     { dailyHours: 12, weeklyHours: 10 },
     { overtimeMultiplier: 0.99 },
     { overtimeMultiplier: 5.01 },
+    { offDayMultiplier: 0.99 },
+    { offDayMultiplier: 5.01 },
+    { holidayMultiplier: 0.99 },
+    { holidayMultiplier: 5.01 },
     { currency: "sgd" },
     { currency: "US" },
     { currency: "EURO" },
+    { normalWorkStartTime: "8:00" },
+    { normalWorkStartTime: "24:00" },
+    { normalWorkEndTime: "17:60" },
+    { normalWorkStartTime: "09:00", normalWorkEndTime: "09:00" },
   ]) {
     assert.throws(
       () => validateSettingsPatch(DEFAULT_APP_SETTINGS, patch),
@@ -74,14 +86,22 @@ test("settings updates merge valid patches", () => {
     validateSettingsPatch(DEFAULT_APP_SETTINGS, {
       dailyHours: 9,
       weeklyHours: 45,
+      normalWorkStartTime: "09:00",
+      normalWorkEndTime: "18:30",
       overtimeMultiplier: 2,
+      offDayMultiplier: 2.25,
+      holidayMultiplier: 3,
       currency: "USD",
     }),
     {
       ...DEFAULT_APP_SETTINGS,
       dailyHours: 9,
       weeklyHours: 45,
+      normalWorkStartTime: "09:00",
+      normalWorkEndTime: "18:30",
       overtimeMultiplier: 2,
+      offDayMultiplier: 2.25,
+      holidayMultiplier: 3,
       currency: "USD",
     },
   );

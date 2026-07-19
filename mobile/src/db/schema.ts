@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -162,7 +162,37 @@ ALTER TABLE generated_documents ADD COLUMN snapshot_json TEXT;
 CREATE INDEX IF NOT EXISTS idx_generated_documents_project_id ON generated_documents(project_id);
 `;
 
+export const TIME_ENTRY_CLOCK_PHASE_7_MIGRATION_SQL = `
+ALTER TABLE time_entries ADD COLUMN break_minutes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE time_entries ADD COLUMN location_text TEXT;
+ALTER TABLE time_entries ADD COLUMN clock_in_gps_latitude REAL;
+ALTER TABLE time_entries ADD COLUMN clock_in_gps_longitude REAL;
+ALTER TABLE time_entries ADD COLUMN clock_out_gps_latitude REAL;
+ALTER TABLE time_entries ADD COLUMN clock_out_gps_longitude REAL;
+CREATE INDEX IF NOT EXISTS idx_time_entries_project_id ON time_entries(project_id);
+`;
+
+export const NORMAL_WORK_HOURS_PHASE_8_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN normal_work_start_time TEXT NOT NULL DEFAULT '08:00';
+ALTER TABLE app_settings ADD COLUMN normal_work_end_time TEXT NOT NULL DEFAULT '17:00';
+`;
+
+export const SPECIAL_DAY_RATES_PHASE_9_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN off_day_multiplier REAL NOT NULL DEFAULT 2;
+ALTER TABLE app_settings ADD COLUMN holiday_multiplier REAL NOT NULL DEFAULT 2;
+ALTER TABLE time_entries ADD COLUMN day_type TEXT NOT NULL DEFAULT 'normal';
+`;
+
 export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
+  "  end_time TEXT,\n  duration_minutes INTEGER NOT NULL,",
+  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  duration_minutes INTEGER NOT NULL,",
+).replace(
+  "  activity TEXT NOT NULL,\n  status TEXT NOT NULL DEFAULT 'draft',",
+  "  activity TEXT NOT NULL,\n  day_type TEXT NOT NULL DEFAULT 'normal',\n  status TEXT NOT NULL DEFAULT 'draft',",
+).replace(
+  "  overtime_multiplier REAL NOT NULL,\n  status TEXT NOT NULL DEFAULT 'active',",
+  "  overtime_multiplier REAL NOT NULL,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  status TEXT NOT NULL DEFAULT 'active',",
+).replace(
   "  caption TEXT,\n  captured_at TEXT,",
   "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,",
 ).replace(
@@ -196,5 +226,20 @@ export const LOCAL_MIGRATIONS = [
     version: 3,
     name: "phase_6_generated_document_archive",
     sql: GENERATED_DOCUMENTS_PHASE_6_MIGRATION_SQL,
+  },
+  {
+    version: 4,
+    name: "phase_7_persistent_clock_evidence",
+    sql: TIME_ENTRY_CLOCK_PHASE_7_MIGRATION_SQL,
+  },
+  {
+    version: 5,
+    name: "phase_8_normal_work_hours",
+    sql: NORMAL_WORK_HOURS_PHASE_8_MIGRATION_SQL,
+  },
+  {
+    version: 6,
+    name: "phase_9_special_day_rates",
+    sql: SPECIAL_DAY_RATES_PHASE_9_MIGRATION_SQL,
   },
 ] as const;

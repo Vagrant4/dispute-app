@@ -33,7 +33,7 @@ export async function shareGeneratedDocument(params: {
 
   await params.sharing.shareAsync(params.filePath, {
     mimeType: params.mimeType,
-    dialogTitle: params.dialogTitle ?? "Share ClaimProof SG report",
+    dialogTitle: params.dialogTitle ?? "Share dispute report",
   });
 
   return {

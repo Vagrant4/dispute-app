@@ -10,6 +10,8 @@
   },
   "workspaces": ["client", "server", "mobile", "packages/shared"],
   "devDependencies": {
-    "concurrently": "latest"
+    "concurrently": "latest",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   }
 }

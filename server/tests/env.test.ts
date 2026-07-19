@@ -65,4 +65,14 @@ describe('env config', () => {
       })
     ).toThrow(/STRIPE_BILLING_MODE/);
   });
+
+  it('uses a public server URL for production email links', () => {
+    const env = createEnv({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+      SERVER_PUBLIC_URL: 'https://dispute-api.example.com/'
+    });
+
+    expect(env.serverPublicUrl).toBe('https://dispute-api.example.com');
+  });
 });

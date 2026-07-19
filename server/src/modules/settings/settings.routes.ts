@@ -14,11 +14,11 @@ const settingsSchema = z
       .regex(/^[A-Za-z]{3}$/, 'defaultCurrency must be a 3-letter currency code')
       .transform((value) => value.toUpperCase())
   })
+  .strict()
   .refine((settings) => settings.standardWeeklyHours >= settings.standardDailyHours, {
     message: 'standardWeeklyHours must be greater than or equal to standardDailyHours',
     path: ['standardWeeklyHours']
-  })
-  .strict();
+  });
 
 export const settingsRouter = Router();
 

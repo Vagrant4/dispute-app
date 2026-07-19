@@ -1,8 +1,9 @@
 import { CURRENT_SCHEMA_VERSION } from "../db/schema";
 
-export const BACKUP_APP_MARKER = "ClaimProof SG Mobile";
+export const BACKUP_APP_MARKER = "dispute mobile";
+export const LEGACY_BACKUP_APP_MARKERS = ["ClaimProof SG Mobile"] as const;
 export const BACKUP_SCHEMA_VERSION = 1;
-export const BACKUP_CREATED_BY = "claimproof-sg-mobile";
+export const BACKUP_CREATED_BY = "dispute-mobile";
 
 export const BACKUP_TABLES = [
   "app_settings",

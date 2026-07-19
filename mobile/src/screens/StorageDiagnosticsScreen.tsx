@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
-import { getLocalRepositories } from "../db/repositories";
 import type { RepositoryHealth } from "../db/settingsRepository";
 import { styles } from "../styles";
 
@@ -14,7 +13,8 @@ export function StorageDiagnosticsScreen() {
 
     async function loadHealth() {
       try {
-        const repositories = await getLocalRepositories();
+      const { getLocalRepositories } = await import("../db/repositories");
+      const repositories = await getLocalRepositories();
         const nextHealth = await repositories.getHealth();
         if (mounted) {
           setHealth(nextHealth);
@@ -51,7 +51,7 @@ export function StorageDiagnosticsScreen() {
       <Text style={styles.heading}>Storage status</Text>
       <Text style={styles.body}>
         This screen checks the local SQLite repository used for mobile-only
-        ClaimProof SG records.
+        dispute records.
       </Text>
       {error ? <Text style={styles.muted}>{error}</Text> : null}
 

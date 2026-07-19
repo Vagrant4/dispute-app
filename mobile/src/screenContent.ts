@@ -1,24 +1,19 @@
 export const tabs = [
-  { id: "home", label: "Home", title: "ClaimProof SG" },
-  { id: "backup", label: "Backup", title: "Settings / Backup" },
-  { id: "trial", label: "Trial", title: "Trial Readiness" },
-  { id: "privacy", label: "Privacy", title: "Privacy Notice" },
-  { id: "storage", label: "Storage", title: "Storage Diagnostics" },
-  { id: "photos", label: "Photos", title: "Photo Evidence" },
-  { id: "reports", label: "Reports", title: "Progress Claim Reports" },
-  { id: "subscription", label: "Plan", title: "Subscription Status" },
-  { id: "lock", label: "Lock", title: "Evidence Lock" },
+  { id: "home", label: "Time", title: "Time in / out" },
+  { id: "evidence", label: "Evidence", title: "Evidence" },
+  { id: "reports", label: "Export", title: "Export" },
+  { id: "settings", label: "Settings", title: "Settings" },
 ] as const;
 
 export type TabId = (typeof tabs)[number]["id"];
 
 export const backupWarning =
-  "ClaimProof SG stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
+  "dispute stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
 
 export const privacyContent = {
   heading: "Local-first in V1",
   body:
-    "ClaimProof SG V1 is designed around local-first records. Work logs, " +
+    "dispute V1 is designed around local-first records. Work logs, " +
     "evidence notes, and status information are intended to stay on this " +
     "device unless you choose an export or backup action in a later phase.",
   analyticsHeading: "No analytics in V1",
@@ -31,7 +26,7 @@ export const subscriptionContent = {
   heading: "Foundation only",
   billingPath: "Future billing path",
   noCheckout:
-    "ClaimProof SG subscription billing is not active in V1. No payment is collected in this app. No Stripe checkout is available in the mobile app.",
+    "dispute subscription billing is not active in V1. No payment is collected in this app. No Stripe checkout is available in the mobile app.",
   policyGated:
     "Pricing will be decided after the real-user trial. Future mobile digital subscriptions are policy-gated and must use an approved App Store or Google Play path unless policy and legal review confirms another allowed strategy.",
 };
@@ -79,13 +74,12 @@ export const evidenceLockStates = [
 ] as const;
 
 export const photoEvidenceContent = {
-  heading: "Capture evidence for a project",
+  heading: "Photoshoot evidence",
   body:
-    "Use camera or gallery photos as local evidence for work progress, defects, " +
-    "deliveries, variations, and completed work. Saving a photo evidence row " +
-    "requires a project.",
+    "Take a photo or choose one from the gallery. Attach it to the current project " +
+    "so the claim has simple visual proof.",
   permissionDenied:
-    "Photo permission was not granted. ClaimProof SG can still keep existing " +
+    "Photo permission was not granted. dispute can still keep existing " +
     "records, and you can enable camera or gallery access later in device settings.",
   localStorageBody:
     "Photos imported here are copied into app-owned local storage when the " +
@@ -97,11 +91,11 @@ export const photoEvidenceContent = {
 };
 
 export const progressClaimReportContent = {
-  heading: "Generate progress claim reports",
+  heading: "Export claim",
   body:
-    "Create PDF or CSV progress claim files from local profile, client, project, time, pay, and photo evidence records when available.",
+    "Create a PDF claim from your time records and evidence. Use Email / Share to send it when ready.",
   localStorage:
-    "Generated documents are archived locally on this device. Use manual share/export when you need to send a file.",
+    "Generated PDF files are saved locally on this device. Email / Share opens your phone sharing options.",
   noUpload:
-    "ClaimProof SG does not upload reports, email them automatically, or claim legal or MOM compliance.",
+    "dispute does not upload reports automatically. You choose when to email or share a file.",
 };

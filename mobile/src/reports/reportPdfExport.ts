@@ -1,4 +1,5 @@
 import * as Print from "expo-print";
+import * as FileSystem from "expo-file-system/legacy";
 
 import {
   buildGeneratedDocumentPath,
@@ -6,13 +7,24 @@ import {
 } from "./generatedDocumentFiles";
 import { buildProgressClaimHtml } from "./progressClaimHtml";
 import type { ProgressClaimSnapshot } from "./progressClaimTypes";
+import { embedPhotoEvidenceForPrint } from "./reportPhotoEmbedding";
 
 export async function saveProgressClaimPdf(params: {
   snapshot: ProgressClaimSnapshot;
   userId: string;
   documentId: string;
 }): Promise<{ filePath: string; message: string }> {
-  const html = buildProgressClaimHtml(params.snapshot);
+  const printableSnapshot = await embedPhotoEvidenceForPrint(
+    params.snapshot,
+    {
+      EncodingType: FileSystem.EncodingType,
+      readAsStringAsync: (uri, options) =>
+        FileSystem.readAsStringAsync(uri, {
+          encoding: options?.encoding as FileSystem.EncodingType | undefined,
+        }),
+    },
+  );
+  const html = buildProgressClaimHtml(printableSnapshot);
   const result = await Print.printToFileAsync({
     html,
     base64: false,

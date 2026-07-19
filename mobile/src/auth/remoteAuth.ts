@@ -1,0 +1,231 @@
+import { type LocalAccount, type LocalAccountStorage } from "./localAuth";
+
+export type PendingEmailVerification = {
+  email: string;
+  name: string;
+  phone: string;
+  password: string;
+  message: string;
+  devVerificationCode?: string;
+};
+
+export type RemoteAuthResult =
+  | { ok: true; account: LocalAccount; message: string }
+  | { ok: false; message: string };
+
+export type RemoteRegistrationResult =
+  | { ok: true; pending: PendingEmailVerification }
+  | { ok: false; message: string };
+
+type FetchLike = typeof fetch;
+
+const expoEnv = (globalThis as unknown as {
+  process?: { env?: Record<string, string | undefined> };
+}).process?.env;
+
+const apiBaseUrl =
+  expoEnv?.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+  "http://127.0.0.1:4000";
+
+export function getAuthApiBaseUrl() {
+  return apiBaseUrl;
+}
+
+export async function registerRemoteAccount(
+  input: {
+    email: string;
+    name: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+  },
+  fetcher: FetchLike = fetch,
+): Promise<RemoteRegistrationResult> {
+  const localValidation = validateRegistrationInput(input);
+  if (!localValidation.ok) {
+    return localValidation;
+  }
+
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: input.email.trim().toLowerCase(),
+        password: input.password,
+      }),
+    });
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      return { ok: false, message: getErrorMessage(body, "Unable to create account.") };
+    }
+
+    return {
+      ok: true,
+      pending: {
+        email: input.email.trim().toLowerCase(),
+        name: input.name.trim(),
+        phone: input.phone.trim(),
+        password: input.password,
+        message:
+          getString(body, "message") ??
+          "Verification email sent. Enter the 6-digit code from Gmail.",
+        devVerificationCode: getString(body, "devVerificationCode") ?? undefined,
+      },
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to reach Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+export async function verifyRemoteEmail(
+  pending: PendingEmailVerification,
+  code: string,
+  storage?: LocalAccountStorage,
+  fetcher: FetchLike = fetch,
+): Promise<RemoteAuthResult> {
+  const verificationCode = code.trim();
+  if (!/^\d{6}$/.test(verificationCode)) {
+    return { ok: false, message: "Enter the 6-digit verification code from Gmail." };
+  }
+
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/verify-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: pending.email,
+        code: verificationCode,
+      }),
+    });
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      return { ok: false, message: getErrorMessage(body, "Verification failed.") };
+    }
+
+    const account: LocalAccount = {
+      id: getNestedString(body, ["user", "id"]) ?? pending.email,
+      email: pending.email,
+      name: pending.name,
+      phone: pending.phone,
+      password: pending.password,
+      emailVerified: true,
+    };
+
+    if (storage) {
+      await saveVerifiedAccount(account, storage);
+    }
+
+    return {
+      ok: true,
+      account,
+      message: getString(body, "message") ?? "Email verified. You are logged in.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to verify with Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+export async function loginRemoteAccount(
+  input: { email: string; password: string },
+  fetcher: FetchLike = fetch,
+): Promise<RemoteAuthResult> {
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: input.email.trim().toLowerCase(),
+        password: input.password,
+      }),
+    });
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      return { ok: false, message: getErrorMessage(body, "Login failed.") };
+    }
+
+    return {
+      ok: true,
+      account: {
+        id: getNestedString(body, ["user", "id"]) ?? input.email,
+        email: input.email.trim().toLowerCase(),
+        name: getNestedString(body, ["user", "email"])?.split("@")[0] ?? "Dispute user",
+        phone: "",
+        password: input.password,
+        emailVerified: true,
+      },
+      message: "Login successful.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to reach Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+async function saveVerifiedAccount(account: LocalAccount, storage: LocalAccountStorage) {
+  const accounts = await storage.loadAccounts();
+  const withoutDuplicate = accounts.filter(
+    (stored) => stored.email.toLowerCase() !== account.email.toLowerCase(),
+  );
+  await storage.saveAccounts([...withoutDuplicate, account]);
+}
+
+async function readJsonBody(response: Response): Promise<Record<string, unknown>> {
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function validateRegistrationInput(input: {
+  email: string;
+  name: string;
+  password: string;
+  confirmPassword: string;
+}): RemoteRegistrationResult {
+  if (!input.name.trim()) {
+    return { ok: false, message: "Enter your full name." };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+    return { ok: false, message: "Enter a valid email address." };
+  }
+  if (input.password.length < 8) {
+    return { ok: false, message: "Use at least 8 characters for the password." };
+  }
+  if (input.password !== input.confirmPassword) {
+    return { ok: false, message: "Passwords do not match." };
+  }
+  return { ok: true, pending: {} as PendingEmailVerification };
+}
+
+function getErrorMessage(body: Record<string, unknown>, fallback: string) {
+  return getString(body, "error") ?? getString(body, "message") ?? fallback;
+}
+
+function getString(body: Record<string, unknown>, key: string) {
+  const value = body[key];
+  return typeof value === "string" ? value : null;
+}
+
+function getNestedString(body: Record<string, unknown>, path: string[]) {
+  let cursor: unknown = body;
+  for (const key of path) {
+    if (!cursor || typeof cursor !== "object") {
+      return null;
+    }
+    cursor = (cursor as Record<string, unknown>)[key];
+  }
+  return typeof cursor === "string" ? cursor : null;
+}

@@ -13,8 +13,17 @@ enum UserRole {
 }
 
 enum UserStatus {
+  PENDING_EMAIL_VERIFICATION
   ACTIVE
   SUSPENDED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
 }
 
 enum EmploymentType {
@@ -55,13 +64,15 @@ enum RateType {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  passwordHash String
-  role         UserRole     @default(WORKER)
-  status       UserStatus   @default(ACTIVE)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id              String      @id @default(cuid())
+  email           String      @unique
+  passwordHash    String
+  role            UserRole    @default(WORKER)
+  status          UserStatus  @default(PENDING_EMAIL_VERIFICATION)
+  emailVerifiedAt DateTime?
+  lastSeenAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   profile              WorkerProfile?
   companies            Company[]
@@ -71,6 +82,23 @@ model User {
   paySummaries         PaySummary[]
   progressClaimReports ProgressClaimReport[]
   appSetting           AppSetting?
+  emailVerificationTokens EmailVerificationToken[]
+  subscriptions        UserSubscription[]
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model WorkerProfile {
@@ -291,9 +319,37 @@ model AppSetting {
 }
 
 model SubscriptionPlan {
-  id         String  @id @default(cuid())
-  name       String
-  price      Decimal
-  limitsJson String
-  status     String
+  id             String  @id @default(cuid())
+  name           String
+  price          Decimal
+  currency       String  @default("SGD")
+  billingInterval String @default("month")
+  limitsJson     String
+  status         String
+
+  subscriptions UserSubscription[]
+}
+
+model UserSubscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  planId               String
+  status               SubscriptionStatus
+  monthlyRecurringCents Int
+  currency             String             @default("SGD")
+  provider             String             @default("manual")
+  providerSubscriptionId String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  trialEndsAt          DateTime?
+  canceledAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
 }

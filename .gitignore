@@ -1,13 +1,18 @@
 .worktrees/
+.expo/
+CLAIMPROOF_SG_NEW_CHAT_HANDOFF.md
 
 node_modules/
 client/node_modules/
 server/node_modules/
+server/.env
 
 client/dist/
 server/dist/
 packages/shared/dist/
 *.tsbuildinfo
+server-dev.*.log
+mobile/.expo/
 
 server/prisma/dev.db
 server/prisma/dev.db-journal

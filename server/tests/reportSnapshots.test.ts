@@ -13,6 +13,9 @@ process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 process.env.EXPORT_ROOT = join(process.cwd(), '.test-exports', 'reports');
 
 interface AuthUserResponse {
+  devVerificationCode: string;
+  verificationRequired?: boolean;
+  message?: string;
   user: {
     id: string;
     email: string;
@@ -88,6 +91,8 @@ describe('progress claim report snapshots and exports', () => {
       prisma.project.deleteMany(),
       prisma.company.deleteMany(),
       prisma.workerProfile.deleteMany(),
+      prisma.emailVerificationToken.deleteMany(),
+      prisma.userSubscription.deleteMany(),
       prisma.appSetting.deleteMany(),
       prisma.user.deleteMany()
     ]);
@@ -492,7 +497,7 @@ describe('progress claim report snapshots and exports', () => {
     });
     expect(response.status).toBe(201);
     const body = await jsonBody<AuthUserResponse>(response);
-    return { id: body.user.id, cookie: sessionCookie(response) };
+    return { id: body.user.id, cookie: await verifiedCookie(email, body.devVerificationCode) };
   }
 
   function updateProfile(cookie: string): Promise<Response> {
@@ -592,6 +597,12 @@ describe('progress claim report snapshots and exports', () => {
       claimPeriodEnd: '2026-06-30',
       hourlyRate: 30
     }, cookie);
+  }
+  async function verifiedCookie(email: string, code: string): Promise<string> {
+    expect(code).toMatch(/^\d{6}$/);
+    const response = await postJson('/auth/verify-email', { email, code });
+    expect(response.status).toBe(200);
+    return sessionCookie(response);
   }
 
   function postJson(path: string, body: unknown, cookie?: string): Promise<Response> {

@@ -60,7 +60,7 @@ function createCompleteTables(overrides = {}) {
   };
 }
 
-test("createBackupEnvelope wraps table data with ClaimProof SG marker and version", () => {
+test("createBackupEnvelope wraps table data with dispute marker and version", () => {
   const {
     BACKUP_APP_MARKER,
     BACKUP_SCHEMA_VERSION,
@@ -105,7 +105,7 @@ test("parseBackupJson rejects wrong app marker and unsupported version", () => {
           tables: createCompleteTables(),
         }),
       ),
-    /not a ClaimProof SG mobile backup/,
+    /not a dispute mobile backup/,
   );
 
   assert.throws(
@@ -121,6 +121,24 @@ test("parseBackupJson rejects wrong app marker and unsupported version", () => {
       ),
     /Unsupported backup version/,
   );
+});
+
+test("parseBackupJson accepts legacy ClaimProof SG backups after the dispute rename", () => {
+  const { BACKUP_APP_MARKER, BACKUP_SCHEMA_VERSION, parseBackupJson } =
+    loadBackupService();
+
+  const envelope = parseBackupJson(
+    JSON.stringify({
+      app: "ClaimProof SG Mobile",
+      version: BACKUP_SCHEMA_VERSION,
+      schema: 1,
+      exportedAt: new Date().toISOString(),
+      createdBy: "claimproof-sg-mobile",
+      tables: createCompleteTables(),
+    }),
+  );
+
+  assert.equal(envelope.app, BACKUP_APP_MARKER);
 });
 
 test("parseBackupJson rejects known table payloads that are not arrays", () => {

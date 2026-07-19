@@ -14,6 +14,7 @@ export type ProgressClaimReportArchiveRepositories = {
   progressClaims: {
     buildLatestProgressClaimSnapshot: (params: {
       userId: string;
+      projectId?: string;
     }) => Promise<ProgressClaimSnapshot>;
   };
   generatedDocuments: {
@@ -26,12 +27,15 @@ export type ProgressClaimReportArchiveRepositories = {
 export type GenerateAndArchiveProgressClaimResult = {
   documentId: string;
   filePath: string;
+  fileName: string;
+  snapshot: ProgressClaimSnapshot;
   message: string;
 };
 
 export async function generateAndArchiveProgressClaim(params: {
   type: GeneratedDocumentType;
   userId: string;
+  projectId?: string;
   repositories: ProgressClaimReportArchiveRepositories;
   createDocumentId?: (prefix?: string) => string;
   savePdf?: typeof saveProgressClaimPdf;
@@ -41,6 +45,7 @@ export async function generateAndArchiveProgressClaim(params: {
   const snapshot =
     await params.repositories.progressClaims.buildLatestProgressClaimSnapshot({
       userId: params.userId,
+      projectId: params.projectId,
     });
   const documentId = (params.createDocumentId ?? createGeneratedDocumentId)(
     params.type === "progress_claim_pdf" ? "claim-pdf" : "claim-csv",
@@ -76,6 +81,8 @@ export async function generateAndArchiveProgressClaim(params: {
   return {
     documentId,
     filePath: exportResult.filePath,
+    fileName: archiveInput.fileName,
+    snapshot,
     message: exportResult.message,
   };
 }

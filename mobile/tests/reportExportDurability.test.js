@@ -81,6 +81,8 @@ function createSnapshot() {
       currency: "SGD",
       hourlyRateCents: 5000,
       dailyNormalMinutes: 480,
+      normalWorkStartTime: "08:00",
+      normalWorkEndTime: "17:00",
       overtimeMultiplier: 1.5,
     },
     totals: {
@@ -297,4 +299,47 @@ test("generateAndArchiveProgressClaim does not insert archive row when durable e
     /Durable report storage is unavailable/,
   );
   assert.deepEqual(inserted, []);
+});
+
+test("generateAndArchiveProgressClaim requests the selected project snapshot", async () => {
+  const requestedSnapshots = [];
+  const inserted = [];
+  const { generateAndArchiveProgressClaim } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "file:///documents/",
+      EncodingType: { UTF8: "utf8" },
+    },
+    "expo-print": {
+      printToFileAsync: async () => ({ uri: "file:///cache/report.pdf" }),
+    },
+  })("src/reports/progressClaimReportArchive.ts");
+
+  await generateAndArchiveProgressClaim({
+    type: "progress_claim_csv",
+    userId: "user-a",
+    projectId: "project-selected",
+    repositories: {
+      progressClaims: {
+        buildLatestProgressClaimSnapshot: async (params) => {
+          requestedSnapshots.push(params);
+          return createSnapshot();
+        },
+      },
+      generatedDocuments: {
+        insertGeneratedDocument: async (row) => {
+          inserted.push(row);
+        },
+      },
+    },
+    createDocumentId: () => "doc-1",
+    saveCsv: async () => ({
+      filePath: "file:///documents/report.csv",
+      message: "CSV saved.",
+    }),
+  });
+
+  assert.deepEqual(requestedSnapshots, [
+    { userId: "user-a", projectId: "project-selected" },
+  ]);
+  assert.equal(inserted.length, 1);
 });

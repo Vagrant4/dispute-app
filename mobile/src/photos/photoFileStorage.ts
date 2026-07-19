@@ -57,7 +57,7 @@ export async function importEvidencePhotoFile(params: {
   return {
     localUri: params.destinationUri,
     copied: true,
-    message: "Photo copied into ClaimProof SG local evidence storage.",
+    message: "Photo copied into dispute local evidence storage.",
   };
 }
 

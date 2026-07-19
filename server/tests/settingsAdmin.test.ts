@@ -7,6 +7,9 @@ process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 
 interface AuthUserResponse {
+  devVerificationCode: string;
+  verificationRequired?: boolean;
+  message?: string;
   user: {
     id: string;
     email: string;
@@ -52,6 +55,8 @@ describe('settings and admin APIs', () => {
       prisma.project.deleteMany(),
       prisma.company.deleteMany(),
       prisma.workerProfile.deleteMany(),
+      prisma.emailVerificationToken.deleteMany(),
+      prisma.userSubscription.deleteMany(),
       prisma.appSetting.deleteMany(),
       prisma.user.deleteMany()
     ]);
@@ -312,8 +317,14 @@ describe('settings and admin APIs', () => {
     const body = await jsonBody<AuthUserResponse>(response);
     return {
       id: body.user.id,
-      cookie: sessionCookie(response)
+      cookie: await verifiedCookie(email, body.devVerificationCode)
     };
+  }
+  async function verifiedCookie(email: string, code: string): Promise<string> {
+    expect(code).toMatch(/^\d{6}$/);
+    const response = await postJson('/auth/verify-email', { email, code });
+    expect(response.status).toBe(200);
+    return sessionCookie(response);
   }
 
   function postJson(path: string, body: unknown, cookie?: string): Promise<Response> {

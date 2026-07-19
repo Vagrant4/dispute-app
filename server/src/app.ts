@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { type ErrorRequestHandler, type Router } from 'express';
@@ -31,7 +33,19 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use(cookieParser());
 
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    res.json({
+      status: 'ok',
+      ...(env.nodeEnv === 'development'
+        ? {
+            diagnostics: {
+              cwd: process.cwd(),
+              hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+              cwdEnvExists: existsSync(join(process.cwd(), '.env')),
+              serverEnvExists: existsSync(join(process.cwd(), 'server', '.env'))
+            }
+          }
+        : {})
+    });
   });
 
   app.use('/auth', authRouter);
@@ -51,8 +65,18 @@ export function createApp(options: CreateAppOptions = {}) {
   }
 
   const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-    const statusCode = authErrorStatus(error) ?? 500;
+    const httpStatus =
+      typeof (error as { statusCode?: unknown }).statusCode === 'number'
+        ? (error as { statusCode: number }).statusCode
+        : typeof (error as { status?: unknown }).status === 'number'
+          ? (error as { status: number }).status
+          : null;
+    const statusCode = authErrorStatus(error) ?? httpStatus ?? 500;
     const message = error instanceof Error ? error.message : 'Internal server error';
+
+    if (statusCode === 500) {
+      console.error(error);
+    }
 
     res.status(statusCode).json({
       error: statusCode === 500 ? 'Internal server error' : message

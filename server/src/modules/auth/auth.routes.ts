@@ -1,19 +1,49 @@
 import { Router } from 'express';
 import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/auth.js';
-import { AuthServiceError, loginUser, registerUser, type SafeUser } from './auth.service.js';
+import { AuthServiceError, loginUser, registerUser, verifyEmail, type SafeUser } from './auth.service.js';
 
 export const authRouter = Router();
 
 authRouter.post('/register', async (req, res, next) => {
   try {
-    const user = await registerUser({
+    const result = await registerUser({
       email: String(req.body?.email ?? ''),
       password: String(req.body?.password ?? '')
     });
-    setAuthCookie(res, toAuthUser(user));
-    res.status(201).json({ user });
+    res.status(201).json(result);
   } catch (error) {
     next(error);
+  }
+});
+
+authRouter.post('/verify-email', async (req, res, next) => {
+  try {
+    const user = await verifyEmail({
+      email: req.body?.email ? String(req.body.email) : undefined,
+      code: req.body?.code ? String(req.body.code) : undefined,
+      token: req.body?.token ? String(req.body.token) : undefined
+    });
+    setAuthCookie(res, toAuthUser(user));
+    res.json({ user, message: 'Email verified. You are logged in.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.get('/verify-email', async (req, res) => {
+  try {
+    const user = await verifyEmail({
+      token: req.query?.token ? String(req.query.token) : undefined
+    });
+    setAuthCookie(res, toAuthUser(user));
+    res.type('html').send(renderVerificationPage('Email verified', 'Your Dispute account is verified. You can return to the mobile app and log in.'));
+  } catch (error) {
+    const statusCode = authErrorStatus(error) ?? 400;
+    const message = error instanceof Error ? error.message : 'Verification failed.';
+    res
+      .status(statusCode)
+      .type('html')
+      .send(renderVerificationPage('Verification failed', message));
   }
 });
 
@@ -46,4 +76,41 @@ function toAuthUser(user: SafeUser): AuthUser {
     email: user.email,
     role: user.role
   };
+}
+
+function renderVerificationPage(title: string, message: string): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)} | Dispute</title>
+    <style>
+      body { margin: 0; background: #050805; color: #f5fff0; font-family: Arial, sans-serif; }
+      main { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+      section { max-width: 520px; border: 1px solid #263820; border-radius: 28px; padding: 32px; background: #0c120d; }
+      .brand { color: #9cff16; font-weight: 800; letter-spacing: .02em; margin-bottom: 16px; }
+      h1 { font-size: 34px; line-height: 1.05; margin: 0 0 16px; }
+      p { color: #b8c2b3; font-size: 18px; line-height: 1.5; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <div class="brand">dispute</div>
+        <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(message)}</p>
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

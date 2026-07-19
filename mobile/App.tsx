@@ -3,36 +3,32 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { type LocalAccount } from "./src/auth/localAuth";
+import { type PendingEmailVerification } from "./src/auth/remoteAuth";
 import { tabs, type TabId } from "./src/screenContent";
-import { EvidenceLockScreen } from "./src/screens/EvidenceLockScreen";
+import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { LoginScreen } from "./src/screens/LoginScreen";
+import { LogoScreen } from "./src/screens/LogoScreen";
 import { PhotoEvidenceScreen } from "./src/screens/PhotoEvidenceScreen";
-import { PrivacyScreen } from "./src/screens/PrivacyScreen";
 import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsScreen";
-import { SettingsBackupScreen } from "./src/screens/SettingsBackupScreen";
-import { StorageDiagnosticsScreen } from "./src/screens/StorageDiagnosticsScreen";
-import { SubscriptionScreen } from "./src/screens/SubscriptionScreen";
-import { TrialReadinessScreen } from "./src/screens/TrialReadinessScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
 
-function renderScreen(activeTab: TabId) {
+function renderScreen(
+  activeTab: TabId,
+  onNavigate: (tab: TabId) => void,
+  account: LocalAccount,
+  onLogout: () => void,
+) {
   switch (activeTab) {
-    case "backup":
-      return <SettingsBackupScreen />;
-    case "privacy":
-      return <PrivacyScreen />;
-    case "trial":
-      return <TrialReadinessScreen />;
-    case "storage":
-      return <StorageDiagnosticsScreen />;
-    case "photos":
+    case "evidence":
       return <PhotoEvidenceScreen />;
     case "reports":
       return <ProgressClaimReportsScreen />;
-    case "subscription":
-      return <SubscriptionScreen />;
-    case "lock":
-      return <EvidenceLockScreen />;
+    case "settings":
+      return <SettingsScreen account={account} onLogout={onLogout} />;
     case "home":
     default:
       return <HomeScreen />;
@@ -40,56 +36,120 @@ function renderScreen(activeTab: TabId) {
 }
 
 export default function App() {
+  const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login">("logo");
+  const [account, setAccount] = useState<LocalAccount | null>(null);
+  const [pendingVerification, setPendingVerification] =
+    useState<PendingEmailVerification | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const activeTitle = useMemo(
-    () => tabs.find((tab) => tab.id === activeTab)?.title ?? "ClaimProof SG",
+    () => tabs.find((tab) => tab.id === activeTab)?.title ?? "dispute",
     [activeTab],
   );
+  const showHeader = account || authMode !== "logo";
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
-        <StatusBar style="dark" />
-        <View style={styles.header}>
-          <Text style={styles.appName}>ClaimProof SG</Text>
-          <Text style={styles.screenTitle}>{activeTitle}</Text>
-        </View>
+        <StatusBar style="light" />
+        {showHeader ? (
+          <View style={styles.header}>
+            <View style={styles.brandRow}>
+              <View>
+                <Text style={styles.appName}>DISPUTE</Text>
+                {account ? (
+                  <Text style={styles.headerMeta}>Signed in as {account.name}</Text>
+                ) : null}
+              </View>
+              {account?.emailVerified ? (
+                <View style={styles.headerPill}>
+                  <Text style={styles.headerPillText}>Email verified</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text numberOfLines={1} style={styles.screenTitle}>
+              {account
+                ? activeTitle
+                : authMode === "create"
+                  ? "Create account"
+                  : authMode === "verify"
+                    ? "Verify email"
+                    : "Login"}
+            </Text>
+          </View>
+        ) : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabScroller}
-          contentContainerStyle={styles.tabRow}
-        >
-          {tabs.map((tab) => {
-            const selected = tab.id === activeTab;
-            return (
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                key={tab.id}
-                onPress={() => setActiveTab(tab.id)}
-                style={[styles.tabButton, selected && styles.tabButtonActive]}
-              >
-                <Text
-                  style={[
-                    styles.tabButtonText,
-                    selected && styles.tabButtonTextActive,
-                  ]}
+        {account ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabScroller}
+            contentContainerStyle={styles.tabRow}
+          >
+            {tabs.map((tab) => {
+              const selected = tab.id === activeTab;
+              return (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  key={tab.id}
+                  onPress={() => setActiveTab(tab.id)}
+                  style={[styles.tabButton, selected && styles.tabButtonActive]}
                 >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Text
+                    style={[
+                      styles.tabButtonText,
+                      selected && styles.tabButtonTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
 
         <ScrollView
           style={styles.content}
           contentContainerStyle={styles.contentInner}
           showsVerticalScrollIndicator={false}
         >
-          {renderScreen(activeTab)}
+          {account ? (
+            renderScreen(activeTab, setActiveTab, account, () => {
+              setAccount(null);
+              setActiveTab("home");
+              setAuthMode("logo");
+            })
+          ) : authMode === "logo" ? (
+            <LogoScreen
+              onShowCreateAccount={() => setAuthMode("create")}
+              onShowLogin={() => setAuthMode("login")}
+            />
+          ) : authMode === "create" ? (
+            <CreateAccountScreen
+              onVerificationRequired={(pending) => {
+                setPendingVerification(pending);
+                setAuthMode("verify");
+              }}
+              onShowLogin={() => setAuthMode("login")}
+            />
+          ) : authMode === "verify" && pendingVerification ? (
+            <VerifyEmailScreen
+              pending={pendingVerification}
+              onBackToCreate={() => setAuthMode("create")}
+              onShowLogin={() => setAuthMode("login")}
+              onVerified={(verifiedAccount) => {
+                setAccount(verifiedAccount);
+                setPendingVerification(null);
+                setActiveTab("home");
+              }}
+            />
+          ) : (
+            <LoginScreen
+              onLogin={setAccount}
+              onShowCreateAccount={() => setAuthMode("create")}
+            />
+          )}
         </ScrollView>
       </SafeAreaView>
     </SafeAreaProvider>

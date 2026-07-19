@@ -53,7 +53,11 @@ function createFakeDatabase() {
       currency: settings.currency,
       daily_hours: settings.dailyHours,
       weekly_hours: settings.weeklyHours,
+      normal_work_start_time: settings.normalWorkStartTime,
+      normal_work_end_time: settings.normalWorkEndTime,
       overtime_multiplier: settings.overtimeMultiplier,
+      off_day_multiplier: settings.offDayMultiplier,
+      holiday_multiplier: settings.holidayMultiplier,
       status: settings.status,
       lock_hash: settings.lockHash,
       locked_at: settings.lockedAt,
@@ -88,7 +92,11 @@ function createFakeDatabase() {
           currency,
           dailyHours,
           weeklyHours,
+          normalWorkStartTime,
+          normalWorkEndTime,
           overtimeMultiplier,
+          offDayMultiplier,
+          holidayMultiplier,
           status,
           lockHash,
           lockedAt,
@@ -100,7 +108,11 @@ function createFakeDatabase() {
             currency,
             dailyHours,
             weeklyHours,
+            normalWorkStartTime,
+            normalWorkEndTime,
             overtimeMultiplier,
+            offDayMultiplier,
+            holidayMultiplier,
             status,
             lockHash,
             lockedAt,
@@ -112,7 +124,11 @@ function createFakeDatabase() {
           currency,
           dailyHours,
           weeklyHours,
+          normalWorkStartTime,
+          normalWorkEndTime,
           overtimeMultiplier,
+          offDayMultiplier,
+          holidayMultiplier,
           id,
           userId,
         ] = params;
@@ -123,7 +139,11 @@ function createFakeDatabase() {
             currency,
             dailyHours,
             weeklyHours,
+            normalWorkStartTime,
+            normalWorkEndTime,
             overtimeMultiplier,
+            offDayMultiplier,
+            holidayMultiplier,
           });
         }
       }
@@ -179,14 +199,28 @@ test("updateSettings uses id and user scoped update parameters", async () => {
   const database = createFakeDatabase();
   const repository = new SettingsRepository(database);
 
-  await repository.updateSettings({ dailyHours: 9, weeklyHours: 45 }, "user-a");
+  await repository.updateSettings(
+    {
+      dailyHours: 9,
+      weeklyHours: 45,
+      normalWorkStartTime: "09:00",
+      normalWorkEndTime: "18:00",
+      offDayMultiplier: 2.25,
+      holidayMultiplier: 3,
+    },
+    "user-a",
+  );
 
   const update = database.calls.find((call) => /UPDATE app_settings/i.test(call.sql));
   assert.deepEqual(update.params, [
     "SGD",
     9,
     45,
+    "09:00",
+    "18:00",
     1.5,
+    2.25,
+    3,
     "settings:user-a",
     "user-a",
   ]);
