@@ -13,11 +13,13 @@ import { styles } from "../styles";
 type LoginScreenProps = {
   onLogin: (account: LocalAccount) => void;
   onShowCreateAccount: () => void;
+  onForgotPassword: () => void;
 };
 
 export function LoginScreen({
   onLogin,
   onShowCreateAccount,
+  onForgotPassword,
 }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -163,6 +165,14 @@ export function LoginScreen({
         </Pressable>
 
         {status ? <Text style={styles.muted}>{status}</Text> : null}
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={onForgotPassword}
+          style={styles.authLinkButton}
+        >
+          <Text style={styles.authLinkText}>Forgot password?</Text>
+        </Pressable>
       </View>
 
       <Pressable

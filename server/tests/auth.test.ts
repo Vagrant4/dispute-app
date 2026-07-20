@@ -11,7 +11,9 @@ process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 interface AuthUserResponse {
   devVerificationCode: string;
   devVerificationToken: string;
+  devResetCode?: string;
   verificationRequired?: boolean;
+  resetRequired?: boolean;
   message?: string;
   user: {
     id: string;
@@ -52,6 +54,7 @@ describe('auth API', () => {
       prisma.project.deleteMany(),
       prisma.company.deleteMany(),
       prisma.workerProfile.deleteMany(),
+      prisma.passwordResetToken.deleteMany(),
       prisma.emailVerificationToken.deleteMany(),
       prisma.userSubscription.deleteMany(),
       prisma.appSetting.deleteMany(),
@@ -189,6 +192,40 @@ describe('auth API', () => {
     });
 
     expect(response.status).toBe(401);
+  });
+
+  it('sends a reset code and resets password before login', async () => {
+    const cookie = await registerAndVerify('reset@example.com');
+
+    const logoutResponse = await postJson('/auth/logout', {}, cookie);
+    expect(logoutResponse.status).toBe(204);
+
+    const resetRequest = await postJson('/auth/forgot-password', {
+      email: 'reset@example.com'
+    });
+    expect(resetRequest.status).toBe(200);
+    const resetBody = await jsonBody<AuthUserResponse>(resetRequest);
+    expect(resetBody.resetRequired).toBe(true);
+    expect(resetBody.devResetCode).toMatch(/^\d{6}$/);
+
+    const resetResponse = await postJson('/auth/reset-password', {
+      email: 'reset@example.com',
+      code: resetBody.devResetCode,
+      password: 'NewPassword123!'
+    });
+    expect(resetResponse.status).toBe(200);
+
+    const oldPasswordResponse = await postJson('/auth/login', {
+      email: 'reset@example.com',
+      password: 'Password123!'
+    });
+    expect(oldPasswordResponse.status).toBe(401);
+
+    const newPasswordResponse = await postJson('/auth/login', {
+      email: 'reset@example.com',
+      password: 'NewPassword123!'
+    });
+    expect(newPasswordResponse.status).toBe(200);
   });
 
   it('clears auth state on logout', async () => {

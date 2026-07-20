@@ -17,6 +17,10 @@ export type RemoteRegistrationResult =
   | { ok: true; pending: PendingEmailVerification }
   | { ok: false; message: string };
 
+export type RemotePasswordResetRequestResult =
+  | { ok: true; email: string; message: string; devResetCode?: string }
+  | { ok: false; message: string };
+
 type FetchLike = typeof fetch;
 
 const expoEnv = (globalThis as unknown as {
@@ -164,6 +168,94 @@ export async function loginRemoteAccount(
         emailVerified: true,
       },
       message: "Login successful.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to reach Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+export async function requestRemotePasswordReset(
+  input: { email: string },
+  fetcher: FetchLike = fetch,
+): Promise<RemotePasswordResetRequestResult> {
+  const email = input.email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, message: "Enter your registered email address." };
+  }
+
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      return { ok: false, message: getErrorMessage(body, "Unable to send reset code.") };
+    }
+
+    return {
+      ok: true,
+      email,
+      message:
+        getString(body, "message") ??
+        "Check your email for the 6-digit password reset code.",
+      devResetCode: getString(body, "devResetCode") ?? undefined,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to reach Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+export async function resetRemotePassword(
+  input: {
+    email: string;
+    code: string;
+    password: string;
+    confirmPassword: string;
+  },
+  fetcher: FetchLike = fetch,
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const email = input.email.trim().toLowerCase();
+  const code = input.code.trim();
+  if (!/^\d{6}$/.test(code)) {
+    return { ok: false, message: "Enter the 6-digit password reset code." };
+  }
+  if (input.password.length < 8) {
+    return { ok: false, message: "Use at least 8 characters for the new password." };
+  }
+  if (input.password !== input.confirmPassword) {
+    return { ok: false, message: "Passwords do not match." };
+  }
+
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        code,
+        password: input.password,
+      }),
+    });
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      return { ok: false, message: getErrorMessage(body, "Unable to reset password.") };
+    }
+
+    return {
+      ok: true,
+      message:
+        getString(body, "message") ??
+        "Password reset successful. You can login with your new password.",
     };
   } catch {
     return {

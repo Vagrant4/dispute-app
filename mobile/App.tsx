@@ -7,6 +7,7 @@ import { type LocalAccount } from "./src/auth/localAuth";
 import { type PendingEmailVerification } from "./src/auth/remoteAuth";
 import { tabs, type TabId } from "./src/screenContent";
 import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
+import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { LogoScreen } from "./src/screens/LogoScreen";
@@ -36,7 +37,7 @@ function renderScreen(
 }
 
 export default function App() {
-  const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login">("logo");
+  const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login" | "forgot">("logo");
   const [account, setAccount] = useState<LocalAccount | null>(null);
   const [pendingVerification, setPendingVerification] =
     useState<PendingEmailVerification | null>(null);
@@ -73,6 +74,8 @@ export default function App() {
                   ? "Create account"
                   : authMode === "verify"
                     ? "Verify code"
+                    : authMode === "forgot"
+                      ? "Reset password"
                     : "Login"}
             </Text>
           </View>
@@ -144,9 +147,12 @@ export default function App() {
                 setActiveTab("home");
               }}
             />
+          ) : authMode === "forgot" ? (
+            <ForgotPasswordScreen onBackToLogin={() => setAuthMode("login")} />
           ) : (
             <LoginScreen
               onLogin={setAccount}
+              onForgotPassword={() => setAuthMode("forgot")}
               onShowCreateAccount={() => setAuthMode("create")}
             />
           )}

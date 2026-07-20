@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { UserStatus, type User } from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
-import { isEmailDeliveryConfigured, sendVerificationEmail } from '../email/email.service.js';
+import { isEmailDeliveryConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../email/email.service.js';
 
 export class AuthServiceError extends Error {
   constructor(
@@ -22,6 +22,12 @@ export interface RegistrationResult {
   devVerificationCode?: string;
   devVerificationToken?: string;
   message: string;
+}
+
+export interface PasswordResetRequestResult {
+  resetRequired: true;
+  message: string;
+  devResetCode?: string;
 }
 
 export async function registerUser(input: { email: string; password: string }): Promise<RegistrationResult> {
@@ -136,6 +142,28 @@ async function trySendVerificationEmail(input: {
   }
 }
 
+async function trySendPasswordResetEmail(input: {
+  to: string;
+  code: string;
+}): Promise<boolean> {
+  try {
+    if (!isEmailDeliveryConfigured()) {
+      return false;
+    }
+
+    await Promise.race([
+      sendPasswordResetEmail(input),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Password reset email delivery timed out')), 10000);
+      })
+    ]);
+    return true;
+  } catch (error) {
+    console.error('Password reset email delivery failed', error);
+    return false;
+  }
+}
+
 export async function loginUser(input: { email: string; password: string }): Promise<SafeUser> {
   const email = normalizeEmail(input.email);
   const user = await prisma.user.findUnique({ where: { email } });
@@ -162,6 +190,73 @@ export async function loginUser(input: { email: string; password: string }): Pro
   });
 
   return toSafeUser(user);
+}
+
+export async function requestPasswordReset(input: { email: string }): Promise<PasswordResetRequestResult> {
+  const email = normalizeEmail(input.email);
+  if (!isValidEmail(email)) {
+    throw new AuthServiceError('A valid email is required', 400);
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    return {
+      resetRequired: true,
+      message: 'If this email is registered, a password reset code will be sent.'
+    };
+  }
+
+  const reset = await createPasswordReset(user.id);
+  const emailSent = await trySendPasswordResetEmail({
+    to: user.email,
+    code: reset.code
+  });
+
+  if (env.nodeEnv === 'production' && isEmailDeliveryConfigured() && !emailSent) {
+    throw new AuthServiceError('Unable to send password reset email. Please try again later.', 502);
+  }
+
+  return {
+    resetRequired: true,
+    message: isEmailDeliveryConfigured()
+      ? 'Check your email for the 6-digit password reset code.'
+      : 'Email sending is not configured. Use the dev reset code.',
+    ...(env.nodeEnv === 'production' && isEmailDeliveryConfigured() && emailSent
+      ? {}
+      : { devResetCode: reset.code })
+  };
+}
+
+export async function resetPassword(input: {
+  email: string;
+  code: string;
+  password: string;
+}): Promise<void> {
+  const email = normalizeEmail(input.email);
+  validateCredentials(email, input.password);
+
+  const code = input.code.trim();
+  if (!/^\d{6}$/.test(code)) {
+    throw new AuthServiceError('Enter the 6-digit password reset code', 400);
+  }
+
+  const resetToken = await findPasswordResetByEmailAndCode(email, code);
+  if (!resetToken || resetToken.consumedAt || resetToken.expiresAt < new Date()) {
+    throw new AuthServiceError('Password reset code is invalid or expired', 400);
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 12);
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { consumedAt: new Date() }
+    }),
+    prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash }
+    })
+  ]);
 }
 
 export async function verifyEmail(input: {
@@ -247,12 +342,52 @@ async function createEmailVerification(userId: string): Promise<{ token: string;
   return { token, code };
 }
 
+async function createPasswordReset(userId: string): Promise<{ code: string }> {
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+
+  await prisma.passwordResetToken.create({
+    data: {
+      userId,
+      codeHash: await bcrypt.hash(code, 12),
+      expiresAt
+    }
+  });
+
+  return { code };
+}
+
 async function findVerificationByEmailAndCode(email: string, code: string) {
   if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
     return null;
   }
 
   const tokens = await prisma.emailVerificationToken.findMany({
+    where: {
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+      user: { email }
+    },
+    include: { user: true },
+    orderBy: { createdAt: 'desc' },
+    take: 5
+  });
+
+  for (const token of tokens) {
+    if (await bcrypt.compare(code, token.codeHash)) {
+      return token;
+    }
+  }
+
+  return null;
+}
+
+async function findPasswordResetByEmailAndCode(email: string, code: string) {
+  if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
+    return null;
+  }
+
+  const tokens = await prisma.passwordResetToken.findMany({
     where: {
       consumedAt: null,
       expiresAt: { gt: new Date() },

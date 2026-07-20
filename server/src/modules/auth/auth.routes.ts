@@ -1,6 +1,14 @@
 import { Router } from 'express';
 import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/auth.js';
-import { AuthServiceError, loginUser, registerUser, verifyEmail, type SafeUser } from './auth.service.js';
+import {
+  AuthServiceError,
+  loginUser,
+  registerUser,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
+  type SafeUser
+} from './auth.service.js';
 
 export const authRouter = Router();
 
@@ -55,6 +63,30 @@ authRouter.post('/login', async (req, res, next) => {
     });
     setAuthCookie(res, toAuthUser(user));
     res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/forgot-password', async (req, res, next) => {
+  try {
+    const result = await requestPasswordReset({
+      email: String(req.body?.email ?? '')
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/reset-password', async (req, res, next) => {
+  try {
+    await resetPassword({
+      email: String(req.body?.email ?? ''),
+      code: String(req.body?.code ?? ''),
+      password: String(req.body?.password ?? '')
+    });
+    res.json({ message: 'Password reset successful. You can login with your new password.' });
   } catch (error) {
     next(error);
   }
