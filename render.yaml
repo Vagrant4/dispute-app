@@ -3,7 +3,7 @@ services:
     name: dispute-api
     runtime: node
     plan: starter
-    buildCommand: npm install && npm run build --workspace @claimproof/shared && npm run build --workspace server && npm run prisma:generate --workspace server
+    buildCommand: npm install --include=dev && npm run build --workspace @claimproof/shared && npm run prisma:generate --workspace server && npm run build --workspace server
     startCommand: npm run db:deploy --workspace server && npm run start --workspace server
     envVars:
       - key: NODE_ENV

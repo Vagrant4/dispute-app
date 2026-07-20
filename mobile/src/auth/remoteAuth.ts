@@ -25,7 +25,7 @@ const expoEnv = (globalThis as unknown as {
 
 const apiBaseUrl =
   expoEnv?.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://127.0.0.1:4000";
+  "https://dispute-api-live.onrender.com";
 
 export function getAuthApiBaseUrl() {
   return apiBaseUrl;
