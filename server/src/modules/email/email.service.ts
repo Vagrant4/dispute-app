@@ -24,6 +24,9 @@ export async function sendVerificationEmail(input: VerificationEmailInput): Prom
     host: env.email.smtpHost,
     port: env.email.smtpPort,
     secure: env.email.smtpSecure,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
     auth: {
       user: env.email.smtpUser,
       pass: env.email.smtpPass.replace(/\s+/g, '')

@@ -40,13 +40,20 @@ export async function registerUser(input: { email: string; password: string }): 
       data: { passwordHash }
     });
     const verification = await createEmailVerification(user.id);
-    await trySendVerificationEmail({
+    const emailSent = await trySendVerificationEmail({
       to: user.email,
       code: verification.code,
       token: verification.token
     });
 
-    return buildRegistrationResult(user, verification, 'A new verification code was sent to your email.');
+    return buildRegistrationResult(
+      user,
+      verification,
+      emailSent,
+      emailSent
+        ? 'A new verification code was sent to your email.'
+        : 'A new verification code was created. Email delivery is unavailable. Use the verification code shown in the app.'
+    );
   }
 
   const passwordHash = await bcrypt.hash(input.password, 12);
@@ -63,7 +70,7 @@ export async function registerUser(input: { email: string; password: string }): 
   });
 
   const verification = await createEmailVerification(user.id);
-  await trySendVerificationEmail({
+  const emailSent = await trySendVerificationEmail({
     to: user.email,
     code: verification.code,
     token: verification.token
@@ -72,8 +79,11 @@ export async function registerUser(input: { email: string; password: string }): 
   return buildRegistrationResult(
     user,
     verification,
+    emailSent,
     isEmailDeliveryConfigured()
-      ? 'Check your email to verify your account before logging in.'
+      ? emailSent
+        ? 'Check your email to verify your account before logging in.'
+        : 'Email delivery is unavailable. Use the verification code shown in the app.'
       : 'Email sending is not configured. Use the dev verification code to verify this account.'
   );
 }
@@ -81,12 +91,13 @@ export async function registerUser(input: { email: string; password: string }): 
 function buildRegistrationResult(
   user: User,
   verification: { token: string; code: string },
+  emailSent: boolean,
   message: string
 ): RegistrationResult {
   return {
     user: toSafeUser(user),
     verificationRequired: true,
-    ...(env.nodeEnv === 'production' && isEmailDeliveryConfigured()
+    ...(env.nodeEnv === 'production' && isEmailDeliveryConfigured() && emailSent
       ? {}
       : {
           devVerificationCode: verification.code,
@@ -100,11 +111,22 @@ async function trySendVerificationEmail(input: {
   to: string;
   code: string;
   token: string;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
-    await sendVerificationEmail(input);
+    if (!isEmailDeliveryConfigured()) {
+      return false;
+    }
+
+    await Promise.race([
+      sendVerificationEmail(input),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Verification email delivery timed out')), 10000);
+      })
+    ]);
+    return true;
   } catch (error) {
     console.error('Verification email delivery failed', error);
+    return false;
   }
 }
 
