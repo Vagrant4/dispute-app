@@ -4,7 +4,6 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { type LocalAccount } from "../auth/localAuth";
 import { phoneLocalAccountStorage } from "../auth/localAuthStorageExpo";
 import {
-  getAuthApiBaseUrl,
   type PendingEmailVerification,
   verifyRemoteEmail,
 } from "../auth/remoteAuth";
@@ -23,7 +22,7 @@ export function VerifyEmailScreen({
   onBackToCreate,
   onShowLogin,
 }: VerifyEmailScreenProps) {
-  const [code, setCode] = useState(pending.devVerificationCode ?? "");
+  const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState(
     `We sent a verification code to ${pending.email}.`,
@@ -55,8 +54,8 @@ export function VerifyEmailScreen({
   return (
     <View style={styles.authPage}>
       <View style={styles.heroPanel}>
-        <Text style={styles.eyebrow}>Verify email</Text>
-        <Text style={styles.heroTitle}>Enter the Gmail code.</Text>
+        <Text style={styles.eyebrow}>Verify code</Text>
+        <Text style={styles.heroTitle}>Enter the email code.</Text>
         <Text style={styles.heroBody}>
           Check your email for the 6-digit Dispute verification code.
         </Text>
@@ -82,15 +81,11 @@ export function VerifyEmailScreen({
           style={[styles.actionButton, isSubmitting && styles.disabledButton]}
         >
           <Text style={styles.actionButtonText}>
-            {isSubmitting ? "Verifying..." : "Verify email"}
+            {isSubmitting ? "Verifying..." : "Verify code"}
           </Text>
         </Pressable>
 
         <Text style={styles.muted}>{status}</Text>
-
-        <View style={styles.statusPill}>
-          <Text style={styles.statusPillText}>Server: {getAuthApiBaseUrl()}</Text>
-        </View>
       </View>
 
       <View style={styles.actionRow}>

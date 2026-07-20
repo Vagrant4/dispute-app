@@ -72,7 +72,7 @@ export default function App() {
                 : authMode === "create"
                   ? "Create account"
                   : authMode === "verify"
-                    ? "Verify email"
+                    ? "Verify code"
                     : "Login"}
             </Text>
           </View>

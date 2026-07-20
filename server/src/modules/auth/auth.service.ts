@@ -46,13 +46,13 @@ export async function registerUser(input: { email: string; password: string }): 
       token: verification.token
     });
 
+    ensureVerificationEmailWasSent(emailSent);
+
     return buildRegistrationResult(
       user,
       verification,
       emailSent,
-      emailSent
-        ? 'A new verification code was sent to your email.'
-        : 'A new verification code was created. Email delivery is unavailable. Use the verification code shown in the app.'
+      'A new verification code was sent to your email.'
     );
   }
 
@@ -76,14 +76,14 @@ export async function registerUser(input: { email: string; password: string }): 
     token: verification.token
   });
 
+  ensureVerificationEmailWasSent(emailSent);
+
   return buildRegistrationResult(
     user,
     verification,
     emailSent,
     isEmailDeliveryConfigured()
-      ? emailSent
-        ? 'Check your email to verify your account before logging in.'
-        : 'Email delivery is unavailable. Use the verification code shown in the app.'
+      ? 'Check your email to verify your account before logging in.'
       : 'Email sending is not configured. Use the dev verification code to verify this account.'
   );
 }
@@ -105,6 +105,12 @@ function buildRegistrationResult(
         }),
     message
   };
+}
+
+function ensureVerificationEmailWasSent(emailSent: boolean): void {
+  if (env.nodeEnv === 'production' && isEmailDeliveryConfigured() && !emailSent) {
+    throw new AuthServiceError('Unable to send verification email. Please check the email address and try again.', 502);
+  }
 }
 
 async function trySendVerificationEmail(input: {
