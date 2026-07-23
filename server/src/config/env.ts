@@ -26,6 +26,7 @@ type EnvSource = Partial<
     | 'SMTP_USER'
     | 'SMTP_PASS'
     | 'EMAIL_FROM'
+    | 'REVENUECAT_WEBHOOK_SECRET'
   >
 >;
 
@@ -63,6 +64,9 @@ export function createEnv(source: EnvSource = process.env) {
       smtpUser: source.SMTP_USER ?? '',
       smtpPass: source.SMTP_PASS ?? '',
       from: source.EMAIL_FROM ?? source.SMTP_USER ?? ''
+    },
+    revenueCat: {
+      webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? ''
     }
   } as const;
 }

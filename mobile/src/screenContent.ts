@@ -23,22 +23,26 @@ export const privacyContent = {
 };
 
 export const subscriptionContent = {
-  heading: "Foundation only",
-  billingPath: "Future billing path",
+  heading: "3-day trial",
+  billingPath: "DISPUTE Basic",
   noCheckout:
-    "dispute subscription billing is not active in V1. No payment is collected in this app. No Stripe checkout is available in the mobile app.",
+    "New verified users receive a 3-day trial. After the trial, subscribe to export PDF and CSV reports. Time records and evidence remain available.",
   policyGated:
-    "Pricing will be decided after the real-user trial. Future mobile digital subscriptions are policy-gated and must use an approved App Store or Google Play path unless policy and legal review confirms another allowed strategy.",
+    "DISPUTE Basic is SGD 4.99/month. Mobile subscriptions are policy-gated and use Apple App Store or Google Play billing; Stripe checkout is not used inside the app.",
+  expiredExport:
+    "Trial ended. Subscribe to export reports. Your time and evidence records remain available.",
+  checking:
+    "Checking subscription status before export.",
 };
 
 export const trialReadinessContent = {
-  heading: "Real user trial before Stripe",
+  heading: "3-day verified account trial",
   warning:
-    "V1 is for a 2-week trial with 5 freelancers, 3 subcontractors, and 2 site supervisors before subscription work.",
+    "New users verify their email, receive a 3-day trial, and then subscribe through Apple App Store or Google Play to keep exporting reports.",
   backupReminder:
     "Export a backup before uninstalling, changing phone, clearing app data, or relying on important records.",
   localOnly:
-    "Records stay local unless you export, back up, or share them. There is no cloud sync, analytics, account collection, or backend upload in this trial.",
+    "Work records stay local unless you export, back up, or share them. Account registration and subscription status are stored securely by the Dispute server; work records are not cloud-synced.",
   goals: [
     "Validate clock in/out and manual time entries.",
     "Check photo evidence quality, notes, and optional GPS denial.",
@@ -55,7 +59,7 @@ export const trialReadinessContent = {
   privacy:
     "Do not enter real FIN/NRIC unless comfortable. Use realistic non-sensitive names where possible.",
   limitations:
-    "Known limits: no CPF/MOM automation, employer approval, cloud backup, subscription enforcement, GPS verification, Work Permit tracking, OCR, or photo analysis.",
+    "Known limits: no CPF/MOM automation, employer approval, cloud backup, GPS verification, Work Permit tracking, OCR, or photo analysis.",
 } as const;
 
 export const evidenceLockStates = [

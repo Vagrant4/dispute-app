@@ -22,6 +22,8 @@ test("default app settings are valid and Singapore-oriented", () => {
 
   assert.deepEqual(validateAppSettings(DEFAULT_APP_SETTINGS), DEFAULT_APP_SETTINGS);
   assert.equal(DEFAULT_APP_SETTINGS.currency, "SGD");
+  assert.equal(DEFAULT_APP_SETTINGS.rateBasis, "daily");
+  assert.equal(DEFAULT_APP_SETTINGS.baseRateCents, 0);
   assert.equal(DEFAULT_APP_SETTINGS.dailyHours, 8);
   assert.equal(DEFAULT_APP_SETTINGS.weeklyHours, 44);
   assert.equal(DEFAULT_APP_SETTINGS.normalWorkStartTime, "08:00");
@@ -64,6 +66,10 @@ test("settings updates reject unsafe limits and invalid currency", () => {
     { currency: "sgd" },
     { currency: "US" },
     { currency: "EURO" },
+    { rateBasis: "hourly" },
+    { baseRateCents: -1 },
+    { baseRateCents: 100_000_001 },
+    { baseRateCents: 10.5 },
     { normalWorkStartTime: "8:00" },
     { normalWorkStartTime: "24:00" },
     { normalWorkEndTime: "17:60" },
@@ -92,6 +98,8 @@ test("settings updates merge valid patches", () => {
       offDayMultiplier: 2.25,
       holidayMultiplier: 3,
       currency: "USD",
+      rateBasis: "monthly",
+      baseRateCents: 300000,
     }),
     {
       ...DEFAULT_APP_SETTINGS,
@@ -103,6 +111,8 @@ test("settings updates merge valid patches", () => {
       offDayMultiplier: 2.25,
       holidayMultiplier: 3,
       currency: "USD",
+      rateBasis: "monthly",
+      baseRateCents: 300000,
     },
   );
 });

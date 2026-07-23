@@ -7,17 +7,23 @@ import {
   loadSavedLoginDetails,
   saveSavedLoginDetails,
 } from "../auth/localAuthStorageExpo";
-import { loginRemoteAccount } from "../auth/remoteAuth";
+import {
+  loginRemoteAccount,
+  type PendingEmailVerification,
+  requestRemoteEmailVerification,
+} from "../auth/remoteAuth";
 import { styles } from "../styles";
 
 type LoginScreenProps = {
   onLogin: (account: LocalAccount) => void;
+  onVerificationRequired: (pending: PendingEmailVerification) => void;
   onShowCreateAccount: () => void;
   onForgotPassword: () => void;
 };
 
 export function LoginScreen({
   onLogin,
+  onVerificationRequired,
   onShowCreateAccount,
   onForgotPassword,
 }: LoginScreenProps) {
@@ -26,6 +32,8 @@ export function LoginScreen({
   const [showPassword, setShowPassword] = useState(false);
   const [rememberLoginDetails, setRememberLoginDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isContinuingVerification, setIsContinuingVerification] = useState(false);
+  const [canContinueVerification, setCanContinueVerification] = useState(false);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -69,6 +77,7 @@ export function LoginScreen({
     try {
       const result = await loginRemoteAccount({ email, password });
       setStatus(result.message);
+      setCanContinueVerification(isEmailVerificationRequired(result.message));
       if (result.ok) {
         if (rememberLoginDetails) {
           await saveSavedLoginDetails({ email, password });
@@ -81,6 +90,27 @@ export function LoginScreen({
       setStatus("Unable to login. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleContinueVerification() {
+    if (isSubmitting || isContinuingVerification) {
+      return;
+    }
+
+    setIsContinuingVerification(true);
+    try {
+      const result = await requestRemoteEmailVerification({ email });
+      if (result.ok) {
+        setStatus(result.pending.message);
+        onVerificationRequired(result.pending);
+      } else {
+        setStatus(result.message);
+      }
+    } catch {
+      setStatus("Unable to continue verification. Please try again.");
+    } finally {
+      setIsContinuingVerification(false);
     }
   }
 
@@ -166,6 +196,22 @@ export function LoginScreen({
 
         {status ? <Text style={styles.muted}>{status}</Text> : null}
 
+        {canContinueVerification ? (
+          <Pressable
+            accessibilityLabel="Continue email verification"
+            accessibilityRole="button"
+            disabled={isSubmitting || isContinuingVerification}
+            onPress={handleContinueVerification}
+            style={styles.authLinkButton}
+          >
+            <Text style={styles.authLinkText}>
+              {isContinuingVerification
+                ? "Sending verification code..."
+                : "Continue verification"}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <Pressable
           accessibilityRole="button"
           onPress={onForgotPassword}
@@ -184,4 +230,8 @@ export function LoginScreen({
       </Pressable>
     </View>
   );
+}
+
+function isEmailVerificationRequired(message: string): boolean {
+  return /verify your email|email verification|before logging in/i.test(message);
 }

@@ -5,7 +5,6 @@ import {
   logoutRequest,
   registerRequest,
   restoreSessionRequest,
-  saveProfileRequest,
   type AuthUser,
   type WorkerProfileInput
 } from '../api/http';
@@ -78,18 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async ({ email, password, profile }: RegisterInput) => {
-      const user = await registerRequest(email, password);
-
-      if (profile) {
-        try {
-          await saveProfileRequest(profile);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Profile setup failed';
-          throw new Error(`Account created, but profile setup failed: ${message}`);
-        }
+      if (!profile) {
+        throw new Error('Full name and mobile number are required');
       }
-
-      rememberUser(user);
+      await registerRequest(email, password, profile.fullName, profile.phone);
+      rememberUser(null);
     },
     [rememberUser]
   );

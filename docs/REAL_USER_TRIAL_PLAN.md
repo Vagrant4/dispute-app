@@ -2,7 +2,7 @@
 
 ## Trial Target
 
-ClaimProof SG V1 should complete a 2-week real user trial before Stripe or subscription work.
+DISPUTE gives each newly verified account a 3-day trial. Testers can use the full field workflow during the trial; after it ends, Apple App Store or Google Play subscription is required to export reports.
 
 Tester mix:
 
@@ -33,7 +33,7 @@ Before each tester starts:
 - Show how to create a project before logging time or photo evidence.
 - Show clock in/out, manual time entry, photo evidence, pay summary, report generation, sharing, backup, restore, and evidence lock.
 - Ask testers to export or back up important records before uninstalling, changing phone, or clearing app data.
-- Confirm there is no cloud sync, no account collection, no analytics, and no subscription enforcement in V1.
+- Confirm account registration and subscription status use the DISPUTE server, while work records remain local and analytics/cloud sync are not enabled.
 
 ## Daily Usage Checklist
 
@@ -116,7 +116,7 @@ At the end of each week, testers should try to:
 
 ## Success Criteria
 
-Proceed toward Stripe only if:
+Proceed toward wider paid rollout only if:
 
 - Most testers can complete daily time and photo evidence workflows without support.
 - At least one freelancer, one subcontractor, and one site supervisor can generate and share a useful progress claim report.
@@ -124,11 +124,11 @@ Proceed toward Stripe only if:
 - Evidence lock is understood as useful or the required copy/flow changes are small.
 - No critical evidence, report, backup, or privacy workflow gap is discovered.
 
-## Stop/Go Criteria Before Stripe
+## Stop/Go Criteria Before Wider Paid Rollout
 
 Go:
 
-- Evidence and report workflows are usable in the 2-week trial.
+- Evidence and report workflows are usable in the 3-day account trial.
 - Backup/export warnings are understood before testers risk important records.
 - Remaining gaps are copy tweaks, small UI improvements, or known post-V1 placeholders.
 
@@ -152,8 +152,8 @@ ClaimProof SG V1 has no cloud sync. Records are stored locally on the device unl
 - No employer approval workflow
 - No cloud backup
 - No cloud sync
-- No subscription enforcement yet
-- No Stripe billing yet
+- Report export requires an active trial or subscription
+- Mobile billing uses Apple App Store or Google Play through RevenueCat; Stripe checkout is not used in the app
 - No GPS verification
 - No Work Permit tracking
 - No AI OCR

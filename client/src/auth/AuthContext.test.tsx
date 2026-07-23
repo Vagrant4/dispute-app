@@ -55,11 +55,10 @@ describe('AuthProvider', () => {
     expect(localStorage.getItem('claimproof.currentUser')).toBeNull();
   });
 
-  it('throws a recoverable registration error when profile save fails after account creation', async () => {
+  it('registers profile fields without attempting an authenticated profile save before verification', async () => {
     const registeredUser: AuthUser = { id: 'user-1', email: 'worker@example.com', role: 'WORKER' };
     apiMocks.restoreSessionRequest.mockRejectedValue(new ApiError('Authentication required', 401));
     apiMocks.registerRequest.mockResolvedValue(registeredUser);
-    apiMocks.saveProfileRequest.mockRejectedValue(new ApiError('Invalid profile payload', 400));
 
     render(
       <AuthProvider>
@@ -73,11 +72,15 @@ describe('AuthProvider', () => {
       screen.getByRole('button', { name: 'register' }).click();
     });
 
-    await waitFor(() =>
-      expect(screen.getByTestId('register-error').textContent).toBe(
-        'Account created, but profile setup failed: Invalid profile payload'
-      )
+    await waitFor(() => expect(apiMocks.registerRequest).toHaveBeenCalledTimes(1));
+    expect(apiMocks.registerRequest).toHaveBeenCalledWith(
+      'worker@example.com',
+      'password123',
+      'Worker One',
+      '+6590000000'
     );
+    expect(apiMocks.saveProfileRequest).not.toHaveBeenCalled();
+    expect(screen.getByTestId('register-error').textContent).toBe('');
     expect(screen.getByTestId('user').textContent).toBe('none');
   });
 });

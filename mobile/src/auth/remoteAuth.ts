@@ -4,7 +4,6 @@ export type PendingEmailVerification = {
   email: string;
   name: string;
   phone: string;
-  password: string;
   message: string;
   devVerificationCode?: string;
 };
@@ -53,10 +52,13 @@ export async function registerRemoteAccount(
   try {
     const response = await fetcher(`${apiBaseUrl}/auth/register`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: input.email.trim().toLowerCase(),
         password: input.password,
+        fullName: input.name.trim(),
+        phone: input.phone.trim(),
       }),
     });
     const body = await readJsonBody(response);
@@ -71,10 +73,59 @@ export async function registerRemoteAccount(
         email: input.email.trim().toLowerCase(),
         name: input.name.trim(),
         phone: input.phone.trim(),
-        password: input.password,
         message:
           getString(body, "message") ??
           "Verification email sent. Enter the 6-digit code from Gmail.",
+        devVerificationCode: getString(body, "devVerificationCode") ?? undefined,
+      },
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to reach Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+export async function requestRemoteEmailVerification(
+  input: {
+    email: string;
+    name?: string;
+    phone?: string;
+  },
+  fetcher: FetchLike = fetch,
+): Promise<RemoteRegistrationResult> {
+  const email = input.email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, message: "Enter a valid email address." };
+  }
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/resend-verification`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+      }),
+    });
+    const body = await readJsonBody(response);
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: getErrorMessage(body, "Unable to send verification code."),
+      };
+    }
+
+    return {
+      ok: true,
+      pending: {
+        email,
+        name: input.name?.trim() || email.split("@")[0] || "Dispute user",
+        phone: input.phone?.trim() ?? "",
+        message:
+          getString(body, "message") ??
+          "A new verification code was sent to your email.",
         devVerificationCode: getString(body, "devVerificationCode") ?? undefined,
       },
     };
@@ -100,6 +151,7 @@ export async function verifyRemoteEmail(
   try {
     const response = await fetcher(`${apiBaseUrl}/auth/verify-email`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: pending.email,
@@ -115,9 +167,8 @@ export async function verifyRemoteEmail(
     const account: LocalAccount = {
       id: getNestedString(body, ["user", "id"]) ?? pending.email,
       email: pending.email,
-      name: pending.name,
-      phone: pending.phone,
-      password: pending.password,
+      name: getNestedString(body, ["profile", "fullName"]) ?? pending.name,
+      phone: getNestedString(body, ["profile", "phone"]) ?? pending.phone,
       emailVerified: true,
     };
 
@@ -138,6 +189,20 @@ export async function verifyRemoteEmail(
   }
 }
 
+export async function resendRemoteVerificationCode(
+  pending: PendingEmailVerification,
+  fetcher: FetchLike = fetch,
+): Promise<RemoteRegistrationResult> {
+  return requestRemoteEmailVerification(
+    {
+      name: pending.name,
+      email: pending.email,
+      phone: pending.phone,
+    },
+    fetcher,
+  );
+}
+
 export async function loginRemoteAccount(
   input: { email: string; password: string },
   fetcher: FetchLike = fetch,
@@ -145,6 +210,7 @@ export async function loginRemoteAccount(
   try {
     const response = await fetcher(`${apiBaseUrl}/auth/login`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: input.email.trim().toLowerCase(),
@@ -162,9 +228,11 @@ export async function loginRemoteAccount(
       account: {
         id: getNestedString(body, ["user", "id"]) ?? input.email,
         email: input.email.trim().toLowerCase(),
-        name: getNestedString(body, ["user", "email"])?.split("@")[0] ?? "Dispute user",
-        phone: "",
-        password: input.password,
+        name:
+          getNestedString(body, ["profile", "fullName"]) ??
+          getNestedString(body, ["user", "email"])?.split("@")[0] ??
+          "Dispute user",
+        phone: getNestedString(body, ["profile", "phone"]) ?? "",
         emailVerified: true,
       },
       message: "Login successful.",
@@ -189,6 +257,7 @@ export async function requestRemotePasswordReset(
   try {
     const response = await fetcher(`${apiBaseUrl}/auth/forgot-password`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
@@ -238,6 +307,7 @@ export async function resetRemotePassword(
   try {
     const response = await fetcher(`${apiBaseUrl}/auth/reset-password`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
@@ -284,6 +354,7 @@ async function readJsonBody(response: Response): Promise<Record<string, unknown>
 function validateRegistrationInput(input: {
   email: string;
   name: string;
+  phone: string;
   password: string;
   confirmPassword: string;
 }): RemoteRegistrationResult {
@@ -292,6 +363,9 @@ function validateRegistrationInput(input: {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     return { ok: false, message: "Enter a valid email address." };
+  }
+  if (!input.phone.trim()) {
+    return { ok: false, message: "Enter your mobile number." };
   }
   if (input.password.length < 8) {
     return { ok: false, message: "Use at least 8 characters for the password." };

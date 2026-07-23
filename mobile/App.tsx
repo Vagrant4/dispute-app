@@ -27,7 +27,7 @@ function renderScreen(
     case "evidence":
       return <PhotoEvidenceScreen />;
     case "reports":
-      return <ProgressClaimReportsScreen />;
+      return <ProgressClaimReportsScreen account={account} />;
     case "settings":
       return <SettingsScreen account={account} onLogout={onLogout} />;
     case "home":
@@ -152,6 +152,10 @@ export default function App() {
           ) : (
             <LoginScreen
               onLogin={setAccount}
+              onVerificationRequired={(pending) => {
+                setPendingVerification(pending);
+                setAuthMode("verify");
+              }}
               onForgotPassword={() => setAuthMode("forgot")}
               onShowCreateAccount={() => setAuthMode("create")}
             />

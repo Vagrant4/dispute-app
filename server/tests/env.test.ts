@@ -29,6 +29,16 @@ describe('env config', () => {
     expect(env.stripe.webhookSecret).toBe('');
     expect(env.stripe.priceIds.monthly).toBe('');
     expect(env.stripe.priceIds.yearly).toBe('');
+    expect(env.revenueCat.webhookSecret).toBe('');
+  });
+
+  it('parses RevenueCat webhook secret when provided', () => {
+    const env = createEnv({
+      NODE_ENV: 'development',
+      REVENUECAT_WEBHOOK_SECRET: 'rc_webhook_secret'
+    });
+
+    expect(env.revenueCat.webhookSecret).toBe('rc_webhook_secret');
   });
 
   it('defaults blank Stripe billing mode placeholders to disabled', () => {

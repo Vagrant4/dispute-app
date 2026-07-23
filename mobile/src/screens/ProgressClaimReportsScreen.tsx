@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 
+import type { LocalAccount } from "../auth/localAuth";
 import type {
   GeneratedDocumentRow,
   GeneratedDocumentType,
@@ -12,6 +13,12 @@ import { viewGeneratedDocument } from "../reports/reportViewing";
 import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
 import { progressClaimReportContent } from "../screenContent";
 import { styles } from "../styles";
+import {
+  fetchSubscriptionStatus,
+  formatSubscriptionPrice,
+  formatTrialCountdown,
+  type SubscriptionEntitlement,
+} from "../subscription/subscriptionClient";
 import type { WorkProject } from "../work/workRepository";
 import {
   deleteWebGeneratedDocumentFile,
@@ -24,8 +31,18 @@ import {
 
 const LOCAL_USER_ID = "local-user";
 
-export function ProgressClaimReportsScreen() {
+type ProgressClaimReportsScreenProps = {
+  account: LocalAccount;
+};
+
+export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScreenProps) {
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
+  const [subscription, setSubscription] = useState<SubscriptionEntitlement | null>(
+    null,
+  );
+  const [subscriptionStatus, setSubscriptionStatus] = useState(
+    "Checking subscription status...",
+  );
   const [documents, setDocuments] = useState<GeneratedDocumentRow[]>([]);
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -46,7 +63,35 @@ export function ProgressClaimReportsScreen() {
 
   useEffect(() => {
     void refreshArchive();
+    void refreshSubscriptionStatus();
   }, []);
+
+  async function refreshSubscriptionStatus() {
+    const result = await fetchSubscriptionStatus();
+    if (!result.ok) {
+      setSubscription(null);
+      setSubscriptionStatus(result.message);
+      return;
+    }
+
+    setSubscription(result.subscription);
+    const trialCountdown = formatTrialCountdown(result.subscription);
+    setSubscriptionStatus(
+      trialCountdown ||
+        `${result.subscription.planName} ${formatSubscriptionPrice(
+          result.subscription,
+        )}: ${result.subscription.message}`,
+    );
+  }
+
+  async function ensureCanExport(): Promise<boolean> {
+    return ensureCanExportWithRefresh(
+      subscription,
+      setSubscription,
+      setSubscriptionStatus,
+      setStatus,
+    );
+  }
 
   async function refreshArchive() {
     try {
@@ -74,6 +119,10 @@ export function ProgressClaimReportsScreen() {
     type: GeneratedDocumentType,
     projectIdOverride?: string,
   ) {
+    if (!(await ensureCanExport())) {
+      return;
+    }
+
     const projectId = projectIdOverride ?? selectedProjectId;
     if (!projectId) {
       setStatus("Create or choose a project before exporting a report.");
@@ -147,6 +196,10 @@ export function ProgressClaimReportsScreen() {
   }
 
   async function handleShare(document: GeneratedDocumentRow) {
+    if (!(await ensureCanExport())) {
+      return;
+    }
+
     if (!document.local_uri) {
       setStatus("This archived document does not have a local file path.");
       return;
@@ -172,6 +225,10 @@ export function ProgressClaimReportsScreen() {
     fileName: string;
     documentType?: string;
   }) {
+    if (!(await ensureCanExport())) {
+      return;
+    }
+
     if (params.documentType && params.documentType !== "progress_claim_pdf") {
       setStatus("Only PDF reports can be downloaded as PDF files.");
       return;
@@ -219,6 +276,12 @@ export function ProgressClaimReportsScreen() {
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Export</Text>
         <Text style={styles.heading}>Create claim PDF</Text>
+        <Text style={styles.muted}>{subscriptionStatus}</Text>
+        {!subscription?.canExportReports ? (
+          <Text style={styles.statusMessage}>
+            Export requires an active trial or subscription for {account.email}.
+          </Text>
+        ) : null}
         <Text style={styles.muted}>
           Choose one project. The PDF only includes that project&apos;s time,
           locations, and photos.
@@ -285,10 +348,16 @@ export function ProgressClaimReportsScreen() {
         <View style={styles.actionRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: !selectedProjectId }}
-            disabled={!selectedProjectId}
+            accessibilityState={{
+              disabled: !selectedProjectId || subscription?.canExportReports === false,
+            }}
+            disabled={!selectedProjectId || subscription?.canExportReports === false}
             onPress={() => void handleGenerate("progress_claim_pdf")}
-            style={[styles.actionButton, !selectedProjectId && styles.disabledButton]}
+            style={[
+              styles.actionButton,
+              (!selectedProjectId || subscription?.canExportReports === false) &&
+                styles.disabledButton,
+            ]}
           >
             <Text style={styles.actionButtonText}>Create PDF</Text>
             <Text style={styles.actionButtonSubtext}>Ready for claim sharing</Text>
@@ -478,6 +547,37 @@ export function ProgressClaimReportsScreen() {
       ) : null}
     </>
   );
+}
+
+async function ensureCanExportWithRefresh(
+  subscription: SubscriptionEntitlement | null,
+  setSubscription: (value: SubscriptionEntitlement | null) => void,
+  setSubscriptionStatus: (value: string) => void,
+  setStatus: (value: string) => void,
+): Promise<boolean> {
+  if (subscription?.canExportReports) {
+    return true;
+  }
+
+  setStatus("Checking subscription before export...");
+  const result = await fetchSubscriptionStatus();
+  if (!result.ok) {
+    setSubscription(null);
+    setSubscriptionStatus(result.message);
+    setStatus(result.message);
+    return false;
+  }
+
+  setSubscription(result.subscription);
+  setSubscriptionStatus(
+    formatTrialCountdown(result.subscription) || result.subscription.message,
+  );
+  if (result.subscription.canExportReports) {
+    return true;
+  }
+
+  setStatus(result.subscription.message);
+  return false;
 }
 
 function getErrorMessage(error: unknown): string {

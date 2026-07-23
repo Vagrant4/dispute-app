@@ -51,6 +51,8 @@ function createFakeDatabase() {
       id: settings.id,
       user_id: settings.userId,
       currency: settings.currency,
+      rate_basis: settings.rateBasis,
+      base_rate_cents: settings.baseRateCents,
       daily_hours: settings.dailyHours,
       weekly_hours: settings.weeklyHours,
       normal_work_start_time: settings.normalWorkStartTime,
@@ -90,6 +92,8 @@ function createFakeDatabase() {
           id,
           userId,
           currency,
+          rateBasis,
+          baseRateCents,
           dailyHours,
           weeklyHours,
           normalWorkStartTime,
@@ -106,6 +110,8 @@ function createFakeDatabase() {
             id,
             userId,
             currency,
+            rateBasis,
+            baseRateCents,
             dailyHours,
             weeklyHours,
             normalWorkStartTime,
@@ -122,6 +128,8 @@ function createFakeDatabase() {
       if (/UPDATE app_settings/i.test(sql)) {
         const [
           currency,
+          rateBasis,
+          baseRateCents,
           dailyHours,
           weeklyHours,
           normalWorkStartTime,
@@ -137,6 +145,8 @@ function createFakeDatabase() {
           rows.set(id, {
             ...row,
             currency,
+            rateBasis,
+            baseRateCents,
             dailyHours,
             weeklyHours,
             normalWorkStartTime,
@@ -203,6 +213,9 @@ test("updateSettings uses id and user scoped update parameters", async () => {
     {
       dailyHours: 9,
       weeklyHours: 45,
+      currency: "PHP",
+      rateBasis: "monthly",
+      baseRateCents: 125000,
       normalWorkStartTime: "09:00",
       normalWorkEndTime: "18:00",
       offDayMultiplier: 2.25,
@@ -213,7 +226,9 @@ test("updateSettings uses id and user scoped update parameters", async () => {
 
   const update = database.calls.find((call) => /UPDATE app_settings/i.test(call.sql));
   assert.deepEqual(update.params, [
-    "SGD",
+    "PHP",
+    "monthly",
+    125000,
     9,
     45,
     "09:00",

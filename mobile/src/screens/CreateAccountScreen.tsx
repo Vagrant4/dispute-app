@@ -18,6 +18,8 @@ export function CreateAccountScreen({
 }: CreateAccountScreenProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [countryCode, setCountryCode] = useState("+65");
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -36,7 +38,7 @@ export function CreateAccountScreen({
       const result = await registerRemoteAccount({
         name,
         email,
-        phone,
+        phone: formatPhoneNumber(countryCode, phone),
         password,
         confirmPassword,
       });
@@ -88,11 +90,59 @@ export function CreateAccountScreen({
         />
 
         <Text style={styles.inputLabel}>Mobile number</Text>
+        <View style={styles.dropdownContainer}>
+          <Pressable
+            accessibilityLabel="Country code dropdown"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: countryDropdownOpen }}
+            onPress={() => setCountryDropdownOpen((current) => !current)}
+            style={styles.dropdownBox}
+          >
+            <Text style={styles.dropdownValue}>
+              {getCountryCodeLabel(countryCode)}
+            </Text>
+            <Text style={styles.dropdownChevron}>
+              {countryDropdownOpen ? "▲" : "▼"}
+            </Text>
+          </Pressable>
+          {countryDropdownOpen ? (
+            <View style={styles.dropdownMenu}>
+              {COUNTRY_CODE_OPTIONS.map((option) => {
+                const selected = option.code === countryCode;
+                return (
+                  <Pressable
+                    accessibilityLabel={`Country code ${option.country} ${option.code}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    key={option.code}
+                    onPress={() => {
+                      setCountryCode(option.code);
+                      setCountryDropdownOpen(false);
+                    }}
+                    style={
+                      selected ? styles.dropdownOptionActive : styles.dropdownOption
+                    }
+                  >
+                    <Text
+                      style={
+                        selected
+                          ? styles.dropdownOptionActiveText
+                          : styles.dropdownOptionText
+                      }
+                    >
+                      {option.country} ({option.code})
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
         <TextInput
           accessibilityLabel="Create account mobile number"
           keyboardType="phone-pad"
           onChangeText={setPhone}
-          placeholder="+65 9000 0000"
+          placeholder="9000 0000"
           placeholderTextColor="#677064"
           style={styles.textInput}
           value={phone}
@@ -169,4 +219,30 @@ export function CreateAccountScreen({
       </Pressable>
     </View>
   );
+}
+
+const COUNTRY_CODE_OPTIONS = [
+  { code: "+65", country: "Singapore" },
+  { code: "+63", country: "Philippines" },
+  { code: "+60", country: "Malaysia" },
+  { code: "+62", country: "Indonesia" },
+  { code: "+91", country: "India" },
+  { code: "+880", country: "Bangladesh" },
+  { code: "+95", country: "Myanmar" },
+] as const;
+
+function getCountryCodeLabel(countryCode: string): string {
+  const option = COUNTRY_CODE_OPTIONS.find((item) => item.code === countryCode);
+  return option ? `${option.country} (${option.code})` : countryCode;
+}
+
+function formatPhoneNumber(countryCode: string, phone: string): string {
+  const trimmed = phone.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.startsWith("+")) {
+    return trimmed;
+  }
+  return `${countryCode} ${trimmed}`;
 }

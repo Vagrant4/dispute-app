@@ -4,6 +4,7 @@ export type EvidencePhotoPathParams = {
   userId: string;
   projectId: string;
   photoId: string;
+  timestamp?: Date | string;
   extension?: string;
   baseDirectory?: string | null;
 };
@@ -27,8 +28,31 @@ export function buildEvidencePhotoPath(params: EvidencePhotoPathParams): string 
     "evidence-photos",
     sanitizePathSegment(params.userId),
     sanitizePathSegment(params.projectId),
-    `${sanitizePathSegment(params.photoId)}.${extension || "jpg"}`,
+    `${buildEvidencePhotoFileName(params.timestamp, params.photoId)}.${extension || "jpg"}`,
   ].join("/");
+}
+
+export function buildEvidencePhotoFileName(
+  timestamp: Date | string | undefined,
+  fallbackId: string,
+): string {
+  const date = timestamp instanceof Date
+    ? timestamp
+    : typeof timestamp === "string"
+      ? new Date(timestamp)
+      : null;
+  if (date && !Number.isNaN(date.getTime())) {
+    return [
+      date.getFullYear(),
+      pad2(date.getMonth() + 1),
+      pad2(date.getDate()),
+    ].join("-") + "_" + [
+      pad2(date.getHours()),
+      pad2(date.getMinutes()),
+      pad2(date.getSeconds()),
+    ].join("-");
+  }
+  return sanitizePathSegment(fallbackId);
 }
 
 export async function importEvidencePhotoFile(params: {
@@ -96,4 +120,8 @@ function sanitizePathSegment(value: string): string {
     .replace(/^-+|-+$/g, "");
 
   return sanitized.length > 0 ? sanitized : "unknown";
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
 }

@@ -60,12 +60,12 @@ function createTsLoader() {
   return load;
 }
 
-test("schema version 6 adds persistent clock evidence, normal hours, and special day rates", () => {
-  const { CURRENT_SCHEMA_VERSION, MOBILE_SCHEMA_SQL } = createTsLoader()(
+test("schema version 7 adds rate entry settings", () => {
+  const { CURRENT_SCHEMA_VERSION, LOCAL_MIGRATIONS, MOBILE_SCHEMA_SQL } = createTsLoader()(
     "src/db/schema.ts",
   );
 
-  assert.equal(CURRENT_SCHEMA_VERSION, 6);
+  assert.equal(CURRENT_SCHEMA_VERSION, 7);
   for (const field of [
     "break_minutes",
     "location_text",
@@ -76,9 +76,14 @@ test("schema version 6 adds persistent clock evidence, normal hours, and special
     "off_day_multiplier",
     "holiday_multiplier",
     "day_type",
+    "rate_basis",
+    "base_rate_cents",
   ]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
+  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 7);
+  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /rate_basis/);
+  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /base_rate_cents/);
 });
 
 test("WorkRepository starts empty until the user creates a project", async () => {

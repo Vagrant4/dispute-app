@@ -14,6 +14,7 @@ export function SubscriptionScreen() {
 
       <View style={styles.card}>
         <Text style={styles.heading}>{subscriptionContent.billingPath}</Text>
+        <Text style={styles.metricValue}>SGD 4.99/month</Text>
         <Text style={styles.body}>{subscriptionContent.policyGated}</Text>
       </View>
     </>

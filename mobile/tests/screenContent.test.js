@@ -26,9 +26,9 @@ test("mobile production navigation declares simplified field-work destinations",
 
 test("mobile scaffold declares real user trial readiness copy", () => {
   for (const requiredCopy of [
-    "2-week trial with 5 freelancers, 3 subcontractors, and 2 site supervisors",
+    "New users verify their email, receive a 3-day trial",
     "Export a backup before uninstalling, changing phone, clearing app data",
-    "There is no cloud sync, analytics, account collection, or backend upload",
+    "Account registration and subscription status are stored securely by the Dispute server",
     "Do not enter real FIN/NRIC unless comfortable",
     "no CPF/MOM automation",
   ]) {
@@ -49,12 +49,13 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
   }
 });
 
-test("mobile subscription screen copy keeps V1 billing disabled and policy safe", () => {
+test("mobile subscription screen copy declares 3-day trial and store billing", () => {
   for (const requiredCopy of [
-    "subscription billing is not active in V1",
-    "No payment is collected in this app",
-    "Pricing will be decided after the real-user trial",
-    "No Stripe checkout is available in the mobile app",
+    "New verified users receive a 3-day trial",
+    "subscribe to export PDF and CSV reports",
+    "SGD 4.99/month",
+    "Apple App Store or Google Play billing",
+    "Stripe checkout is not used inside the app",
   ]) {
     assert.match(contentSource, new RegExp(requiredCopy));
   }

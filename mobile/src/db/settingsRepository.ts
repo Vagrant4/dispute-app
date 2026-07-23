@@ -13,6 +13,8 @@ type AppSettingsRow = {
   id: string;
   user_id: string;
   currency: string;
+  rate_basis: AppSettings["rateBasis"] | null;
+  base_rate_cents: number | null;
   daily_hours: number;
   weekly_hours: number;
   normal_work_start_time: string | null;
@@ -39,6 +41,8 @@ function fromRow(row: AppSettingsRow): AppSettings {
     id: row.id,
     userId: row.user_id,
     currency: row.currency,
+    rateBasis: row.rate_basis ?? "daily",
+    baseRateCents: row.base_rate_cents ?? 0,
     dailyHours: row.daily_hours,
     weeklyHours: row.weekly_hours,
     normalWorkStartTime: row.normal_work_start_time ?? "08:00",
@@ -59,7 +63,7 @@ export class SettingsRepository {
     const defaults = createDefaultAppSettings(userId);
     await this.insertSettings(defaults);
     const current = await this.database.getFirstAsync<AppSettingsRow>(
-      "SELECT id, user_id, currency, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, status, lock_hash, locked_at FROM app_settings WHERE id = ? AND user_id = ? LIMIT 1",
+      "SELECT id, user_id, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, status, lock_hash, locked_at FROM app_settings WHERE id = ? AND user_id = ? LIMIT 1",
       [defaults.id, userId],
     );
 
@@ -81,6 +85,8 @@ export class SettingsRepository {
       `
 UPDATE app_settings
 SET currency = ?,
+    rate_basis = ?,
+    base_rate_cents = ?,
     daily_hours = ?,
     weekly_hours = ?,
     normal_work_start_time = ?,
@@ -93,6 +99,8 @@ WHERE id = ? AND user_id = ?
 `,
       [
         next.currency,
+        next.rateBasis,
+        next.baseRateCents,
         next.dailyHours,
         next.weeklyHours,
         next.normalWorkStartTime,
@@ -129,6 +137,8 @@ INSERT OR IGNORE INTO app_settings (
   id,
   user_id,
   currency,
+  rate_basis,
+  base_rate_cents,
   daily_hours,
   weekly_hours,
   normal_work_start_time,
@@ -139,12 +149,14 @@ INSERT OR IGNORE INTO app_settings (
   status,
   lock_hash,
   locked_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
       [
         settings.id,
         settings.userId,
         settings.currency,
+        settings.rateBasis,
+        settings.baseRateCents,
         settings.dailyHours,
         settings.weeklyHours,
         settings.normalWorkStartTime,

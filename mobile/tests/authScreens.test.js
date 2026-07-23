@@ -25,7 +25,7 @@ test("phone app has separate create account and login pages before main tabs", (
     "utf8",
   );
 
-  assert.match(appSource, /useState<"logo" \| "create" \| "verify" \| "login">\("logo"\)/);
+  assert.match(appSource, /useState<"logo" \| "create" \| "verify" \| "login" \| "forgot">\("logo"\)/);
   assert.match(appSource, /LogoScreen/);
   assert.match(appSource, /pendingVerification/);
   assert.match(appSource, /VerifyEmailScreen/);
@@ -37,19 +37,29 @@ test("phone app has separate create account and login pages before main tabs", (
   assert.match(logoSource, /Create account/);
   assert.match(createAccountSource, /Create account/);
   assert.match(createAccountSource, /Create account mobile number/);
+  assert.match(createAccountSource, /Country code dropdown/);
+  assert.match(createAccountSource, /Singapore/);
+  assert.match(createAccountSource, /Philippines/);
+  assert.match(createAccountSource, /Malaysia/);
+  assert.match(createAccountSource, /Bangladesh/);
   assert.match(createAccountSource, /registerRemoteAccount/);
   assert.match(createAccountSource, /Register and verify email/);
   assert.match(createAccountSource, /Show password/);
   assert.match(createAccountSource, /Show confirm password/);
   assert.match(createAccountSource, /Already have an account\? Login/);
-  assert.match(verifySource, /Verify email/);
+  assert.match(verifySource, /Verify code/);
   assert.match(verifySource, /Email verification code/);
+  assert.match(verifySource, /Verify code/);
+  assert.match(verifySource, /Resend code/);
+  assert.match(verifySource, /resendRemoteVerificationCode/);
   assert.match(verifySource, /verifyRemoteEmail/);
   assert.doesNotMatch(loginSource, /<Text style=\{styles\.eyebrow\}>Login<\/Text>/);
   assert.match(loginSource, /Welcome back/);
   assert.match(loginSource, /logo-mark\.png/);
   assert.match(loginSource, /DISPUTE app logo/);
   assert.match(loginSource, /loginRemoteAccount/);
+  assert.match(loginSource, /Continue verification/);
+  assert.match(loginSource, /requestRemoteEmailVerification/);
   assert.match(loginSource, /Show password/);
   assert.match(loginSource, /Remember login details/);
   assert.match(loginSource, /loadSavedLoginDetails/);
@@ -64,6 +74,8 @@ test("remote auth validates account creation verification and login fields", () 
   );
 
   assert.match(remoteAuthSource, /registerRemoteAccount/);
+  assert.match(remoteAuthSource, /requestRemoteEmailVerification/);
+  assert.match(remoteAuthSource, /resendRemoteVerificationCode/);
   assert.match(remoteAuthSource, /verifyRemoteEmail/);
   assert.match(remoteAuthSource, /loginRemoteAccount/);
   assert.match(remoteAuthSource, /Passwords do not match/);

@@ -4,9 +4,15 @@ All business endpoints require authentication unless noted. Every query must fil
 
 ## Auth
 
-- `POST /auth/register`
+- `POST /auth/register` with email, password, full name, and phone
+- `POST /auth/resend-verification`
+- `POST /auth/verify-email`
 - `POST /auth/login`
+- `POST /auth/forgot-password`
+- `POST /auth/reset-password`
 - `POST /auth/logout`
+
+Registration creates a pending account. A six-digit emailed code activates the account and starts its three-day trial. Resending invalidates older verification codes. Authentication and recovery endpoints are rate-limited in production.
 
 ## Profile
 

@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "sg.claimproof.mobile",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "dispute uses the camera only when you choose to capture work evidence.",
         "NSPhotoLibraryUsageDescription": "dispute lets you choose photos to attach as local work evidence.",
         "NSLocationWhenInUseUsageDescription": "dispute can attach optional location context to work records and photos. The app still works without location."
@@ -37,7 +38,8 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

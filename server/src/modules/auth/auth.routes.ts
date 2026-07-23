@@ -1,9 +1,13 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { env } from '../../config/env.js';
+import { prisma } from '../../db/prisma.js';
 import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/auth.js';
 import {
   AuthServiceError,
   loginUser,
   registerUser,
+  resendVerificationEmail,
   requestPasswordReset,
   resetPassword,
   verifyEmail,
@@ -12,11 +16,16 @@ import {
 
 export const authRouter = Router();
 
-authRouter.post('/register', async (req, res, next) => {
+const accountActionLimiter = createAuthLimiter(5, 'Too many account requests. Please wait 15 minutes and try again.');
+const credentialLimiter = createAuthLimiter(10, 'Too many attempts. Please wait 15 minutes and try again.');
+
+authRouter.post('/register', accountActionLimiter, async (req, res, next) => {
   try {
     const result = await registerUser({
       email: String(req.body?.email ?? ''),
-      password: String(req.body?.password ?? '')
+      password: String(req.body?.password ?? ''),
+      fullName: String(req.body?.fullName ?? ''),
+      phone: String(req.body?.phone ?? '')
     });
     res.status(201).json(result);
   } catch (error) {
@@ -24,7 +33,19 @@ authRouter.post('/register', async (req, res, next) => {
   }
 });
 
-authRouter.post('/verify-email', async (req, res, next) => {
+authRouter.post('/resend-verification', accountActionLimiter, async (req, res, next) => {
+  try {
+    res.json(
+      await resendVerificationEmail({
+        email: String(req.body?.email ?? '')
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/verify-email', credentialLimiter, async (req, res, next) => {
   try {
     const user = await verifyEmail({
       email: req.body?.email ? String(req.body.email) : undefined,
@@ -32,13 +53,14 @@ authRouter.post('/verify-email', async (req, res, next) => {
       token: req.body?.token ? String(req.body.token) : undefined
     });
     setAuthCookie(res, toAuthUser(user));
-    res.json({ user, message: 'Email verified. You are logged in.' });
+    const profile = await prisma.workerProfile.findUnique({ where: { userId: user.id } });
+    res.json({ user, profile, message: 'Email verified. You are logged in.' });
   } catch (error) {
     next(error);
   }
 });
 
-authRouter.get('/verify-email', async (req, res) => {
+authRouter.get('/verify-email', credentialLimiter, async (req, res) => {
   try {
     const user = await verifyEmail({
       token: req.query?.token ? String(req.query.token) : undefined
@@ -55,20 +77,21 @@ authRouter.get('/verify-email', async (req, res) => {
   }
 });
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', credentialLimiter, async (req, res, next) => {
   try {
     const user = await loginUser({
       email: String(req.body?.email ?? ''),
       password: String(req.body?.password ?? '')
     });
     setAuthCookie(res, toAuthUser(user));
-    res.json({ user });
+    const profile = await prisma.workerProfile.findUnique({ where: { userId: user.id } });
+    res.json({ user, profile });
   } catch (error) {
     next(error);
   }
 });
 
-authRouter.post('/forgot-password', async (req, res, next) => {
+authRouter.post('/forgot-password', accountActionLimiter, async (req, res, next) => {
   try {
     const result = await requestPasswordReset({
       email: String(req.body?.email ?? '')
@@ -79,7 +102,7 @@ authRouter.post('/forgot-password', async (req, res, next) => {
   }
 });
 
-authRouter.post('/reset-password', async (req, res, next) => {
+authRouter.post('/reset-password', credentialLimiter, async (req, res, next) => {
   try {
     await resetPassword({
       email: String(req.body?.email ?? ''),
@@ -100,6 +123,17 @@ authRouter.post('/logout', (_req, res) => {
 export function authErrorStatus(error: unknown): number | null {
   if (error instanceof AuthServiceError) return error.statusCode;
   return null;
+}
+
+export function createAuthLimiter(limit: number, error: string, skipInTest = true) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: () => skipInTest && env.nodeEnv === 'test',
+    message: { error }
+  });
 }
 
 function toAuthUser(user: SafeUser): AuthUser {

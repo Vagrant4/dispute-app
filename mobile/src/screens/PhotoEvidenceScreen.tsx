@@ -32,6 +32,7 @@ export function PhotoEvidenceScreen() {
   const [evidenceType, setEvidenceType] = useState<PhotoEvidenceType>("DURING_WORK");
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingCapturedAt, setPendingCapturedAt] = useState<string | null>(null);
   const [pendingGps, setPendingGps] = useState<PhotoGpsResult | null>(null);
   const [rows, setRows] = useState<PhotoEvidenceRow[]>([]);
 
@@ -80,17 +81,20 @@ export function PhotoEvidenceScreen() {
         return;
       }
       const selected = result.assets[0];
-      const photoId = `photo-${Date.now()}`;
+      const capturedAt = new Date();
+      const photoId = `photo-${capturedAt.getTime()}`;
       const destinationUri = buildEvidencePhotoPath({
         userId: LOCAL_USER_ID,
         projectId,
         photoId,
+        timestamp: capturedAt,
         extension: getExtension(selected.uri),
       });
       const imported = await importEvidencePhotoFile({ sourceUri: selected.uri, destinationUri });
       const gps = await getOptionalPhotoGps();
       setPendingId(photoId);
       setPendingUri(imported.localUri);
+      setPendingCapturedAt(capturedAt.toISOString());
       setPendingGps(gps);
       setStatus(`${imported.message} Review the details, then save evidence. ${gps.message}`);
     } catch (error) {
@@ -121,6 +125,7 @@ export function PhotoEvidenceScreen() {
       setRows(nextRows);
       setPendingUri(null);
       setPendingId(null);
+      setPendingCapturedAt(null);
       setPendingGps(null);
       setCaption("");
       setStatus("Photo evidence saved in this phone preview. Device app builds save into local SQLite.");
@@ -136,10 +141,12 @@ export function PhotoEvidenceScreen() {
         caption,
         evidenceType,
         gps: pendingGps,
+        timestamp: pendingCapturedAt ?? undefined,
         status: "finalized",
       });
       setPendingUri(null);
       setPendingId(null);
+      setPendingCapturedAt(null);
       setPendingGps(null);
       setCaption("");
       setStatus("Photo evidence saved locally and is ready for progress claims.");

@@ -130,7 +130,7 @@ describe('admin metrics API', () => {
       registeredActiveUsers: 3,
       monthlyActiveUsers: 2,
       activeSubscriptions: 1,
-      trialingSubscriptions: 1,
+      trialingSubscriptions: 2,
       mrrByCurrency: { SGD: 1900 }
     });
   });
@@ -138,7 +138,9 @@ describe('admin metrics API', () => {
   async function registerAndVerify(email: string): Promise<{ id: string; cookie: string }> {
     const registered = await postJson('/auth/register', {
       email,
-      password: 'Password123!'
+      password: 'Password123!',
+      fullName: 'Test Worker',
+      phone: '+65 9000 0000'
     });
     expect(registered.status).toBe(201);
     const body = await jsonBody<AuthUserResponse>(registered);

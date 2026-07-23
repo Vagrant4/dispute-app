@@ -417,10 +417,15 @@ export async function loginRequest(email: string, password: string): Promise<Aut
   return response.user;
 }
 
-export async function registerRequest(email: string, password: string): Promise<AuthUser> {
+export async function registerRequest(
+  email: string,
+  password: string,
+  fullName: string,
+  phone: string
+): Promise<AuthUser> {
   const response = await apiRequest<AuthResponse>('/auth/register', {
     method: 'POST',
-    body: { email, password }
+    body: { email, password, fullName, phone }
   });
   return response.user;
 }

@@ -2,6 +2,8 @@ export type AppSettings = {
   id: string;
   userId: string;
   currency: string;
+  rateBasis: "daily" | "monthly";
+  baseRateCents: number;
   dailyHours: number;
   weeklyHours: number;
   normalWorkStartTime: string;
@@ -18,6 +20,8 @@ export type AppSettingsPatch = Partial<
   Pick<
     AppSettings,
     | "currency"
+    | "rateBasis"
+    | "baseRateCents"
     | "dailyHours"
     | "weeklyHours"
     | "normalWorkStartTime"
@@ -35,6 +39,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   id: DEFAULT_SETTINGS_ID,
   userId: DEFAULT_USER_ID,
   currency: "SGD",
+  rateBasis: "daily",
+  baseRateCents: 0,
   dailyHours: 8,
   weeklyHours: 44,
   normalWorkStartTime: "08:00",
@@ -74,6 +80,16 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
   }
   if (!/^[A-Z]{3}$/.test(settings.currency)) {
     errors.push("currency must be 3 uppercase letters");
+  }
+  if (settings.rateBasis !== "daily" && settings.rateBasis !== "monthly") {
+    errors.push("rateBasis must be daily or monthly");
+  }
+  if (
+    !Number.isInteger(settings.baseRateCents) ||
+    settings.baseRateCents < 0 ||
+    settings.baseRateCents > 100_000_000
+  ) {
+    errors.push("baseRateCents must be a safe non-negative cent amount");
   }
   if (!isFiniteNumber(settings.dailyHours) || settings.dailyHours < 1 || settings.dailyHours > 24) {
     errors.push("dailyHours must be between 1 and 24");

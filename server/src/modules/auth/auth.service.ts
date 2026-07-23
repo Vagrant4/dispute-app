@@ -4,6 +4,7 @@ import { UserStatus, type User } from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { isEmailDeliveryConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../email/email.service.js';
+import { createTrialSubscriptionForUser } from '../subscription/subscription.service.js';
 
 export class AuthServiceError extends Error {
   constructor(
@@ -30,35 +31,25 @@ export interface PasswordResetRequestResult {
   devResetCode?: string;
 }
 
-export async function registerUser(input: { email: string; password: string }): Promise<RegistrationResult> {
+export type VerificationResendResult = Omit<RegistrationResult, 'user'> & { user?: SafeUser };
+
+export async function registerUser(input: {
+  email: string;
+  password: string;
+  fullName: string;
+  phone: string;
+}): Promise<RegistrationResult> {
   const email = normalizeEmail(input.email);
   validateCredentials(email, input.password);
+  const profile = normalizeSignupProfile(input.fullName, input.phone);
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    if (existingUser.status !== UserStatus.PENDING_EMAIL_VERIFICATION && existingUser.emailVerifiedAt) {
-      throw new AuthServiceError('Email is already registered', 409);
-    }
-
-    const passwordHash = await bcrypt.hash(input.password, 12);
-    const user = await prisma.user.update({
-      where: { id: existingUser.id },
-      data: { passwordHash }
-    });
-    const verification = await createEmailVerification(user.id);
-    const emailSent = await trySendVerificationEmail({
-      to: user.email,
-      code: verification.code,
-      token: verification.token
-    });
-
-    ensureVerificationEmailWasSent(emailSent);
-
-    return buildRegistrationResult(
-      user,
-      verification,
-      emailSent,
-      'A new verification code was sent to your email.'
+    throw new AuthServiceError(
+      existingUser.status === UserStatus.PENDING_EMAIL_VERIFICATION
+        ? 'Account registration is pending email verification. Use Resend code.'
+        : 'Email is already registered',
+      409
     );
   }
 
@@ -71,6 +62,14 @@ export async function registerUser(input: { email: string; password: string }): 
       status: 'PENDING_EMAIL_VERIFICATION',
       appSetting: {
         create: {}
+      },
+      profile: {
+        create: {
+          fullName: profile.fullName,
+          phone: profile.phone,
+          trade: 'Not specified',
+          employmentType: 'FREELANCER'
+        }
       }
     }
   });
@@ -82,7 +81,12 @@ export async function registerUser(input: { email: string; password: string }): 
     token: verification.token
   });
 
-  ensureVerificationEmailWasSent(emailSent);
+  try {
+    ensureVerificationEmailWasSent(emailSent);
+  } catch (error) {
+    await prisma.user.delete({ where: { id: user.id } });
+    throw error;
+  }
 
   return buildRegistrationResult(
     user,
@@ -94,6 +98,47 @@ export async function registerUser(input: { email: string; password: string }): 
   );
 }
 
+export async function resendVerificationEmail(input: { email: string }): Promise<VerificationResendResult> {
+  const email = normalizeEmail(input.email);
+  if (!isValidEmail(email)) {
+    throw new AuthServiceError('A valid email is required', 400);
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.status !== UserStatus.PENDING_EMAIL_VERIFICATION || user.emailVerifiedAt) {
+    return {
+      verificationRequired: true,
+      message: 'If this registration is pending, a new verification code will be sent.'
+    };
+  }
+
+  const verification = await createEmailVerification(user.id);
+  const emailSent = await trySendVerificationEmail({
+    to: user.email,
+    code: verification.code,
+    token: verification.token
+  });
+  ensureVerificationEmailWasSent(emailSent);
+
+  await prisma.emailVerificationToken.updateMany({
+    where: {
+      userId: user.id,
+      id: { not: verification.id },
+      consumedAt: null
+    },
+    data: { consumedAt: new Date() }
+  });
+
+  const registration = buildRegistrationResult(
+    user,
+    verification,
+    emailSent,
+    'A new verification code was sent to your email.'
+  );
+  const { user: safeUser, ...result } = registration;
+  return { ...result, user: safeUser };
+}
+
 function buildRegistrationResult(
   user: User,
   verification: { token: string; code: string },
@@ -103,18 +148,18 @@ function buildRegistrationResult(
   return {
     user: toSafeUser(user),
     verificationRequired: true,
-    ...(env.nodeEnv === 'production' && isEmailDeliveryConfigured() && emailSent
-      ? {}
-      : {
+    ...(env.nodeEnv !== 'production'
+      ? {
           devVerificationCode: verification.code,
           devVerificationToken: verification.token
-        }),
+        }
+      : {}),
     message
   };
 }
 
 function ensureVerificationEmailWasSent(emailSent: boolean): void {
-  if (env.nodeEnv === 'production' && isEmailDeliveryConfigured() && !emailSent) {
+  if (env.nodeEnv === 'production' && (!isEmailDeliveryConfigured() || !emailSent)) {
     throw new AuthServiceError('Unable to send verification email. Please check the email address and try again.', 502);
   }
 }
@@ -212,18 +257,25 @@ export async function requestPasswordReset(input: { email: string }): Promise<Pa
     code: reset.code
   });
 
-  if (env.nodeEnv === 'production' && isEmailDeliveryConfigured() && !emailSent) {
+  if (env.nodeEnv === 'production' && (!isEmailDeliveryConfigured() || !emailSent)) {
     throw new AuthServiceError('Unable to send password reset email. Please try again later.', 502);
   }
+
+  await prisma.passwordResetToken.updateMany({
+    where: {
+      userId: user.id,
+      id: { not: reset.id },
+      consumedAt: null
+    },
+    data: { consumedAt: new Date() }
+  });
 
   return {
     resetRequired: true,
     message: isEmailDeliveryConfigured()
       ? 'Check your email for the 6-digit password reset code.'
       : 'Email sending is not configured. Use the dev reset code.',
-    ...(env.nodeEnv === 'production' && isEmailDeliveryConfigured() && emailSent
-      ? {}
-      : { devResetCode: reset.code })
+    ...(env.nodeEnv !== 'production' ? { devResetCode: reset.code } : {})
   };
 }
 
@@ -248,8 +300,8 @@ export async function resetPassword(input: {
   const passwordHash = await bcrypt.hash(input.password, 12);
 
   await prisma.$transaction([
-    prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
+    prisma.passwordResetToken.updateMany({
+      where: { userId: resetToken.userId, consumedAt: null },
       data: { consumedAt: new Date() }
     }),
     prisma.user.update({
@@ -284,19 +336,24 @@ export async function verifyEmail(input: {
   }
 
   const verifiedUser = await prisma.$transaction(async (tx) => {
-    await tx.emailVerificationToken.update({
-      where: { id: verificationToken.id },
-      data: { consumedAt: new Date() }
+    const verifiedAt = new Date();
+    await tx.emailVerificationToken.updateMany({
+      where: { userId: verificationToken.userId, consumedAt: null },
+      data: { consumedAt: verifiedAt }
     });
 
-    return tx.user.update({
+    const user = await tx.user.update({
       where: { id: verificationToken.userId },
       data: {
         status: 'ACTIVE',
-        emailVerifiedAt: new Date(),
-        lastSeenAt: new Date()
+        emailVerifiedAt: verifiedAt,
+        lastSeenAt: verifiedAt
       }
     });
+
+    await createTrialSubscriptionForUser(user.id, verifiedAt, tx);
+
+    return user;
   });
 
   return toSafeUser(verifiedUser);
@@ -325,12 +382,23 @@ function validateCredentials(email: string, password: string): void {
   }
 }
 
-async function createEmailVerification(userId: string): Promise<{ token: string; code: string }> {
+function normalizeSignupProfile(
+  fullName: string,
+  phone: string
+): { fullName: string; phone: string } {
+  const normalizedName = fullName.trim();
+  const normalizedPhone = phone.trim();
+  if (!normalizedName) throw new AuthServiceError('Full name is required', 400);
+  if (!normalizedPhone) throw new AuthServiceError('Mobile number is required', 400);
+  return { fullName: normalizedName, phone: normalizedPhone };
+}
+
+async function createEmailVerification(userId: string): Promise<{ id: string; token: string; code: string }> {
   const token = randomBytes(32).toString('hex');
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 
-  await prisma.emailVerificationToken.create({
+  const record = await prisma.emailVerificationToken.create({
     data: {
       userId,
       tokenHash: hashVerificationValue(token),
@@ -339,14 +407,14 @@ async function createEmailVerification(userId: string): Promise<{ token: string;
     }
   });
 
-  return { token, code };
+  return { id: record.id, token, code };
 }
 
-async function createPasswordReset(userId: string): Promise<{ code: string }> {
+async function createPasswordReset(userId: string): Promise<{ id: string; code: string }> {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 
-  await prisma.passwordResetToken.create({
+  const record = await prisma.passwordResetToken.create({
     data: {
       userId,
       codeHash: await bcrypt.hash(code, 12),
@@ -354,7 +422,7 @@ async function createPasswordReset(userId: string): Promise<{ code: string }> {
     }
   });
 
-  return { code };
+  return { id: record.id, code };
 }
 
 async function findVerificationByEmailAndCode(email: string, code: string) {

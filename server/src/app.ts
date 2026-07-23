@@ -23,6 +23,10 @@ interface CreateAppOptions {
 export function createApp(options: CreateAppOptions = {}) {
   const app = express();
 
+  if (env.nodeEnv === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   app.use(
     cors({
       origin: env.clientOrigin,

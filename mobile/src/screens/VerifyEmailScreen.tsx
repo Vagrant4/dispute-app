@@ -5,6 +5,7 @@ import { type LocalAccount } from "../auth/localAuth";
 import { phoneLocalAccountStorage } from "../auth/localAuthStorageExpo";
 import {
   type PendingEmailVerification,
+  resendRemoteVerificationCode,
   verifyRemoteEmail,
 } from "../auth/remoteAuth";
 import { styles } from "../styles";
@@ -22,8 +23,10 @@ export function VerifyEmailScreen({
   onBackToCreate,
   onShowLogin,
 }: VerifyEmailScreenProps) {
+  const [currentPending, setCurrentPending] = useState(pending);
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [status, setStatus] = useState(
     `We sent a verification code to ${pending.email}.`,
   );
@@ -36,7 +39,7 @@ export function VerifyEmailScreen({
     setIsSubmitting(true);
     try {
       const result = await verifyRemoteEmail(
-        pending,
+        currentPending,
         code,
         phoneLocalAccountStorage,
       );
@@ -48,6 +51,28 @@ export function VerifyEmailScreen({
       setStatus("Unable to verify email. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleResendCode() {
+    if (isSubmitting || isResending) {
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      const result = await resendRemoteVerificationCode(currentPending);
+      if (result.ok) {
+        setCurrentPending(result.pending);
+        setCode("");
+        setStatus(result.pending.message);
+      } else {
+        setStatus(result.message);
+      }
+    } catch {
+      setStatus("Unable to resend code. Please try again.");
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -86,6 +111,17 @@ export function VerifyEmailScreen({
         </Pressable>
 
         <Text style={styles.muted}>{status}</Text>
+        <Pressable
+          accessibilityLabel="Resend verification code"
+          accessibilityRole="button"
+          disabled={isSubmitting || isResending}
+          onPress={handleResendCode}
+          style={styles.authLinkButton}
+        >
+          <Text style={styles.authLinkText}>
+            {isResending ? "Sending new code..." : "Resend code"}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.actionRow}>

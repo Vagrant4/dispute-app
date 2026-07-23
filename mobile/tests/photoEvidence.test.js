@@ -137,9 +137,28 @@ test("local photo destination builder is stable and path-safe", () => {
       userId: "user/a",
       projectId: "../project:a",
       photoId: "photo 1",
+      timestamp: "2026-06-09T10:05:06",
       extension: "jpeg",
     }),
-    "file:///app-documents/evidence-photos/user-a/project-a/photo-1.jpeg",
+    "file:///app-documents/evidence-photos/user-a/project-a/2026-06-09_10-05-06.jpeg",
+  );
+});
+
+test("local photo destination builder falls back to safe id without timestamp", () => {
+  const { buildEvidencePhotoPath } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "file:///app-documents/",
+    },
+  })("src/photos/photoFileStorage.ts");
+
+  assert.equal(
+    buildEvidencePhotoPath({
+      userId: "user/a",
+      projectId: "../project:a",
+      photoId: "photo 1",
+      extension: "jpg",
+    }),
+    "file:///app-documents/evidence-photos/user-a/project-a/photo-1.jpg",
   );
 });
 

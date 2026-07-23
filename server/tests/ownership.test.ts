@@ -102,7 +102,11 @@ describe('business resource ownership', () => {
     });
     expect(storedProfile?.fullName).toBe('Worker A');
     expect(storedProfile?.userId).toBe(userA.id);
-    await expect(prisma.workerProfile.findUnique({ where: { userId: userB.id } })).resolves.toBeNull();
+    await expect(prisma.workerProfile.findUnique({ where: { userId: userB.id } })).resolves.toMatchObject({
+      userId: userB.id,
+      fullName: 'Test Worker',
+      phone: '+65 9000 0000'
+    });
 
     const getResponse = await fetch(`${baseUrl}/profile`, {
       headers: { Cookie: userA.cookie }
@@ -319,7 +323,9 @@ describe('business resource ownership', () => {
   async function registerUser(email: string): Promise<{ id: string; cookie: string }> {
     const response = await postJson('/auth/register', {
       email,
-      password: 'Password123!'
+      password: 'Password123!',
+      fullName: 'Test Worker',
+      phone: '+65 9000 0000'
     });
     expect(response.status).toBe(201);
     const body = await jsonBody<AuthUserResponse>(response);

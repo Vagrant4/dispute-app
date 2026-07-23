@@ -23,8 +23,9 @@
     "cors": "latest",
     "dotenv": "^16.6.1",
     "express": "latest",
+    "express-rate-limit": "^8.6.0",
     "jsonwebtoken": "latest",
-    "multer": "latest",
+    "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
     "pdfkit": "latest",
     "zod": "4.4.3"

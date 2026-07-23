@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { requireUser } from '../../middleware/requireUser.js';
+import { requireReportExportAccess } from '../../middleware/requireReportExportAccess.js';
 import { requiredDateOnly, requiredMoney } from '../../utils/validation.js';
 import {
   deleteReport,
@@ -50,7 +51,7 @@ reportRouter.get('/', async (req, res, next) => {
   }
 });
 
-reportRouter.post('/progress-claim', async (req, res, next) => {
+reportRouter.post('/progress-claim', requireReportExportAccess, async (req, res, next) => {
   try {
     const parsed = generateReportSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -74,9 +75,9 @@ reportRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-reportRouter.get('/:id/pdf', async (req, res, next) => {
+reportRouter.get('/:id/pdf', requireReportExportAccess, async (req, res, next) => {
   try {
-    const file = await getReportPdf(req.user!.id, req.params.id);
+    const file = await getReportPdf(req.user!.id, String(req.params.id));
     res.setHeader('Content-Type', file.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
     openReportFile(file).on('error', next).pipe(res);
@@ -85,9 +86,9 @@ reportRouter.get('/:id/pdf', async (req, res, next) => {
   }
 });
 
-reportRouter.get('/:id/csv', async (req, res, next) => {
+reportRouter.get('/:id/csv', requireReportExportAccess, async (req, res, next) => {
   try {
-    const file = await getReportCsv(req.user!.id, req.params.id);
+    const file = await getReportCsv(req.user!.id, String(req.params.id));
     res.setHeader('Content-Type', file.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
     openReportFile(file).on('error', next).pipe(res);

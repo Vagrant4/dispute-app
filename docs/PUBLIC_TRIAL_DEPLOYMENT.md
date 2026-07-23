@@ -8,7 +8,8 @@ Use this when testers are outside your local Wi-Fi or outside Singapore.
 - Database: SQLite on Render persistent disk for the first external trial
 - Email verification: Gmail SMTP app password
 - Mobile APK: rebuilt with `EXPO_PUBLIC_API_BASE_URL=<public backend URL>`
-- Billing: disabled first; add Stripe Checkout only after the login/register trial is stable
+- Billing: three-day server trial, followed by Apple App Store or Google Play billing through RevenueCat
+- Store product ID: `dispute_basic_monthly` in both RevenueCat and the app stores
 
 ## Required owner accounts and secrets
 
@@ -16,7 +17,7 @@ You own these accounts; do not put secrets in chat.
 
 1. Render account
 2. Gmail account with 2-step verification and an app password
-3. Later: Stripe account for subscription checkout
+3. RevenueCat project connected to App Store Connect and Google Play Console
 
 ## Render environment values
 
@@ -36,6 +37,7 @@ SMTP_USER=<your gmail address>
 SMTP_PASS=<your gmail app password, not normal gmail password>
 EMAIL_FROM=Dispute <your gmail address>
 STRIPE_BILLING_MODE=disabled
+REVENUECAT_WEBHOOK_SECRET=<strong RevenueCat webhook authorization secret>
 ```
 
 ## Health check
@@ -49,7 +51,7 @@ https://<your-render-service>.onrender.com/health
 Expected result:
 
 ```json
-{"ok":true}
+{"status":"ok"}
 ```
 
 ## Build public APK

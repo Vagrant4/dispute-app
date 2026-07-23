@@ -8,9 +8,15 @@
     "db:migrate": "npm run db:migrate --workspace server",
     "db:seed": "npm run db:seed --workspace server"
   },
-  "workspaces": ["client", "server", "mobile", "packages/shared"],
+  "workspaces": [
+    "client",
+    "server",
+    "mobile",
+    "packages/shared"
+  ],
   "devDependencies": {
     "concurrently": "latest",
+    "eas-cli": "^21.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   }

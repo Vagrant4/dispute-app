@@ -493,7 +493,9 @@ describe('progress claim report snapshots and exports', () => {
   async function registerUser(email: string): Promise<{ id: string; cookie: string }> {
     const response = await postJson('/auth/register', {
       email,
-      password: 'Password123!'
+      password: 'Password123!',
+      fullName: 'Test Worker',
+      phone: '+65 9000 0000'
     });
     expect(response.status).toBe(201);
     const body = await jsonBody<AuthUserResponse>(response);
