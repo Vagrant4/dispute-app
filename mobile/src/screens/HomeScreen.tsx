@@ -55,6 +55,8 @@ export function HomeScreen() {
     projects.find((project) => project.id === selectedProjectId) ?? homeState?.project;
 
   useEffect(() => {
+    // Intentional local-database hydration of the editable project draft.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProjectName(activeProject?.name ?? "");
     setProjectDescription(activeProject?.description ?? "");
   }, [activeProject?.description, activeProject?.id, activeProject?.name]);

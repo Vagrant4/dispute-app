@@ -1,4 +1,5 @@
 import { Prisma, SubscriptionStatus } from '@prisma/client';
+import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 
 export interface SubscriptionEntitlement {
@@ -19,7 +20,9 @@ export interface SubscriptionEntitlement {
 
 const trialDays = 3;
 const basicPlanCode = 'dispute-basic-monthly';
-const storeProductId = 'dispute_basic_monthly';
+const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
+const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
+const supportedRevenueCatStores = new Set(['PLAY_STORE', 'APP_STORE']);
 const basicPlanName = 'DISPUTE Basic';
 const basicPlanPriceCents = 499;
 const basicPlanCurrency = 'SGD';
@@ -95,8 +98,15 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     };
   }
 
-  const effectiveStatus = getEffectiveStatus(subscription.status, subscription.trialEndsAt);
-  const isActive = effectiveStatus === SubscriptionStatus.ACTIVE || effectiveStatus === SubscriptionStatus.TRIALING;
+  const effectiveStatus = getEffectiveStatus(
+    subscription.status,
+    subscription.trialEndsAt,
+    subscription.currentPeriodEnd
+  );
+  const isActive =
+    effectiveStatus === SubscriptionStatus.ACTIVE ||
+    effectiveStatus === SubscriptionStatus.TRIALING ||
+    effectiveStatus === SubscriptionStatus.CANCELED;
   return {
     userId,
     status: effectiveStatus,
@@ -110,7 +120,11 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     billingInterval: 'month',
     trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
     currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
-    message: buildEntitlementMessage(effectiveStatus, subscription.trialEndsAt)
+    message: buildEntitlementMessage(
+      effectiveStatus,
+      subscription.trialEndsAt,
+      subscription.currentPeriodEnd
+    )
   };
 }
 
@@ -124,12 +138,25 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
     } as const;
   }
 
-  const plan = await ensureBasicPlan(prisma);
   const productId = getString(event, 'product_id');
   if (productId !== storeProductId) {
     return {
       statusCode: 400,
       body: { error: `RevenueCat webhook product_id must be ${storeProductId}.` }
+    } as const;
+  }
+  const entitlementIds = getStringArray(event, 'entitlement_ids');
+  if (!entitlementIds.includes(storeEntitlementId)) {
+    return {
+      statusCode: 400,
+      body: { error: `RevenueCat webhook must grant ${storeEntitlementId}.` }
+    } as const;
+  }
+  const storeContextError = validateRevenueCatStoreContext(event, env.nodeEnv);
+  if (storeContextError) {
+    return {
+      statusCode: 400,
+      body: { error: storeContextError }
     } as const;
   }
   const status = mapRevenueCatStatus(getString(event, 'type'));
@@ -139,6 +166,7 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
       body: { error: 'RevenueCat webhook event type is not supported.' }
     } as const;
   }
+  const plan = await ensureBasicPlan(prisma);
   const purchasedAt = getDateFromMs(event, 'purchased_at_ms');
   const expirationAt = getDateFromMs(event, 'expiration_at_ms');
   const priceCents = getRevenueCents(event) ?? basicPlanPriceCents;
@@ -190,6 +218,24 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   } as const;
 }
 
+export function validateRevenueCatStoreContext(
+  event: Record<string, unknown>,
+  nodeEnv: string
+): string | null {
+  const store = getString(event, 'store');
+  if (!store || !supportedRevenueCatStores.has(store)) {
+    return 'RevenueCat webhook store must be Google Play or Apple App Store.';
+  }
+  const environment = getString(event, 'environment');
+  if (nodeEnv === 'production' && environment !== 'PRODUCTION') {
+    return 'RevenueCat production webhook must come from the production environment.';
+  }
+  if (environment !== 'PRODUCTION' && environment !== 'SANDBOX') {
+    return 'RevenueCat webhook environment is not supported.';
+  }
+  return null;
+}
+
 export function getMobileStoreCheckoutResponse() {
   return {
     statusCode: 409,
@@ -223,14 +269,27 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
   });
 }
 
-function getEffectiveStatus(status: SubscriptionStatus, trialEndsAt: Date | null): SubscriptionStatus {
+function getEffectiveStatus(
+  status: SubscriptionStatus,
+  trialEndsAt: Date | null,
+  currentPeriodEnd: Date | null
+): SubscriptionStatus {
   if (status === SubscriptionStatus.TRIALING && trialEndsAt && trialEndsAt <= new Date()) {
     return SubscriptionStatus.EXPIRED;
+  }
+  if (status === SubscriptionStatus.CANCELED) {
+    return currentPeriodEnd && currentPeriodEnd > new Date()
+      ? SubscriptionStatus.CANCELED
+      : SubscriptionStatus.EXPIRED;
   }
   return status;
 }
 
-function buildEntitlementMessage(status: SubscriptionStatus, trialEndsAt: Date | null): string {
+function buildEntitlementMessage(
+  status: SubscriptionStatus,
+  trialEndsAt: Date | null,
+  currentPeriodEnd: Date | null
+): string {
   if (status === SubscriptionStatus.TRIALING) {
     return trialEndsAt
       ? `Trial active until ${trialEndsAt.toISOString()}. Export is available during the trial.`
@@ -243,7 +302,9 @@ function buildEntitlementMessage(status: SubscriptionStatus, trialEndsAt: Date |
     return 'Subscription payment is past due. Subscribe again to export reports.';
   }
   if (status === SubscriptionStatus.CANCELED) {
-    return 'Subscription was canceled. Subscribe again to export reports.';
+    return currentPeriodEnd
+      ? `Subscription canceled. Export remains available until ${currentPeriodEnd.toISOString()}.`
+      : 'Subscription was canceled. Subscribe again to export reports.';
   }
   return 'Trial ended. Subscribe to export reports. Your time and evidence records remain available.';
 }
@@ -262,6 +323,13 @@ function getRevenueCatEvent(body: unknown): Record<string, unknown> {
 function getString(body: Record<string, unknown>, key: string): string | null {
   const value = body[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function getStringArray(body: Record<string, unknown>, key: string): string[] {
+  const value = body[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
 }
 
 function getDateFromMs(body: Record<string, unknown>, key: string): Date | null {

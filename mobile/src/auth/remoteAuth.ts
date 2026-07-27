@@ -26,9 +26,14 @@ const expoEnv = (globalThis as unknown as {
   process?: { env?: Record<string, string | undefined> };
 }).process?.env;
 
+const liveApiBaseUrl = "https://dispute-api-live.onrender.com";
+const configuredApiBaseUrl = expoEnv?.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+const isDevelopmentRuntime = typeof __DEV__ !== "undefined" && __DEV__;
 const apiBaseUrl =
-  expoEnv?.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "https://dispute-api-live.onrender.com";
+  configuredApiBaseUrl &&
+  (configuredApiBaseUrl.startsWith("https://") || isDevelopmentRuntime)
+    ? configuredApiBaseUrl
+    : liveApiBaseUrl;
 
 export function getAuthApiBaseUrl() {
   return apiBaseUrl;

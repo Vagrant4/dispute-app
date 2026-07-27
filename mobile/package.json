@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "expo/AppEntry",
   "scripts": {
     "prestart": "npm run build --workspace @claimproof/shared",
@@ -14,22 +14,30 @@
     "web": "expo start --web",
     "pretypecheck": "npm run build --workspace @claimproof/shared",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "expo lint",
     "pretest": "npm run build --workspace @claimproof/shared",
     "test": "node --test tests/*.test.js",
     "eas-build-post-install": "npm run build --workspace @claimproof/shared"
   },
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
   "dependencies": {
     "@claimproof/shared": "file:../packages/shared",
-    "expo": "~56.0.15",
+    "expo": "~56.0.17",
     "expo-crypto": "^56.0.4",
-    "expo-dev-client": "~56.0.22",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
-    "expo-image-picker": "~56.0.20",
-    "expo-location": "~56.0.20",
+    "expo-image-picker": "~56.0.22",
+    "expo-location": "~56.0.22",
     "expo-print": "~56.0.4",
     "expo-secure-store": "~56.0.4",
-    "expo-sharing": "~56.0.21",
+    "expo-sharing": "~56.0.23",
+    "expo-splash-screen": "~56.0.14",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "react": "^19.2.3",
@@ -41,6 +49,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~56.0.4",
     "typescript": "~6.0.3"
   }
 }

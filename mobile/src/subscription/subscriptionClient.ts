@@ -31,7 +31,10 @@ type FetchLike = typeof fetch;
 
 const revenueCatIosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ?? "";
 const revenueCatAndroidApiKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? "";
-const disputeBasicProductId = "dispute_basic_monthly";
+const disputeBasicProductId =
+  process.env.EXPO_PUBLIC_REVENUECAT_PRODUCT_ID?.trim() || "dispute_basic_monthly";
+const disputeBasicEntitlementId =
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || "";
 
 export async function fetchSubscriptionStatus(
   fetcher: FetchLike = fetch,
@@ -76,28 +79,10 @@ export async function fetchSubscriptionStatus(
 export async function purchaseDisputeBasicSubscription(
   account: LocalAccount,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-  if (Platform.OS === "web") {
-    return { ok: false, message: "Store subscriptions are available in the phone app." };
-  }
-
-  const apiKey =
-    Platform.OS === "ios" ? revenueCatIosApiKey : revenueCatAndroidApiKey;
-  if (!apiKey) {
-    return {
-      ok: false,
-      message:
-        "Subscription purchase is not configured yet. Add the RevenueCat store API key and DISPUTE Basic product before taking payment.",
-    };
-  }
-
   try {
-    const purchasesModule = await import("react-native-purchases");
-    const Purchases =
-      "default" in purchasesModule ? purchasesModule.default : purchasesModule;
-    Purchases.configure({
-      apiKey,
-      appUserID: account.id ?? account.email,
-    });
+    const configured = await getConfiguredPurchases(account);
+    if (!configured.ok) return configured;
+    const { Purchases } = configured;
 
     const offerings = await Purchases.getOfferings();
     const selectedPackage = offerings.current?.availablePackages?.find(
@@ -111,7 +96,16 @@ export async function purchaseDisputeBasicSubscription(
       };
     }
 
-    await Purchases.purchasePackage(selectedPackage);
+    const purchase = await Purchases.purchasePackage(selectedPackage);
+    const activeEntitlement =
+      purchase.customerInfo.entitlements.active[disputeBasicEntitlementId];
+    if (!activeEntitlement) {
+      return {
+        ok: false,
+        message:
+          "The store completed the purchase but the DISPUTE entitlement is not active. Restore purchases or contact support before retrying.",
+      };
+    }
     return {
       ok: true,
       message: "Subscription purchase completed. Refreshing access...",
@@ -125,6 +119,88 @@ export async function purchaseDisputeBasicSubscription(
           : "Subscription purchase could not be completed.",
     };
   }
+}
+
+export async function restoreDisputeBasicSubscription(
+  account: LocalAccount,
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  try {
+    const configured = await getConfiguredPurchases(account);
+    if (!configured.ok) return configured;
+    const customerInfo = await configured.Purchases.restorePurchases();
+    const activeEntitlement =
+      customerInfo.entitlements.active[disputeBasicEntitlementId];
+    if (!activeEntitlement) {
+      return {
+        ok: false,
+        message: "No active DISPUTE subscription was found for this store account.",
+      };
+    }
+    return {
+      ok: true,
+      message: "Subscription restored. Refreshing access...",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Subscription restoration could not be completed.",
+    };
+  }
+}
+
+async function getConfiguredPurchases(account: LocalAccount) {
+  if (Platform.OS === "web") {
+    return {
+      ok: false as const,
+      message: "Store subscriptions are available in the phone app.",
+    };
+  }
+
+  const apiKey =
+    Platform.OS === "ios" ? revenueCatIosApiKey : revenueCatAndroidApiKey;
+  const configurationError = getRevenueCatConfigurationError(
+    Platform.OS,
+    apiKey,
+    disputeBasicEntitlementId,
+  );
+  if (configurationError) {
+    return { ok: false as const, message: configurationError };
+  }
+
+  const purchasesModule = await import("react-native-purchases");
+  const Purchases =
+    "default" in purchasesModule ? purchasesModule.default : purchasesModule;
+  Purchases.configure({
+    apiKey,
+    appUserID: account.id ?? account.email,
+    useAmazon: false,
+    diagnosticsEnabled: false,
+    automaticDeviceIdentifierCollectionEnabled: false,
+  });
+  return { ok: true as const, Purchases };
+}
+
+function getRevenueCatConfigurationError(
+  platform: string,
+  apiKey: string,
+  entitlementId: string,
+): string | null {
+  if (!apiKey || !entitlementId) {
+    return "Subscription purchase is unavailable until the production store configuration is completed.";
+  }
+  if (apiKey.startsWith("test_")) {
+    return "Test Store billing is disabled in this production application.";
+  }
+  if (platform === "android" && !apiKey.startsWith("goog_")) {
+    return "The Android subscription key is not a Google Play RevenueCat public key.";
+  }
+  if (platform === "ios" && !apiKey.startsWith("appl_")) {
+    return "The iOS subscription key is not an App Store RevenueCat public key.";
+  }
+  return null;
 }
 
 export function formatSubscriptionPrice(subscription: SubscriptionEntitlement): string {

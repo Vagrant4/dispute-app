@@ -38,9 +38,8 @@ describe('RegisterPage', () => {
     vi.clearAllMocks();
   });
 
-  it('shows a recoverable error and stays on registration when profile setup fails', async () => {
+  it('submits required signup profile fields without a pre-verification profile request', async () => {
     apiMocks.registerRequest.mockResolvedValue({ id: 'user-1', email: 'worker@example.com', role: 'WORKER' });
-    apiMocks.saveProfileRequest.mockRejectedValue(new ApiError('Invalid profile payload', 400));
 
     render(
       <MemoryRouter initialEntries={['/register']}>
@@ -62,12 +61,13 @@ describe('RegisterPage', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'password123');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
-    await waitFor(() =>
-      expect(
-        screen.getByText('Account created, but profile setup failed: Invalid profile payload').textContent
-      ).toBe('Account created, but profile setup failed: Invalid profile payload')
+    await waitFor(() => expect(screen.getByText('Entered app')).toBeTruthy());
+    expect(apiMocks.registerRequest).toHaveBeenCalledWith(
+      'worker@example.com',
+      'password123',
+      'Worker One',
+      '+6590000000'
     );
-    expect(screen.queryByText('Entered app')).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Create your evidence account' })).toBeTruthy();
+    expect(apiMocks.saveProfileRequest).not.toHaveBeenCalled();
   });
 });

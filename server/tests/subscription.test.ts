@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { validateRevenueCatStoreContext } from '../src/modules/subscription/subscription.service.js';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
@@ -106,6 +107,27 @@ describe('subscription API', () => {
     expect(body.subscription.message).toMatch(/Trial active/i);
   });
 
+  it('rejects sandbox and non-platform store webhooks at the production boundary', () => {
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'PLAY_STORE', environment: 'SANDBOX' },
+        'production'
+      )
+    ).toMatch(/production environment/i);
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'AMAZON', environment: 'PRODUCTION' },
+        'production'
+      )
+    ).toMatch(/Google Play or Apple App Store/i);
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'PLAY_STORE', environment: 'PRODUCTION' },
+        'production'
+      )
+    ).toBeNull();
+  });
+
   it('blocks export when the 3-day trial is expired', async () => {
     const user = await registerUser('subscription-expired@example.com');
     await prisma.userSubscription.updateMany({
@@ -158,6 +180,9 @@ describe('subscription API', () => {
       event: {
         type: 'INITIAL_PURCHASE',
         product_id: 'dispute_basic_monthly',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'SANDBOX',
         app_user_id: user.id,
         transaction_id: 'store_txn_123',
         price_in_purchased_currency: 4.99,
@@ -188,6 +213,54 @@ describe('subscription API', () => {
     });
   });
 
+  it('keeps canceled subscription access until the paid period expires', async () => {
+    const user = await registerUser('subscription-canceled@example.com');
+    const periodEnd = Date.now() + 1000 * 60 * 60 * 24 * 10;
+    const cancellation = await postJson('/subscription/webhook', {
+      event: {
+        type: 'CANCELLATION',
+        product_id: 'dispute_basic_monthly',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'SANDBOX',
+        app_user_id: user.id,
+        transaction_id: 'store_txn_canceled',
+        price_in_purchased_currency: 4.99,
+        currency: 'SGD',
+        purchased_at_ms: Date.now() - 1000 * 60 * 60 * 24 * 20,
+        expiration_at_ms: periodEnd
+      }
+    });
+
+    expect(cancellation.status).toBe(200);
+    await expect(cancellation.json()).resolves.toMatchObject({ status: 'CANCELED' });
+
+    const currentResponse = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const current = await jsonBody<SubscriptionStatusResponse>(currentResponse);
+    expect(current.subscription).toMatchObject({
+      status: 'CANCELED',
+      isActive: true,
+      canExportReports: true
+    });
+    expect(current.subscription.message).toMatch(/remains available until/i);
+
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: { currentPeriodEnd: new Date(Date.now() - 1000) }
+    });
+    const expiredResponse = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const expired = await jsonBody<SubscriptionStatusResponse>(expiredResponse);
+    expect(expired.subscription).toMatchObject({
+      status: 'EXPIRED',
+      isActive: false,
+      canExportReports: false
+    });
+  });
+
   it('backfills a 3-day trial for a verified user missing a subscription row', async () => {
     const user = await registerUser('subscription-backfill@example.com');
     await prisma.userSubscription.deleteMany({ where: { userId: user.id } });
@@ -206,12 +279,50 @@ describe('subscription API', () => {
     const user = await registerUser('subscription-rejected-webhook@example.com');
 
     const wrongProduct = await postJson('/subscription/webhook', {
-      event: { type: 'INITIAL_PURCHASE', product_id: 'another_product', app_user_id: user.id }
+      event: {
+        type: 'INITIAL_PURCHASE',
+        product_id: 'another_product',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'SANDBOX',
+        app_user_id: user.id
+      }
     });
     expect(wrongProduct.status).toBe(400);
 
+    const wrongEntitlement = await postJson('/subscription/webhook', {
+      event: {
+        type: 'INITIAL_PURCHASE',
+        product_id: 'dispute_basic_monthly',
+        entitlement_ids: ['another_entitlement'],
+        store: 'PLAY_STORE',
+        environment: 'SANDBOX',
+        app_user_id: user.id
+      }
+    });
+    expect(wrongEntitlement.status).toBe(400);
+
+    const unsupportedStore = await postJson('/subscription/webhook', {
+      event: {
+        type: 'INITIAL_PURCHASE',
+        product_id: 'dispute_basic_monthly',
+        entitlement_ids: ['dispute_basic'],
+        store: 'AMAZON',
+        environment: 'PRODUCTION',
+        app_user_id: user.id
+      }
+    });
+    expect(unsupportedStore.status).toBe(400);
+
     const unknownEvent = await postJson('/subscription/webhook', {
-      event: { type: 'TEST_OR_UNKNOWN', product_id: 'dispute_basic_monthly', app_user_id: user.id }
+      event: {
+        type: 'TEST_OR_UNKNOWN',
+        product_id: 'dispute_basic_monthly',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'SANDBOX',
+        app_user_id: user.id
+      }
     });
     expect(unknownEvent.status).toBe(400);
 

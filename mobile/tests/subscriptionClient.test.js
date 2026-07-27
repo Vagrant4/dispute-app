@@ -28,10 +28,16 @@ test("subscription purchase path uses RevenueCat store adapter and product keys"
   assert.match(source, /react-native-purchases/);
   assert.match(source, /EXPO_PUBLIC_REVENUECAT_IOS_API_KEY/);
   assert.match(source, /EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY/);
+  assert.match(source, /EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID/);
   assert.match(source, /process\.env\.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY/);
   assert.match(source, /dispute_basic_monthly/);
+  assert.match(source, /apiKey\.startsWith\("test_"\)/);
+  assert.match(source, /useAmazon: false/);
+  assert.match(source, /entitlements\.active\[disputeBasicEntitlementId\]/);
   assert.match(source, /item\.product\.identifier === disputeBasicProductId/);
   assert.match(source, /purchasePackage/);
+  assert.match(source, /restorePurchases/);
+  assert.match(source, /restoreDisputeBasicSubscription/);
 });
 
 test("export screen gates report actions behind canExportReports", () => {
@@ -43,5 +49,7 @@ test("export screen gates report actions behind canExportReports", () => {
 test("settings screen exposes subscription status and subscribe action", () => {
   assert.match(settingsSource, /fetchSubscriptionStatus/);
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
+  assert.match(settingsSource, /restoreDisputeBasicSubscription/);
+  assert.match(settingsSource, /Restore purchases/);
   assert.match(settingsSource, /SGD 4\.99\/month/);
 });

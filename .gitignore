@@ -14,6 +14,14 @@ packages/shared/dist/
 server-dev.*.log
 mobile/.expo/
 
+# Mobile signing credentials must never be committed.
+*.keystore
+*.jks
+*.p12
+credentials.json
+mobile/android/keystores/
+mobile/android/.kotlin/
+
 server/prisma/dev.db
 server/prisma/dev.db-journal
 server/prisma/test.db

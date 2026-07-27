@@ -10,6 +10,7 @@ import {
   formatSubscriptionPrice,
   formatTrialCountdown,
   purchaseDisputeBasicSubscription,
+  restoreDisputeBasicSubscription,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
 
@@ -89,6 +90,15 @@ export function SettingsScreen({ account, onLogout }: SettingsScreenProps) {
 
     setSubscriptionStatus(purchase.message);
     await loadSubscriptionStatus();
+  }
+
+  async function handleRestorePurchases() {
+    setSubscriptionStatus("Checking the store for previous purchases...");
+    const restore = await restoreDisputeBasicSubscription(account);
+    setSubscriptionStatus(restore.message);
+    if (restore.ok) {
+      await loadSubscriptionStatus();
+    }
   }
 
   async function loadWorkHours() {
@@ -422,6 +432,13 @@ export function SettingsScreen({ account, onLogout }: SettingsScreenProps) {
               </Text>
             </Pressable>
           ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void handleRestorePurchases()}
+            style={styles.actionButtonSecondary}
+          >
+            <Text style={styles.actionButtonSecondaryText}>Restore purchases</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             onPress={() => void loadSubscriptionStatus()}
