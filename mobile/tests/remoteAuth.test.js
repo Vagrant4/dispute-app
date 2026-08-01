@@ -233,3 +233,40 @@ test("deleteRemoteAccount requires confirmation and sends authenticated permanen
   assert.equal(calls[0].init.method, "DELETE");
   assert.equal(calls[0].init.credentials, "include");
 });
+
+test("deleteRemoteAccount preserves an uncertain outcome after a lost server response", async () => {
+  const { deleteRemoteAccount } = loadRemoteAuthModule();
+  const result = await deleteRemoteAccount({
+    password: "Password123!",
+    confirmation: "DELETE",
+    requestId: "77777777-7777-4777-8777-777777777777",
+  }, async () => {
+    throw new Error("response lost");
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.outcomeUncertain, true);
+});
+
+test("getRemoteAccountDeletionStatus distinguishes completed and unknown requests", async () => {
+  const { getRemoteAccountDeletionStatus } = loadRemoteAuthModule();
+  const requestId = "88888888-8888-4888-8888-888888888888";
+  const completed = await getRemoteAccountDeletionStatus(requestId, async () =>
+    Response.json({
+      deleted: true,
+      requestId,
+      storageCleanupComplete: true,
+    }),
+  );
+  const unknown = await getRemoteAccountDeletionStatus(requestId, async () =>
+    Response.json({ deleted: false }, { status: 404 }),
+  );
+
+  assert.deepEqual(completed, {
+    ok: true,
+    deleted: true,
+    requestId,
+    storageCleanupComplete: true,
+  });
+  assert.deepEqual(unknown, { ok: true, deleted: false });
+});

@@ -45,6 +45,38 @@ The 1 August 2026 follow-up also implements Google Play account-deletion and pri
 - `FINAL_SECRET_SCAN_REPORT.md`
 - `FINAL_SIGNING_CERTIFICATE_REPORT.md`
 
+Account-deletion/privacy follow-up files:
+
+- `ACCOUNT_DELETION_AND_PRIVACY_COMPLIANCE.md`
+- `AGENTS.md`
+- `docs/API_SPEC.md`
+- `docs/DATABASE_SCHEMA.md`
+- `mobile/App.tsx`
+- `mobile/src/account/accountDeletionCore.ts`
+- `mobile/src/account/accountDeletionExpo.ts`
+- `mobile/src/auth/localAuthStorageExpo.ts`
+- `mobile/src/auth/remoteAuth.ts`
+- `mobile/src/screenContent.ts`
+- `mobile/src/screens/DeleteAccountScreen.tsx`
+- `mobile/src/screens/PrivacyScreen.tsx`
+- `mobile/src/screens/SettingsScreen.tsx`
+- `mobile/src/styles.ts`
+- `mobile/tests/accountDeletion.test.js`
+- `mobile/tests/authScreens.test.js`
+- `mobile/tests/remoteAuth.test.js`
+- `mobile/tests/screenContent.test.js`
+- `server/.env.example`
+- `server/prisma/migrations/20260801090000_account_deletion_receipts/migration.sql`
+- `server/prisma/schema.prisma`
+- `server/src/app.ts`
+- `server/src/config/env.ts`
+- `server/src/modules/auth/accountDeletion.constants.ts`
+- `server/src/modules/auth/accountDeletion.service.ts`
+- `server/src/modules/auth/auth.routes.ts`
+- `server/src/modules/compliance/compliance.routes.ts`
+- `server/src/utils/html.ts`
+- `server/tests/auth.test.ts`
+
 The client registration test was corrected because the repository's current secure-signup implementation already sends full name and mobile number during registration and does not call an authenticated profile endpoint before verification. The stale test caused the required full-suite verification to fail; no registration business behavior was changed in this branch.
 
 ## Audit findings fixed

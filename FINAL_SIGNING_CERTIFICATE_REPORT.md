@@ -29,7 +29,7 @@ The latest local AAB is:
 
 `mobile/android/app/build/outputs/bundle/release/app-release.aab`
 
-- SHA-256: `73223B1EE045F342E6FA3A63118FD72CB3B1FC06EA2346BCF62E9723FA9FCBD1`
+- SHA-256: `217AD6385C106CEDE24C2CAA118E312722EFA14B13E3868F2D9EF3AFDD30D75F`
 - Signing result: `jar is unsigned`
 - Purpose: release-configuration and bundle-content preflight only
 

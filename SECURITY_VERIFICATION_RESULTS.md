@@ -4,13 +4,13 @@
 
 The mandatory Google Play account-deletion and privacy paths were added after the original hardening audit. The app is now version `0.3.0` / Android code `3`.
 
-- Focused auth/deletion API: 20/20 passed, including RevenueCat customer erasure and production fail-closed configuration.
-- Full workspace: shared 30/30, server 120/120, client 24/24, mobile 115/115.
+- Focused auth/deletion API: 23/23 passed, including RevenueCat customer erasure, password-bypass regression coverage, anonymous receipt status, and staged-file cleanup retry.
+- Full workspace: shared 30/30, server 123/123, client 24/24, mobile 117/117.
 - TypeScript: server build and mobile typecheck passed.
 - Expo Doctor: 20/20 after updating Expo from `56.0.17` to the compatible `56.0.18` patch.
 - Expo lint: 0 errors and the same 12 pre-existing warnings.
 - Local production-environment `bundleRelease`: passed.
-- Local unsigned AAB: 40,276,926 bytes; SHA-256 `937839D52D75227F27A888AD27E8B8EB5748445F7E4D986D2D9D27CA6997AFF2`.
+- Local unsigned AAB: 40,279,228 bytes; SHA-256 `217AD6385C106CEDE24C2CAA118E312722EFA14B13E3868F2D9EF3AFDD30D75F`.
 - Signing result: intentionally unsigned; a signed EAS AAB is still required.
 - Merged manifest: version `0.3.0` / code `3`, `BuildConfig.DEBUG=false`, `allowBackup=false`, `usesCleartextTraffic=false`, expected seven permissions, and zero dev/test/custom-scheme markers.
 - Secret scan: 0 high-confidence source matches and 0 tracked signing/credential files.
@@ -18,6 +18,10 @@ The mandatory Google Play account-deletion and privacy paths were added after th
 - EAS production variables: product ID and entitlement ID present; Android RevenueCat public SDK key absent.
 
 The local privacy and deletion routes pass integration tests but are not live until the server revision and migration are deployed. `SUPPORT_EMAIL` must be set to an approved public support address before that deployment is treated as Play-ready.
+
+The Expo `56.0.18` patch is an intentional compatibility-only release adjustment required for Expo Doctor 20/20; no feature-level SDK migration was performed.
+
+Independent review follow-up removed receipt-ID password bypass behavior, added lost-response reconciliation through a rate-limited anonymous status endpoint, added durable/scheduled staged-file cleanup retries, centralized confirmation and HTML escaping helpers, and documented the anonymous-receipt ownership exception.
 
 Verification was run on branch `codex/android-production-security-fixes` from fixed point `main` (`56213ba`). The original source project was used. No decompiled APK source was used to implement the fixes.
 
@@ -29,7 +33,7 @@ Verification was run on branch `codex/android-production-security-fixes` from fi
 | Expo project health | PASS | `expo-doctor` passed 20/20 checks after replacing the legacy splash field, aligning SDK 56 patch versions, and documenting the intentionally maintained native-project configuration. |
 | Type checking | PASS | Mobile TypeScript check and server TypeScript build completed with exit code 0. |
 | Linting | PASS WITH WARNINGS | Expo lint completed with 0 errors and 12 pre-existing warnings. |
-| Unit tests | PASS | Final full workspace run: shared 30/30, server 113/113, client 24/24, and mobile 113/113. The focused subscription suite passed 10/10. |
+| Unit tests | PASS | Final full workspace run: shared 30/30, server 123/123, client 24/24, and mobile 117/117. Focused auth/deletion passed 23/23. |
 | Android release AAB build | PASS | Optimized `bundleRelease` completed and produced `app-release.aab`. |
 | Android debug APK build | PASS | Final `assembleDebug` completed and produced `sg.claimproof.mobile.test` / `DISPUTE Test`, signed only with the local Android Debug certificate. |
 | Merged release manifest | PASS | Inspected generated release manifest; final permissions and exported components are below. |
@@ -37,7 +41,7 @@ Verification was run on branch `codex/android-production-security-fixes` from fi
 | Cleartext and backup state | PASS | Merged manifest has `usesCleartextTraffic=false` and `allowBackup=false`, with strict backup/data-extraction rules attached. |
 | Dev/test module markers | PASS | Zero merged-manifest matches for Expo dev launcher/menu, Metro, Amazon IAP, RevenueCat simulated store, or billing test companion. |
 | Local signing check | EXPECTED FAIL / BLOCKER | The current local AAB is unsigned by design and contains no debug certificate. The debug certificate appears only on the clearly marked test APK. The approved EAS attempt was rejected before queueing because the monthly Android build allowance is exhausted. |
-| Dependency vulnerability scan | COMPLETED / FINDINGS | Full npm tree: 49 advisories (0 critical, 29 high, 19 moderate, 1 low). Production tree: 17 advisories (0 critical, 4 high, 13 moderate). No force or breaking dependency upgrades were made. |
+| Dependency vulnerability scan | COMPLETED / FINDINGS | Full npm tree: 30 advisories (0 critical, 7 high, 22 moderate, 1 low). Production tree: 17 advisories (0 critical, 4 high, 13 moderate). No force or breaking dependency upgrades were made. |
 | Secret scan | PASS | High-confidence patterns found 0 matching tracked files; tracked keystore/credential files: 0. |
 | Payment environment verification | PARTIAL / BLOCKED EXTERNALLY | The RevenueCat product and entitlement identifiers are present in EAS production. The Android public SDK key is missing, and Google Play/RevenueCat dashboard state remains owner verification. |
 
@@ -91,16 +95,16 @@ The EAS environment-list output was reduced to presence checks so no values were
 - The first server build failed after the clean install because install scripts were deliberately disabled and Prisma Client had not been generated. Running `prisma generate` fixed the clean-build prerequisite; the server build then passed.
 - One existing client registration test was stale relative to `main` commit `56213ba`, which had moved required profile fields into the unauthenticated registration request. The test was updated to assert the current secure pre-verification behavior; the full client suite passed 24/24.
 - The first combined optimized Gradle build exceeded the 10-minute command timeout. A narrowed `bundleRelease` run completed successfully, and the final combined incremental release build completed in 147 seconds.
-- After the Expo patch alignment, a final clean `bundleRelease` completed successfully in 883.2 seconds. Its AAB hash replaces the earlier local preflight hash.
+- After the Expo patch alignment and deletion-recovery review fixes, the clean Gradle child completed after the command wrapper reached its 15-minute timeout. The exact final reviewer-approved source then completed `bundleRelease` successfully in 119 seconds.
 - A separate debug/test APK build reached the 10-minute timeout after producing its merged debug manifest and generated resources. Those outputs prove package `sg.claimproof.mobile.test`, cleartext/debuggable debug-only behavior, and label `DISPUTE Test`, but no final debug APK is claimed.
 - The final combined `assembleDebug bundleRelease` command later completed successfully and produced the debug APK described below, closing that intermediate gap.
-- A parallel server test run timed out and left a Vitest process holding `server/prisma/test.db`. The verified orphan process was stopped; the minimized subscription suite passed 8/8. The final focused subscription suite passed 10/10 and the final full server suite passed 113/113.
+- A parallel server test run left a Vitest process holding `server/prisma/test.db`. The verified orphan process was stopped; focused auth/deletion passed 23/23 and the final full server suite passed 123/123.
 
 ## Final release artifact hashes
 
 - AAB: `mobile/android/app/build/outputs/bundle/release/app-release.aab`
-  - Size: 40,271,070 bytes
-  - SHA-256: `73223B1EE045F342E6FA3A63118FD72CB3B1FC06EA2346BCF62E9723FA9FCBD1`
+  - Size: 40,279,228 bytes
+  - SHA-256: `217AD6385C106CEDE24C2CAA118E312722EFA14B13E3868F2D9EF3AFDD30D75F`
 - Debug test APK: `mobile/android/app/build/outputs/apk/debug/app-debug.apk`
   - Size: 148,315,774 bytes
   - SHA-256: `ADB2C27F2D6252C4377BAFFCADD54A2E5939FA3BD0B9ECF8278C88C690978C7C`
@@ -110,8 +114,8 @@ The debug APK is for device testing only. The local unsigned AAB is a preflight 
 ## Final merged-manifest security state
 
 - Package: `sg.claimproof.mobile`
-- Version: `0.2.0`
-- Version code: `2`
+- Version: `0.3.0`
+- Version code: `3`
 - `BuildConfig.DEBUG`: `false`
 - `android:debuggable`: absent (Android default is false)
 - `android:allowBackup`: `false`
@@ -159,7 +163,7 @@ Run an explicitly approved EAS production cloud build, download the resulting AA
 
 ## Dependency audit findings
 
-After aligning Expo SDK 56 patch versions, the full npm tree reported 49 advisories. The production tree reported 17: four high and thirteen moderate, with no critical vulnerabilities. Affected production dependency chains include Expo/Metro configuration tooling, React Router, `brace-expansion`, `postcss`, `shell-quote`, `uuid`, and `xcode`. Several fixes require version-changing upgrades rather than safe patch-only edits, so they were not applied automatically during this Android hardening request. Review and upgrade them in a dedicated dependency-update branch with regression testing.
+After aligning Expo SDK 56 patch versions, the current full npm tree reported 30 advisories: seven high, twenty-two moderate and one low, with no critical vulnerabilities. The production tree reported 17: four high and thirteen moderate. Several fixes require version-changing upgrades rather than safe patch-only edits, so they were not applied automatically during this Android hardening request. Review and upgrade them in a dedicated dependency-update branch with regression testing.
 
 ## Secret scan result
 

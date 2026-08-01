@@ -1,8 +1,11 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { Router } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/db/prisma.js';
+import { env } from '../src/config/env.js';
 import { requireUser } from '../src/middleware/requireUser.js';
 import { deleteRevenueCatCustomer } from '../src/modules/auth/accountDeletion.service.js';
 
@@ -414,6 +417,63 @@ describe('auth API', () => {
     expect((await fetch(`${baseUrl}/test/protected`, {
       headers: { Cookie: cookie }
     })).status).toBe(401);
+
+    const status = await fetch(`${baseUrl}/account-deletion/status/${body.requestId}`);
+    expect(status.status).toBe(200);
+    expect(await jsonBody(status)).toMatchObject({
+      deleted: true,
+      requestId: body.requestId,
+      storageCleanupComplete: true
+    });
+  });
+
+  it('never accepts a previous anonymous receipt in place of current-password confirmation', async () => {
+    const cookie = await registerAndVerify('receipt-bypass@example.com');
+    const requestId = '44444444-4444-4444-8444-444444444444';
+    await prisma.accountDeletionReceipt.create({ data: { id: requestId } });
+
+    const response = await deleteJson('/auth/account', {
+      password: 'WrongPassword123!',
+      confirmation: 'DELETE',
+      requestId
+    }, cookie);
+
+    expect(response.status).toBe(401);
+    expect(await prisma.user.findUnique({
+      where: { email: 'receipt-bypass@example.com' }
+    })).not.toBeNull();
+  });
+
+  it('retries pending staged-file cleanup when anonymous deletion status is checked', async () => {
+    const requestId = '55555555-5555-4555-8555-555555555555';
+    const stagedPath = join(
+      resolve(env.uploadRoot),
+      '.pending-account-deletion',
+      requestId
+    );
+    await mkdir(stagedPath, { recursive: true });
+    await writeFile(join(stagedPath, 'evidence.jpg'), 'test evidence');
+    await prisma.accountDeletionReceipt.create({ data: { id: requestId } });
+
+    try {
+      const status = await fetch(`${baseUrl}/account-deletion/status/${requestId}`);
+      expect(status.status).toBe(200);
+      expect(await jsonBody(status)).toMatchObject({
+        deleted: true,
+        storageCleanupComplete: true
+      });
+      await expect(access(stagedPath)).rejects.toThrow();
+    } finally {
+      await rm(stagedPath, { force: true, recursive: true });
+    }
+  });
+
+  it('does not reveal data for an unknown deletion request ID', async () => {
+    const status = await fetch(
+      `${baseUrl}/account-deletion/status/66666666-6666-4666-8666-666666666666`
+    );
+    expect(status.status).toBe(404);
+    expect(await jsonBody(status)).toEqual({ deleted: false });
   });
 
   it('serves public privacy and account deletion pages', async () => {

@@ -52,6 +52,11 @@ Every backend query must filter by userId.
 
 Never expose another user's data.
 
+Exception: `AccountDeletionReceipt` is deliberately anonymous and must not contain
+`userId` or other identifying data. Queries for this table must use only its random,
+unguessable request ID. This exception preserves proof of deletion without retaining
+an identity link after the account is permanently removed.
+
 ## Evidence First Rule
 
 When unsure, choose the option that improves:

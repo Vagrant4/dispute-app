@@ -4,6 +4,8 @@ import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/auth.js';
 import { requireUser } from '../../middleware/requireUser.js';
+import { escapeHtml } from '../../utils/html.js';
+import { ACCOUNT_DELETION_CONFIRMATION } from './accountDeletion.constants.js';
 import { deleteAccountForAuthenticatedUser } from './accountDeletion.service.js';
 import {
   AuthServiceError,
@@ -124,8 +126,10 @@ authRouter.post('/logout', (_req, res) => {
 
 authRouter.delete('/account', credentialLimiter, requireUser, async (req, res, next) => {
   try {
-    if (String(req.body?.confirmation ?? '') !== 'DELETE') {
-      res.status(400).json({ error: 'Type DELETE to confirm permanent account deletion' });
+    if (String(req.body?.confirmation ?? '') !== ACCOUNT_DELETION_CONFIRMATION) {
+      res.status(400).json({
+        error: `Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm permanent account deletion`
+      });
       return;
     }
 
@@ -198,13 +202,4 @@ function renderVerificationPage(title: string, message: string): string {
     </main>
   </body>
 </html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }

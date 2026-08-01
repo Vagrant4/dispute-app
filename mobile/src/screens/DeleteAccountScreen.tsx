@@ -1,15 +1,19 @@
 import * as Crypto from "expo-crypto";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import {
   cancelPendingAccountDeletion,
   clearDeletedAccountLocalData,
+  getPendingAccountDeletion,
   markAccountDeletionPending,
   markServerAccountDeleted,
 } from "../account/accountDeletionExpo";
 import type { LocalAccount } from "../auth/localAuth";
-import { deleteRemoteAccount } from "../auth/remoteAuth";
+import {
+  ACCOUNT_DELETION_CONFIRMATION,
+  deleteRemoteAccount,
+} from "../auth/remoteAuth";
 import { styles } from "../styles";
 
 type DeleteAccountScreenProps = {
@@ -25,9 +29,21 @@ export function DeleteAccountScreen({
   const [confirmation, setConfirmation] = useState("");
   const [finalConfirmationVisible, setFinalConfirmationVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const deletionSubmissionStarted = useRef(false);
   const [status, setStatus] = useState(
     "Deletion is permanent and cannot be undone.",
   );
+
+  useEffect(() => {
+    void getPendingAccountDeletion().then((pending) => {
+      if (!pending) return;
+      deletionSubmissionStarted.current = true;
+      setDeleting(true);
+      setStatus(
+        "A previous deletion response was interrupted. Close and reopen DISPUTE to confirm deletion status and finish cleanup.",
+      );
+    });
+  }, []);
 
   async function openSubscriptionManagement() {
     const url = Platform.OS === "ios"
@@ -47,8 +63,8 @@ export function DeleteAccountScreen({
       setStatus("Enter your current password.");
       return;
     }
-    if (confirmation !== "DELETE") {
-      setStatus("Type DELETE exactly to continue.");
+    if (confirmation !== ACCOUNT_DELETION_CONFIRMATION) {
+      setStatus(`Type ${ACCOUNT_DELETION_CONFIRMATION} exactly to continue.`);
       return;
     }
     setFinalConfirmationVisible(true);
@@ -56,18 +72,36 @@ export function DeleteAccountScreen({
   }
 
   async function permanentlyDeleteAccount() {
-    const requestId = Crypto.randomUUID();
+    if (deletionSubmissionStarted.current) {
+      setStatus(
+        "A deletion request is already pending. Close and reopen DISPUTE to confirm its status.",
+      );
+      return;
+    }
+    deletionSubmissionStarted.current = true;
+    const existing = await getPendingAccountDeletion();
+    if (existing) {
+      setDeleting(true);
+      setStatus(
+        "A previous deletion response was interrupted. Close and reopen DISPUTE to confirm deletion status and finish cleanup.",
+      );
+      return;
+    }
+    const generatedRequestId = Crypto.randomUUID();
     setDeleting(true);
     setStatus("Permanently deleting account and data...");
-    await markAccountDeletionPending(requestId);
+    const requestId = await markAccountDeletionPending(generatedRequestId);
     const result = await deleteRemoteAccount({
       password,
       confirmation,
       requestId,
     });
     if (!result.ok) {
-      await cancelPendingAccountDeletion();
-      setDeleting(false);
+      if (!result.outcomeUncertain) {
+        await cancelPendingAccountDeletion();
+        deletionSubmissionStarted.current = false;
+        setDeleting(false);
+      }
       setStatus(result.message);
       return;
     }
@@ -115,9 +149,9 @@ export function DeleteAccountScreen({
         style={styles.textInput}
         value={password}
       />
-      <Text style={styles.inputLabel}>Type DELETE to confirm</Text>
+      <Text style={styles.inputLabel}>Type {ACCOUNT_DELETION_CONFIRMATION} to confirm</Text>
       <TextInput
-        accessibilityLabel="Type DELETE to confirm account deletion"
+        accessibilityLabel={`Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm account deletion`}
         autoCapitalize="characters"
         editable={!deleting}
         onChangeText={(value) => {

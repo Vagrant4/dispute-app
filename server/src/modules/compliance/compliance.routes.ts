@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { env } from '../../config/env.js';
-import { deleteAccountWithCredentials } from '../auth/accountDeletion.service.js';
+import { escapeHtml } from '../../utils/html.js';
+import { ACCOUNT_DELETION_CONFIRMATION } from '../auth/accountDeletion.constants.js';
+import {
+  deleteAccountWithCredentials,
+  getAccountDeletionStatus
+} from '../auth/accountDeletion.service.js';
 import { AuthServiceError } from '../auth/auth.service.js';
 
 export const complianceRouter = Router();
@@ -26,13 +31,32 @@ complianceRouter.get('/account-deletion', (_req, res) => {
   res.type('html').send(renderAccountDeletionForm(randomUUID()));
 });
 
+complianceRouter.get('/account-deletion/status/:requestId', deletionLimiter, async (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const result = await getAccountDeletionStatus(String(req.params.requestId ?? ''));
+    if (!result) {
+      res.status(404).json({ deleted: false });
+      return;
+    }
+    res.json({
+      deleted: true,
+      requestId: result.requestId,
+      deletedAt: result.deletedAt,
+      storageCleanupComplete: result.storageCleanupComplete
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 complianceRouter.post('/account-deletion', deletionLimiter, async (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   const requestId = String(req.body?.requestId ?? '');
-  if (String(req.body?.confirmation ?? '') !== 'DELETE') {
+  if (String(req.body?.confirmation ?? '') !== ACCOUNT_DELETION_CONFIRMATION) {
     res.status(400).type('html').send(renderResultPage(
       'Deletion not confirmed',
-      'Type DELETE exactly to confirm permanent account deletion.'
+      `Type ${ACCOUNT_DELETION_CONFIRMATION} exactly to confirm permanent account deletion.`
     ));
     return;
   }
@@ -66,7 +90,7 @@ function renderPrivacyPolicy(): string {
     ? `<a href="mailto:${escapeHtml(env.supportEmail)}">${escapeHtml(env.supportEmail)}</a>`
     : 'the support contact shown on the Google Play listing';
 
-  return page('Privacy Policy', `
+  return renderCompliancePage('Privacy Policy', `
     <p class="effective">Effective 1 August 2026</p>
     <p>DISPUTE is a work-evidence application published by Vagrant4. This policy explains how the app handles personal data.</p>
     <h2>Data processed</h2>
@@ -89,7 +113,7 @@ function renderPrivacyPolicy(): string {
 }
 
 function renderAccountDeletionForm(requestId: string): string {
-  return page('Delete your DISPUTE account', `
+  return renderCompliancePage('Delete your DISPUTE account', `
     <p>This page lets registered DISPUTE users permanently delete their account without reinstalling the app.</p>
     <div class="warning"><strong>Permanent action.</strong> Your profile, projects, time entries, locations, evidence, reports and login tokens will be deleted and cannot be recovered.</div>
     <p>Deleting DISPUTE does not automatically cancel a Google Play subscription. <a href="https://play.google.com/store/account/subscriptions">Manage Google Play subscriptions</a> before deletion if necessary.</p>
@@ -97,7 +121,7 @@ function renderAccountDeletionForm(requestId: string): string {
       <input type="hidden" name="requestId" value="${escapeHtml(requestId)}" />
       <label>Email<input autocomplete="email" inputmode="email" name="email" required type="email" /></label>
       <label>Current password<input autocomplete="current-password" name="password" required type="password" /></label>
-      <label>Type DELETE<input autocomplete="off" name="confirmation" pattern="DELETE" required /></label>
+      <label>Type ${ACCOUNT_DELETION_CONFIRMATION}<input autocomplete="off" name="confirmation" pattern="${ACCOUNT_DELETION_CONFIRMATION}" required /></label>
       <button type="submit">Delete account permanently</button>
     </form>
     <p class="small">If you forgot your password, reset it in the DISPUTE mobile app first. Read the <a href="/privacy">Privacy Policy</a>.</p>
@@ -105,23 +129,14 @@ function renderAccountDeletionForm(requestId: string): string {
 }
 
 function renderResultPage(title: string, message: string): string {
-  return page(title, `<p>${escapeHtml(message)}</p><p><a href="/account-deletion">Return to account deletion</a></p>`);
+  return renderCompliancePage(title, `<p>${escapeHtml(message)}</p><p><a href="/account-deletion">Return to account deletion</a></p>`);
 }
 
-function page(title: string, body: string): string {
+function renderCompliancePage(title: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escapeHtml(title)} | DISPUTE</title>
 <style>
 body{margin:0;background:#050805;color:#f5fff0;font-family:Arial,sans-serif}main{max-width:720px;margin:auto;padding:32px 20px 64px}.brand{color:#9cff16;font-weight:900;letter-spacing:.04em}h1{font-size:40px;line-height:1.05}h2{margin-top:30px}p,li,label{color:#c4cec0;font-size:17px;line-height:1.55}a{color:#9cff16}form{display:grid;gap:18px;margin-top:24px}label{display:grid;gap:7px;font-weight:700}input{background:#0c120d;border:1px solid #34452e;border-radius:12px;color:#fff;font-size:17px;padding:14px}button{background:#9cff16;border:0;border-radius:14px;color:#071000;font-size:17px;font-weight:900;padding:16px}.warning{background:#2a1c0a;border:1px solid #7a5420;border-radius:14px;color:#ffd27a;padding:16px;line-height:1.5}.effective,.small{font-size:14px;color:#9da898}
 </style></head><body><main><div class="brand">DISPUTE</div><h1>${escapeHtml(title)}</h1>${body}</main></body></html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }

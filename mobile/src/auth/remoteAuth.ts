@@ -27,9 +27,20 @@ export type RemoteAccountDeletionResult =
       storageCleanupComplete: boolean;
       message: string;
     }
+  | { ok: false; message: string; outcomeUncertain?: boolean };
+
+export type RemoteAccountDeletionStatusResult =
+  | {
+      ok: true;
+      deleted: boolean;
+      requestId?: string;
+      storageCleanupComplete?: boolean;
+    }
   | { ok: false; message: string };
 
 type FetchLike = typeof fetch;
+
+export const ACCOUNT_DELETION_CONFIRMATION = "DELETE";
 
 const expoEnv = (globalThis as unknown as {
   process?: { env?: Record<string, string | undefined> };
@@ -360,8 +371,11 @@ export async function deleteRemoteAccount(
   if (!input.password) {
     return { ok: false, message: "Enter your current password." };
   }
-  if (input.confirmation !== "DELETE") {
-    return { ok: false, message: "Type DELETE to confirm permanent deletion." };
+  if (input.confirmation !== ACCOUNT_DELETION_CONFIRMATION) {
+    return {
+      ok: false,
+      message: `Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm permanent deletion.`,
+    };
   }
 
   try {
@@ -387,8 +401,45 @@ export async function deleteRemoteAccount(
   } catch {
     return {
       ok: false,
+      outcomeUncertain: true,
       message:
         "The server response was interrupted. Do not create a replacement account until deletion status is confirmed.",
+    };
+  }
+}
+
+export async function getRemoteAccountDeletionStatus(
+  requestId: string,
+  fetcher: FetchLike = fetch,
+): Promise<RemoteAccountDeletionStatusResult> {
+  try {
+    const response = await fetcher(
+      `${apiBaseUrl}/account-deletion/status/${encodeURIComponent(requestId)}`,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      },
+    );
+    if (response.status === 404) {
+      return { ok: true, deleted: false };
+    }
+    const body = await readJsonBody(response);
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: getErrorMessage(body, "Unable to confirm account deletion status."),
+      };
+    }
+    return {
+      ok: true,
+      deleted: body.deleted === true,
+      requestId: getString(body, "requestId") ?? requestId,
+      storageCleanupComplete: body.storageCleanupComplete === true,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to confirm account deletion status while offline.",
     };
   }
 }

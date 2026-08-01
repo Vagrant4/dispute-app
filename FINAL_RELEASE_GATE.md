@@ -11,8 +11,8 @@
 | No Android debug certificate | **FAIL** | Correct production certificate cannot be proven without the signed artifact. |
 | Google Play developer account verified | **PASS - OWNER CONFIRMED** | The owner confirmed Play Console verification on 1 August 2026. App, billing, testing, and signing configuration remain separate gates below. |
 | Package/version correct | **PASS** | Local release: `sg.claimproof.mobile`, `0.3.0`, code `3`. |
-| In-app account deletion | **PASS LOCALLY** | Password confirmation, typed `DELETE`, final warning, immediate cascade deletion, local cleanup, and anonymous receipt are implemented and tested. |
-| Public account-deletion route | **PASS IN SOURCE / DEPLOY REQUIRED** | `/account-deletion` is implemented and tested locally. The production server must deploy this revision before the Play URL can be verified. |
+| In-app account deletion | **PASS LOCALLY** | Password confirmation, typed `DELETE`, final warning, immediate cascade deletion, local cleanup, anonymous receipt, and lost-response recovery are implemented and tested. |
+| Public account-deletion route | **PASS IN SOURCE / DEPLOY REQUIRED** | `/account-deletion` and the anonymous receipt-status/cleanup-retry route are implemented and tested locally. The production server must deploy this revision before the Play URL can be verified. |
 | Public privacy policy | **PASS IN SOURCE / DEPLOY REQUIRED** | `/privacy` is implemented and tested locally. Set `SUPPORT_EMAIL`, deploy, and verify the live HTTPS response. |
 | RevenueCat customer deletion | **PASS IN SOURCE / SECRET REQUIRED** | Server-side deletion is implemented and fails closed in production. Configure `REVENUECAT_SECRET_API_KEY` only on the server and verify with a disposable customer. |
 | Release manifest hardened | **PASS** | Local merged manifest: cleartext false, backup false, reduced permissions, no custom scheme. |

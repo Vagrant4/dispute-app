@@ -23,11 +23,6 @@ export async function deleteAccountForAuthenticatedUser(input: {
   requestId?: string;
 }): Promise<AccountDeletionResult> {
   const requestId = normalizeRequestId(input.requestId);
-  const existingReceipt = await prisma.accountDeletionReceipt.findUnique({
-    where: { id: requestId }
-  });
-  if (existingReceipt) return toAccountDeletionResult(existingReceipt);
-
   const user = await prisma.user.findUnique({ where: { id: input.userId } });
   if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
     throw new AuthServiceError('Current password is incorrect', 401);
@@ -42,11 +37,6 @@ export async function deleteAccountWithCredentials(input: {
   requestId?: string;
 }): Promise<AccountDeletionResult> {
   const requestId = normalizeRequestId(input.requestId);
-  const existingReceipt = await prisma.accountDeletionReceipt.findUnique({
-    where: { id: requestId }
-  });
-  if (existingReceipt) return toAccountDeletionResult(existingReceipt);
-
   const email = input.email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
@@ -61,7 +51,9 @@ async function permanentlyDeleteUser(userId: string, requestedId?: string): Prom
   const existingReceipt = await prisma.accountDeletionReceipt.findUnique({
     where: { id: requestId }
   });
-  if (existingReceipt) return toAccountDeletionResult(existingReceipt);
+  if (existingReceipt) {
+    throw new AuthServiceError('Deletion request ID has already been used', 409);
+  }
 
   await deleteRevenueCatCustomer({
     appUserId: userId,
@@ -90,6 +82,34 @@ async function permanentlyDeleteUser(userId: string, requestedId?: string): Prom
       where: { id: requestId },
       data: { storageCleanupComplete: true }
     });
+  } else {
+    schedulePendingStorageCleanup(requestId);
+  }
+
+  return toAccountDeletionResult(receipt);
+}
+
+export async function getAccountDeletionStatus(
+  requestedId: string
+): Promise<AccountDeletionResult | null> {
+  const requestId = parseRequestId(requestedId);
+  if (!requestId) return null;
+
+  let receipt = await prisma.accountDeletionReceipt.findUnique({
+    where: { id: requestId }
+  });
+  if (!receipt) return null;
+
+  if (!receipt.storageCleanupComplete) {
+    const storageCleanupComplete = await removeStagedDirectories(
+      pendingStagedDirectories(requestId)
+    );
+    if (storageCleanupComplete) {
+      receipt = await prisma.accountDeletionReceipt.update({
+        where: { id: requestId },
+        data: { storageCleanupComplete: true }
+      });
+    }
   }
 
   return toAccountDeletionResult(receipt);
@@ -142,10 +162,7 @@ function toAccountDeletionResult(receipt: {
 }
 
 async function stageAccountStorage(userId: string, requestId: string): Promise<StagedDirectory[]> {
-  const roots = [...new Set([
-    resolve(env.uploadRoot),
-    resolve(process.env.EXPORT_ROOT ?? join(process.cwd(), 'src', 'exports'))
-  ])];
+  const roots = accountStorageRoots();
   const stagedDirectories: StagedDirectory[] = [];
 
   try {
@@ -165,6 +182,20 @@ async function stageAccountStorage(userId: string, requestId: string): Promise<S
     await restoreStagedDirectories(stagedDirectories);
     throw error;
   }
+}
+
+function accountStorageRoots(): string[] {
+  return [...new Set([
+    resolve(env.uploadRoot),
+    resolve(process.env.EXPORT_ROOT ?? join(process.cwd(), 'src', 'exports'))
+  ])];
+}
+
+function pendingStagedDirectories(requestId: string): StagedDirectory[] {
+  return accountStorageRoots().map((root) => ({
+    originalPath: '',
+    stagedPath: join(root, '.pending-account-deletion', requestId)
+  }));
 }
 
 async function restoreStagedDirectories(directories: StagedDirectory[]): Promise<void> {
@@ -187,6 +218,17 @@ async function removeStagedDirectories(directories: StagedDirectory[]): Promise<
   }
 }
 
+function schedulePendingStorageCleanup(requestId: string): void {
+  for (const delayMs of [5_000, 30_000, 120_000]) {
+    const timer = setTimeout(() => {
+      void getAccountDeletionStatus(requestId).catch((error) => {
+        console.error('Account deletion storage cleanup retry failed', error);
+      });
+    }, delayMs);
+    timer.unref();
+  }
+}
+
 async function pathExists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -197,8 +239,12 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 function normalizeRequestId(value?: string): string {
+  return parseRequestId(value) ?? randomUUID();
+}
+
+function parseRequestId(value?: string): string | null {
   const requestId = value?.trim();
   return requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
     ? requestId
-    : randomUUID();
+    : null;
 }

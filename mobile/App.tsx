@@ -4,7 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
-import { resumeCompletedAccountDeletionCleanup } from "./src/account/accountDeletionExpo";
+import { reconcilePendingAccountDeletion } from "./src/account/accountDeletionExpo";
 import { type PendingEmailVerification } from "./src/auth/remoteAuth";
 import { tabs, type TabId } from "./src/screenContent";
 import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
@@ -58,7 +58,7 @@ export default function App() {
   const showHeader = account || authMode !== "logo";
 
   useEffect(() => {
-    void resumeCompletedAccountDeletionCleanup().then((cleaned) => {
+    void reconcilePendingAccountDeletion().then((cleaned) => {
       if (cleaned) {
         setAuthNotice("Account deletion completed. Local app data was cleared.");
         setAuthMode("login");
