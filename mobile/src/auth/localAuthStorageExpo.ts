@@ -78,6 +78,11 @@ export async function clearSavedLoginDetails(): Promise<void> {
   await FileSystem.deleteAsync(LEGACY_SAVED_LOGIN_FILE, { idempotent: true });
 }
 
+export async function clearAllLocalAuthData(): Promise<void> {
+  await SecureStore.deleteItemAsync(SAVED_LOGIN_KEY);
+  await FileSystem.deleteAsync(AUTH_DIRECTORY, { idempotent: true });
+}
+
 async function loadLegacySavedLoginDetails(): Promise<SavedLoginDetails | null> {
   const fileInfo = await FileSystem.getInfoAsync(LEGACY_SAVED_LOGIN_FILE);
   if (!fileInfo.exists) {

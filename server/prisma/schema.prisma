@@ -368,3 +368,9 @@ model UserSubscription {
   @@index([planId])
   @@index([status])
 }
+
+model AccountDeletionReceipt {
+  id                     String   @id
+  deletedAt              DateTime @default(now())
+  storageCleanupComplete Boolean  @default(false)
+}

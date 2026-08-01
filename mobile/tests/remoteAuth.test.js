@@ -210,3 +210,26 @@ test("network failures do not expose the local development server URL to users",
   assert.doesNotMatch(loginResult.message, /127\.0\.0\.1|4000|http/);
   assert.doesNotMatch(registerResult.message, /127\.0\.0\.1|4000|http/);
 });
+
+test("deleteRemoteAccount requires confirmation and sends authenticated permanent deletion", async () => {
+  const { deleteRemoteAccount } = loadRemoteAuthModule();
+  const calls = [];
+  const result = await deleteRemoteAccount({
+    password: "Password123!",
+    confirmation: "DELETE",
+    requestId: "22222222-2222-4222-8222-222222222222",
+  }, async (url, init) => {
+    calls.push({ url, init });
+    return Response.json({
+      requestId: "22222222-2222-4222-8222-222222222222",
+      storageCleanupComplete: true,
+      message: "Your Dispute account and associated data were permanently deleted.",
+    });
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.storageCleanupComplete, true);
+  assert.equal(calls[0].url, "https://dispute-api-live.onrender.com/auth/account");
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].init.credentials, "include");
+});

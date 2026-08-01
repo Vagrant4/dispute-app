@@ -41,7 +41,8 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
     contentSource,
     /dispute stores records locally on this device\. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up\./,
   );
-  assert.match(contentSource, /No analytics in V1/);
+  assert.match(contentSource, /No advertising trackers/);
+  assert.match(contentSource, /Google Play and RevenueCat/);
   assert.match(contentSource, /policy-gated/);
 
   for (const lockState of ["Draft", "Finalized", "Locked"]) {

@@ -5,6 +5,8 @@ import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
 import { subscriptionContent } from "../screenContent";
 import { styles } from "../styles";
+import { DeleteAccountScreen } from "./DeleteAccountScreen";
+import { PrivacyScreen } from "./PrivacyScreen";
 import {
   fetchSubscriptionStatus,
   formatSubscriptionPrice,
@@ -17,11 +19,12 @@ import {
 type SettingsScreenProps = {
   account: LocalAccount;
   onLogout: () => void;
+  onAccountDeleted: (message: string) => void;
 };
 
-type SettingPanel = "profile" | "work_hours" | "subscription";
+type SettingPanel = "profile" | "work_hours" | "subscription" | "privacy_data";
 
-export function SettingsScreen({ account, onLogout }: SettingsScreenProps) {
+export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
   const [panel, setPanel] = useState<SettingPanel>("profile");
   const [name, setName] = useState(account.name);
   const [email, setEmail] = useState(account.email);
@@ -59,6 +62,7 @@ export function SettingsScreen({ account, onLogout }: SettingsScreenProps) {
     { id: "profile", label: "Profile" },
     { id: "work_hours", label: "Work hours" },
     { id: "subscription", label: "Subscription" },
+    { id: "privacy_data", label: "Privacy & data" },
   ];
 
   useEffect(() => {
@@ -449,6 +453,16 @@ export function SettingsScreen({ account, onLogout }: SettingsScreenProps) {
           <Text style={styles.statusMessage}>{subscriptionStatus}</Text>
           <Text style={styles.muted}>{subscriptionContent.policyGated}</Text>
         </View>
+      ) : null}
+
+      {panel === "privacy_data" ? (
+        <>
+          <PrivacyScreen />
+          <DeleteAccountScreen
+            account={account}
+            onAccountDeleted={onAccountDeleted}
+          />
+        </>
       ) : null}
     </>
   );

@@ -4,6 +4,8 @@
 
 The source-level and locally verifiable Android fixes are implemented on branch `codex/android-production-security-fixes`. The release is **not yet production-ready** because the newly built AAB is intentionally unsigned and the Google Play/RevenueCat production dashboards have not been verified. No completion claim is made for those external gates.
 
+The 1 August 2026 follow-up also implements Google Play account-deletion and privacy compliance: authenticated in-app deletion, a public web deletion form, a public privacy policy, server and local data cleanup, an anonymous deletion receipt, subscription-management warning, tests, and version `0.3.0` / code `3`. These routes still require production server deployment and live URL verification.
+
 ## Files changed
 
 - `.gitignore`

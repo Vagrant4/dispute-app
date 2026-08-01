@@ -26,7 +26,9 @@ type EnvSource = Partial<
     | 'SMTP_USER'
     | 'SMTP_PASS'
     | 'EMAIL_FROM'
+    | 'SUPPORT_EMAIL'
     | 'REVENUECAT_WEBHOOK_SECRET'
+    | 'REVENUECAT_SECRET_API_KEY'
     | 'REVENUECAT_PRODUCT_ID'
     | 'REVENUECAT_ENTITLEMENT_ID'
   >
@@ -75,8 +77,10 @@ export function createEnv(source: EnvSource = process.env) {
       smtpPass: source.SMTP_PASS ?? '',
       from: source.EMAIL_FROM ?? source.SMTP_USER ?? ''
     },
+    supportEmail: source.SUPPORT_EMAIL?.trim() || '',
     revenueCat: {
       webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? '',
+      secretApiKey: source.REVENUECAT_SECRET_API_KEY ?? '',
       productId:
         source.REVENUECAT_PRODUCT_ID?.trim() ||
         (nodeEnv === 'production' ? '' : 'dispute_basic_monthly'),

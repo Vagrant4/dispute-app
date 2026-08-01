@@ -3,6 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/auth.js';
+import { requireUser } from '../../middleware/requireUser.js';
+import { deleteAccountForAuthenticatedUser } from './accountDeletion.service.js';
 import {
   AuthServiceError,
   loginUser,
@@ -118,6 +120,32 @@ authRouter.post('/reset-password', credentialLimiter, async (req, res, next) => 
 authRouter.post('/logout', (_req, res) => {
   clearAuthCookie(res);
   res.status(204).send();
+});
+
+authRouter.delete('/account', credentialLimiter, requireUser, async (req, res, next) => {
+  try {
+    if (String(req.body?.confirmation ?? '') !== 'DELETE') {
+      res.status(400).json({ error: 'Type DELETE to confirm permanent account deletion' });
+      return;
+    }
+
+    const result = await deleteAccountForAuthenticatedUser({
+      userId: req.user!.id,
+      password: String(req.body?.password ?? ''),
+      requestId: req.body?.requestId ? String(req.body.requestId) : undefined
+    });
+    clearAuthCookie(res);
+    res.json({
+      requestId: result.requestId,
+      deletedAt: result.deletedAt,
+      storageCleanupComplete: result.storageCleanupComplete,
+      message: result.storageCleanupComplete
+        ? 'Your Dispute account and associated data were permanently deleted.'
+        : 'Your account was deleted. File cleanup is pending; keep the deletion request ID for support.'
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export function authErrorStatus(error: unknown): number | null {

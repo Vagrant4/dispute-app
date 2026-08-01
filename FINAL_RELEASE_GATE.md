@@ -6,10 +6,15 @@
 
 | Release gate | Status | Evidence/action required |
 | --- | --- | --- |
-| Production AAB generated | **FAIL** | EAS quota stopped the build before queueing; no production AAB exists. |
+| Production AAB generated | **FAIL** | The new local `0.3.0` AAB is intentionally unsigned. No signed EAS production AAB exists for this revision. |
 | AAB signature verified | **FAIL** | No signed production AAB to run `jarsigner`/`keytool` against. |
 | No Android debug certificate | **FAIL** | Correct production certificate cannot be proven without the signed artifact. |
-| Package/version correct | **PASS** | Local release: `sg.claimproof.mobile`, `0.2.0`, code `2`. |
+| Google Play developer account verified | **PASS - OWNER CONFIRMED** | The owner confirmed Play Console verification on 1 August 2026. App, billing, testing, and signing configuration remain separate gates below. |
+| Package/version correct | **PASS** | Local release: `sg.claimproof.mobile`, `0.3.0`, code `3`. |
+| In-app account deletion | **PASS LOCALLY** | Password confirmation, typed `DELETE`, final warning, immediate cascade deletion, local cleanup, and anonymous receipt are implemented and tested. |
+| Public account-deletion route | **PASS IN SOURCE / DEPLOY REQUIRED** | `/account-deletion` is implemented and tested locally. The production server must deploy this revision before the Play URL can be verified. |
+| Public privacy policy | **PASS IN SOURCE / DEPLOY REQUIRED** | `/privacy` is implemented and tested locally. Set `SUPPORT_EMAIL`, deploy, and verify the live HTTPS response. |
+| RevenueCat customer deletion | **PASS IN SOURCE / SECRET REQUIRED** | Server-side deletion is implemented and fails closed in production. Configure `REVENUECAT_SECRET_API_KEY` only on the server and verify with a disposable customer. |
 | Release manifest hardened | **PASS** | Local merged manifest: cleartext false, backup false, reduced permissions, no custom scheme. |
 | Dev Client/Dev Menu absent | **PASS** | No release manifest/package-lock markers. |
 | R8 and resource shrinking | **PASS** | Mapping and shrinker output produced. |
@@ -39,6 +44,6 @@
 
 ## Next permitted build point
 
-EAS states that the Free-plan Android build allowance resets on Saturday, 1 August 2026. A plan upgrade is an owner purchasing decision and was not made.
+The prior EAS reset date has arrived. No new EAS production build was started because the required RevenueCat Android public SDK key remains missing.
 
 Before the next build, configure the missing RevenueCat Android public SDK key and recheck all three expected production names. Then request approval for exactly one new EAS production build, download the AAB, and replace every signing/final-artifact FAIL with evidence-backed results.

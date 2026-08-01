@@ -1,5 +1,24 @@
 # Android security verification results
 
+## 1 August 2026 compliance follow-up
+
+The mandatory Google Play account-deletion and privacy paths were added after the original hardening audit. The app is now version `0.3.0` / Android code `3`.
+
+- Focused auth/deletion API: 20/20 passed, including RevenueCat customer erasure and production fail-closed configuration.
+- Full workspace: shared 30/30, server 120/120, client 24/24, mobile 115/115.
+- TypeScript: server build and mobile typecheck passed.
+- Expo Doctor: 20/20 after updating Expo from `56.0.17` to the compatible `56.0.18` patch.
+- Expo lint: 0 errors and the same 12 pre-existing warnings.
+- Local production-environment `bundleRelease`: passed.
+- Local unsigned AAB: 40,276,926 bytes; SHA-256 `937839D52D75227F27A888AD27E8B8EB5748445F7E4D986D2D9D27CA6997AFF2`.
+- Signing result: intentionally unsigned; a signed EAS AAB is still required.
+- Merged manifest: version `0.3.0` / code `3`, `BuildConfig.DEBUG=false`, `allowBackup=false`, `usesCleartextTraffic=false`, expected seven permissions, and zero dev/test/custom-scheme markers.
+- Secret scan: 0 high-confidence source matches and 0 tracked signing/credential files.
+- Dependency audit: full tree 30 advisories (0 critical, 7 high, 22 moderate, 1 low); production tree 17 advisories (0 critical, 4 high, 13 moderate).
+- EAS production variables: product ID and entitlement ID present; Android RevenueCat public SDK key absent.
+
+The local privacy and deletion routes pass integration tests but are not live until the server revision and migration are deployed. `SUPPORT_EMAIL` must be set to an approved public support address before that deployment is treated as Play-ready.
+
 Verification was run on branch `codex/android-production-security-fixes` from fixed point `main` (`56213ba`). The original source project was used. No decompiled APK source was used to implement the fixes.
 
 ## Result summary

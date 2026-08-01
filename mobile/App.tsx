@@ -1,9 +1,10 @@
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
+import { resumeCompletedAccountDeletionCleanup } from "./src/account/accountDeletionExpo";
 import { type PendingEmailVerification } from "./src/auth/remoteAuth";
 import { tabs, type TabId } from "./src/screenContent";
 import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
@@ -22,6 +23,7 @@ function renderScreen(
   onNavigate: (tab: TabId) => void,
   account: LocalAccount,
   onLogout: () => void,
+  onAccountDeleted: (message: string) => void,
 ) {
   switch (activeTab) {
     case "evidence":
@@ -29,7 +31,13 @@ function renderScreen(
     case "reports":
       return <ProgressClaimReportsScreen account={account} />;
     case "settings":
-      return <SettingsScreen account={account} onLogout={onLogout} />;
+      return (
+        <SettingsScreen
+          account={account}
+          onAccountDeleted={onAccountDeleted}
+          onLogout={onLogout}
+        />
+      );
     case "home":
     default:
       return <HomeScreen />;
@@ -42,11 +50,21 @@ export default function App() {
   const [pendingVerification, setPendingVerification] =
     useState<PendingEmailVerification | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [authNotice, setAuthNotice] = useState("");
   const activeTitle = useMemo(
     () => tabs.find((tab) => tab.id === activeTab)?.title ?? "dispute",
     [activeTab],
   );
   const showHeader = account || authMode !== "logo";
+
+  useEffect(() => {
+    void resumeCompletedAccountDeletionCleanup().then((cleaned) => {
+      if (cleaned) {
+        setAuthNotice("Account deletion completed. Local app data was cleared.");
+        setAuthMode("login");
+      }
+    });
+  }, []);
 
   return (
     <SafeAreaProvider>
@@ -118,11 +136,22 @@ export default function App() {
           showsVerticalScrollIndicator={false}
         >
           {account ? (
-            renderScreen(activeTab, setActiveTab, account, () => {
-              setAccount(null);
-              setActiveTab("home");
-              setAuthMode("logo");
-            })
+            renderScreen(
+              activeTab,
+              setActiveTab,
+              account,
+              () => {
+                setAccount(null);
+                setActiveTab("home");
+                setAuthMode("logo");
+              },
+              (message) => {
+                setAccount(null);
+                setActiveTab("home");
+                setAuthNotice(message);
+                setAuthMode("login");
+              },
+            )
           ) : authMode === "logo" ? (
             <LogoScreen
               onShowCreateAccount={() => setAuthMode("create")}
@@ -150,15 +179,26 @@ export default function App() {
           ) : authMode === "forgot" ? (
             <ForgotPasswordScreen onBackToLogin={() => setAuthMode("login")} />
           ) : (
-            <LoginScreen
-              onLogin={setAccount}
-              onVerificationRequired={(pending) => {
-                setPendingVerification(pending);
-                setAuthMode("verify");
-              }}
-              onForgotPassword={() => setAuthMode("forgot")}
-              onShowCreateAccount={() => setAuthMode("create")}
-            />
+            <>
+              {authNotice ? (
+                <View style={styles.statusCard}>
+                  <Text style={styles.statusTitle}>Account update</Text>
+                  <Text style={styles.statusMessage}>{authNotice}</Text>
+                </View>
+              ) : null}
+              <LoginScreen
+                onLogin={(loggedInAccount) => {
+                  setAuthNotice("");
+                  setAccount(loggedInAccount);
+                }}
+                onVerificationRequired={(pending) => {
+                  setPendingVerification(pending);
+                  setAuthMode("verify");
+                }}
+                onForgotPassword={() => setAuthMode("forgot")}
+                onShowCreateAccount={() => setAuthMode("create")}
+              />
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

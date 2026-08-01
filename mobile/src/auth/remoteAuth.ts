@@ -20,6 +20,15 @@ export type RemotePasswordResetRequestResult =
   | { ok: true; email: string; message: string; devResetCode?: string }
   | { ok: false; message: string };
 
+export type RemoteAccountDeletionResult =
+  | {
+      ok: true;
+      requestId: string;
+      storageCleanupComplete: boolean;
+      message: string;
+    }
+  | { ok: false; message: string };
+
 type FetchLike = typeof fetch;
 
 const expoEnv = (globalThis as unknown as {
@@ -336,6 +345,50 @@ export async function resetRemotePassword(
     return {
       ok: false,
       message: "Unable to reach Dispute server. Check internet connection and try again.",
+    };
+  }
+}
+
+export async function deleteRemoteAccount(
+  input: {
+    password: string;
+    confirmation: string;
+    requestId: string;
+  },
+  fetcher: FetchLike = fetch,
+): Promise<RemoteAccountDeletionResult> {
+  if (!input.password) {
+    return { ok: false, message: "Enter your current password." };
+  }
+  if (input.confirmation !== "DELETE") {
+    return { ok: false, message: "Type DELETE to confirm permanent deletion." };
+  }
+
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/account`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const body = await readJsonBody(response);
+    if (!response.ok) {
+      return { ok: false, message: getErrorMessage(body, "Unable to delete account.") };
+    }
+
+    return {
+      ok: true,
+      requestId: getString(body, "requestId") ?? input.requestId,
+      storageCleanupComplete: body.storageCleanupComplete === true,
+      message:
+        getString(body, "message") ??
+        "Your Dispute account and associated data were permanently deleted.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "The server response was interrupted. Do not create a replacement account until deletion status is confirmed.",
     };
   }
 }

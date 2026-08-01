@@ -11,15 +11,16 @@ export const backupWarning =
   "dispute stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
 
 export const privacyContent = {
-  heading: "Local-first in V1",
+  heading: "Local-first work evidence",
   body:
-    "dispute V1 is designed around local-first records. Work logs, " +
-    "evidence notes, and status information are intended to stay on this " +
-    "device unless you choose an export or backup action in a later phase.",
-  analyticsHeading: "No analytics in V1",
+    "DISPUTE stores account and subscription status securely on the server. " +
+    "Work logs, evidence photos, location details and generated reports stay " +
+    "on this device unless you choose to export, back up or share them.",
+  analyticsHeading: "No advertising trackers",
   analyticsBody:
-    "This mobile foundation does not include analytics, tracking SDKs, cloud " +
-    "sync, or background evidence uploads.",
+    "The current mobile release does not include advertising trackers, cloud " +
+    "work-record sync or background evidence uploads. Google Play and RevenueCat " +
+    "process store subscription and entitlement information.",
 };
 
 export const subscriptionContent = {

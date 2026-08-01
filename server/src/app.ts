@@ -6,6 +6,7 @@ import express, { type ErrorRequestHandler, type Router } from 'express';
 import { env } from './config/env.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
 import { authErrorStatus, authRouter } from './modules/auth/auth.routes.js';
+import { complianceRouter } from './modules/compliance/compliance.routes.js';
 import { companyRouter } from './modules/companies/company.routes.js';
 import { payRouter } from './modules/pay/pay.routes.js';
 import { photoRouter } from './modules/photos/photo.routes.js';
@@ -34,6 +35,7 @@ export function createApp(options: CreateAppOptions = {}) {
     })
   );
   app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
   app.get('/health', (_req, res) => {
@@ -53,6 +55,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use('/auth', authRouter);
+  app.use(complianceRouter);
   app.use('/profile', profileRouter);
   app.use('/companies', companyRouter);
   app.use('/projects', projectRouter);
