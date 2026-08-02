@@ -1,0 +1,28 @@
+# Compatibility policy for tools that archive from the mobile app directory.
+# The repository-root .easignore is authoritative for this npm workspace.
+node_modules/
+.expo/
+
+# Never upload locally generated native build state.
+android/build/
+android/app/build/
+android/app/.cxx/
+android/app/.externalNativeBuild/
+android/.gradle/
+android/.kotlin/
+android/local.properties
+
+# Mobile signing credentials must never be uploaded.
+*.keystore
+*.jks
+*.p12
+credentials.json
+android/keystores/
+
+# Native IDE and generated artifacts.
+.idea/
+*.iml
+*.hprof
+.cxx/
+android/app/src/main/java/inline/
+*.jsbundle

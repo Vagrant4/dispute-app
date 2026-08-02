@@ -1,0 +1,63 @@
+# EAS archives this npm workspace from the repository root.
+# Keep these rules aligned with .gitignore, then add EAS-only native exclusions.
+.git/
+.worktrees/
+.expo/
+CLAIMPROOF_SG_NEW_CHAT_HANDOFF.md
+
+node_modules/
+client/node_modules/
+server/node_modules/
+server/.env
+
+client/dist/
+server/dist/
+packages/shared/dist/
+*.tsbuildinfo
+server-dev.*.log
+mobile/.expo/
+
+# Mobile signing credentials must never be uploaded.
+*.keystore
+*.jks
+*.p12
+credentials.json
+mobile/android/keystores/
+
+server/prisma/dev.db
+server/prisma/dev.db-journal
+server/prisma/test.db
+server/prisma/test.db-journal
+
+server/uploads/*
+!server/uploads/.gitkeep
+.test-uploads/
+.test-exports/
+
+server/exports/*
+!server/exports/.gitkeep
+server/src/exports/*
+!server/src/exports/.gitkeep
+
+.DS_Store
+
+# EAS-only: local Android state contains absolute Windows paths and must be
+# regenerated on the Linux builder.
+/mobile/android/build/
+/mobile/android/app/build/
+/mobile/android/app/.cxx/
+/mobile/android/app/.externalNativeBuild/
+/mobile/android/.gradle/
+/mobile/android/.kotlin/
+/mobile/android/local.properties
+
+# The actual Expo app config is mobile/app.json.
+/app.json
+
+# Native IDE and generated artifacts.
+.idea/
+*.iml
+*.hprof
+.cxx/
+/mobile/android/app/src/main/java/inline/
+*.jsbundle
