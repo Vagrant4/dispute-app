@@ -135,6 +135,23 @@ describe('subscription API', () => {
     ).toBeNull();
   });
 
+  it('accepts Play license-tester sandbox webhooks only when the pilot flag is enabled', () => {
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'PLAY_STORE', environment: 'SANDBOX' },
+        'production',
+        true
+      )
+    ).toBeNull();
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'AMAZON', environment: 'SANDBOX' },
+        'production',
+        true
+      )
+    ).toMatch(/Google Play or Apple App Store/i);
+  });
+
   it('blocks export when the 3-day trial is expired', async () => {
     const user = await registerUser('subscription-expired@example.com');
     await prisma.userSubscription.updateMany({

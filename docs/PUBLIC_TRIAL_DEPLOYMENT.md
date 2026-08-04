@@ -41,9 +41,12 @@ STRIPE_BILLING_MODE=disabled
 REVENUECAT_WEBHOOK_SECRET=<strong RevenueCat webhook authorization secret>
 REVENUECAT_PRODUCT_ID=dispute_basic_monthly
 REVENUECAT_ENTITLEMENT_ID=dispute_basic
+REVENUECAT_ALLOW_SANDBOX_EVENTS=true
 ```
 
 The mobile RevenueCat public SDK key belongs in the EAS production environment, not the server. Never put a RevenueCat secret API key, Google service-account JSON, keystore or private key in the repository.
+
+Set `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` only while Google Play license testers are validating Internal Testing purchases. RevenueCat webhooks remain protected by the webhook authorization secret and restricted to Google Play or Apple App Store events. Set the flag back to `false` before any public production rollout.
 
 ## Pre-deployment database gate
 

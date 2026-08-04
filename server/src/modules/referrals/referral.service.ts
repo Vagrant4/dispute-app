@@ -196,7 +196,7 @@ async function reconcileReferralQualification(
   const newlyQualified =
     paidPeriodCount >= paidPeriodsToQualify && referral.status === ReferralStatus.PENDING;
   await tx.referral.update({
-    where: { id: referral.id },
+    where: { id: referral.id, referredUserId: userId },
     data: {
       paidPeriodCount,
       ...(newlyQualified
@@ -253,7 +253,10 @@ async function allocateEarnedRewards(
       select: { id: true }
     });
     await tx.referral.updateMany({
-      where: { id: { in: referrals.map((row) => row.id) } },
+      where: {
+        referrerUserId,
+        id: { in: referrals.map((row) => row.id) }
+      },
       data: { status: ReferralStatus.REWARDED, rewardedAt: new Date() }
     });
   }

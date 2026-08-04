@@ -6,17 +6,21 @@ The release branch was reinstalled from the lockfile with npm `10.9.4` and insta
 
 - Root production build: passed after the clean install.
 - Shared tests: 30/30 passed.
-- Server tests: 133/133 passed across 15 files using one worker to avoid Windows SQLite lock contention.
+- Server tests: 136/136 passed across 15 files using one worker to avoid Windows SQLite lock contention.
 - Client tests: 24/24 passed.
-- Mobile tests: 120/120 passed.
+- Mobile tests: 121/121 passed.
 - Mobile typecheck: passed.
 - Expo Doctor: 20/20 passed.
-- Expo lint: 0 errors and 14 warnings.
+- Expo lint: 0 errors and 13 warnings.
 - Prisma schema validation: passed.
 - Tracked-source secret scan: no production credentials or signing material found; matches were limited to dummy values in tests.
 - Production dependency audit: 15 advisories (0 critical, 3 high, 12 moderate). Safe updates fixed `brace-expansion`, `ip-address`, `postcss`, and `nanoid`; `react-router-dom` is pinned to `7.18.2`. The remaining React Router high advisory affects RSC action mode, which this BrowserRouter-only client does not use. The remaining `shell-quote` and `uuid` findings are transitive React Native/Expo build-tool dependencies; breaking framework overrides were not applied.
 
-The initial grouped server command timed out because its three-minute wrapper was shorter than the database-backed suite and left a child process holding `server/prisma/test.db`. A deterministic single-worker rerun completed in 340.83 seconds with all 133 tests passing.
+Independent review found and closed three Android pilot gaps: production can now accept Google Play license-tester sandbox events only behind the explicit `REVENUECAT_ALLOW_SANDBOX_EVENTS` flag; the mobile report screen now exposes project-specific CSV as well as PDF export; and the referral migration backfills phone claims only for active, email-verified users. Referral relationship ownership is explicitly scoped, and Settings now reuses the shared subscription-access hook.
+
+The initial grouped server command timed out because its three-minute wrapper was shorter than the database-backed suite and left a child process holding `server/prisma/test.db`. A later report test exceeded the old 20-second integration-test timeout and continued asynchronous work into the next test. The failing report file passed twice after setting realistic bounded integration timeouts, and the final deterministic full run passed all 136 server tests in 231.20 seconds.
+
+Live Render inspection found that `dispute-api-live` has no persistent disk attached even though `render.yaml` declares one. The current `/var/data/dispute.db` therefore cannot be treated as recoverably backed up. Merge and deployment remain blocked until the existing database is safely exported and a persistent disk or managed database is configured. Adding a Render disk is a billed action and was not performed.
 
 ## 1 August 2026 compliance follow-up
 

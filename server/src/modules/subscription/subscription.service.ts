@@ -185,7 +185,11 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
       body: { error: `RevenueCat webhook must grant ${storeEntitlementId}.` }
     } as const;
   }
-  const storeContextError = validateRevenueCatStoreContext(event, env.nodeEnv);
+  const storeContextError = validateRevenueCatStoreContext(
+    event,
+    env.nodeEnv,
+    env.revenueCat.allowSandboxEvents
+  );
   if (storeContextError) {
     return {
       statusCode: 400,
@@ -272,14 +276,15 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
 
 export function validateRevenueCatStoreContext(
   event: Record<string, unknown>,
-  nodeEnv: string
+  nodeEnv: string,
+  allowSandboxEvents = false
 ): string | null {
   const store = getString(event, 'store');
   if (!store || !supportedRevenueCatStores.has(store)) {
     return 'RevenueCat webhook store must be Google Play or Apple App Store.';
   }
   const environment = getString(event, 'environment');
-  if (nodeEnv === 'production' && environment !== 'PRODUCTION') {
+  if (nodeEnv === 'production' && environment !== 'PRODUCTION' && !allowSandboxEvents) {
     return 'RevenueCat production webhook must come from the production environment.';
   }
   if (environment !== 'PRODUCTION' && environment !== 'SANDBOX') {

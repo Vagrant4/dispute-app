@@ -57,6 +57,12 @@ Exception: `AccountDeletionReceipt` is deliberately anonymous and must not conta
 unguessable request ID. This exception preserves proof of deletion without retaining
 an identity link after the account is permanently removed.
 
+Exception: `Referral` is a relationship between two users and therefore uses
+`referrerUserId` and `referredUserId` instead of an ambiguous `userId`. Every
+user-facing referral query must scope by the relevant relationship field. Internal
+transactional updates must retain the referrer or referred-user constraint that
+selected the record; an unscoped referral ID mutation is not allowed.
+
 ## Evidence First Rule
 
 When unsure, choose the option that improves:

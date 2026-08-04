@@ -31,6 +31,7 @@ type EnvSource = Partial<
     | 'REVENUECAT_SECRET_API_KEY'
     | 'REVENUECAT_PRODUCT_ID'
     | 'REVENUECAT_ENTITLEMENT_ID'
+    | 'REVENUECAT_ALLOW_SANDBOX_EVENTS'
   >
 >;
 
@@ -86,7 +87,8 @@ export function createEnv(source: EnvSource = process.env) {
         (nodeEnv === 'production' ? '' : 'dispute_basic_monthly'),
       entitlementId:
         source.REVENUECAT_ENTITLEMENT_ID?.trim() ||
-        (nodeEnv === 'production' ? '' : 'dispute_basic')
+        (nodeEnv === 'production' ? '' : 'dispute_basic'),
+      allowSandboxEvents: parseBoolean(source.REVENUECAT_ALLOW_SANDBOX_EVENTS, false)
     }
   } as const;
 }

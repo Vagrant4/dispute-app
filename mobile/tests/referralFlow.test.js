@@ -37,3 +37,9 @@ test("expired access gates new local capture while preserving existing records",
   assert.match(backupSource, /Restore is unavailable in read-only mode/);
   assert.match(reportsSource, /Existing reports cannot be deleted/);
 });
+
+test("report export screen offers individual-project PDF and CSV generation", () => {
+  assert.match(reportsSource, /Create PDF/);
+  assert.match(reportsSource, /Create CSV/);
+  assert.match(reportsSource, /handleGenerate\("progress_claim_csv"\)/);
+});

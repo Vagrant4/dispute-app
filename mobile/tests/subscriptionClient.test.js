@@ -69,7 +69,8 @@ test("export screen gates report actions behind canExportReports", () => {
 });
 
 test("settings screen exposes subscription status and subscribe action", () => {
-  assert.match(settingsSource, /fetchSubscriptionStatus/);
+  assert.match(settingsSource, /useSubscriptionAccess/);
+  assert.doesNotMatch(settingsSource, /fetchSubscriptionStatus/);
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
   assert.match(settingsSource, /restoreDisputeBasicSubscription/);
   assert.match(settingsSource, /Restore purchases/);

@@ -82,7 +82,11 @@ CREATE UNIQUE INDEX "ReferralPhoneClaim_normalizedPhone_key" ON "ReferralPhoneCl
 CREATE UNIQUE INDEX "ReferralPhoneClaim_userId_key" ON "ReferralPhoneClaim"("userId");
 
 INSERT INTO "ReferralPhoneClaim" ("id", "normalizedPhone", "userId")
-SELECT 'legacy-phone-' || min("userId"), "normalizedPhone", min("userId")
-FROM "WorkerProfile"
-WHERE "normalizedPhone" IS NOT NULL AND trim("normalizedPhone") <> ''
-GROUP BY "normalizedPhone";
+SELECT 'legacy-phone-' || min(p."userId"), p."normalizedPhone", min(p."userId")
+FROM "WorkerProfile" p
+INNER JOIN "User" u ON u."id" = p."userId"
+WHERE p."normalizedPhone" IS NOT NULL
+  AND trim(p."normalizedPhone") <> ''
+  AND u."status" = 'ACTIVE'
+  AND u."emailVerifiedAt" IS NOT NULL
+GROUP BY p."normalizedPhone";

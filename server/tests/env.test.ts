@@ -50,6 +50,7 @@ describe('env config', () => {
 
     expect(env.revenueCat.productId).toBe('');
     expect(env.revenueCat.entitlementId).toBe('');
+    expect(env.revenueCat.allowSandboxEvents).toBe(false);
   });
 
   it('parses RevenueCat product and entitlement identifiers when provided', () => {
@@ -63,6 +64,17 @@ describe('env config', () => {
 
     expect(env.revenueCat.productId).toBe('dispute_basic_monthly');
     expect(env.revenueCat.entitlementId).toBe('dispute_basic');
+  });
+
+  it('enables RevenueCat sandbox events only through the explicit pilot flag', () => {
+    const env = createEnv({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+      SERVER_PUBLIC_URL: 'https://dispute-api.example.com',
+      REVENUECAT_ALLOW_SANDBOX_EVENTS: 'true'
+    });
+
+    expect(env.revenueCat.allowSandboxEvents).toBe(true);
   });
 
   it('defaults blank Stripe billing mode placeholders to disabled', () => {

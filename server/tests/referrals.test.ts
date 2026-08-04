@@ -1,4 +1,5 @@
 import { createServer, type Server } from 'node:http';
+import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import type { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +13,17 @@ describe('referral pilot', () => {
   let server: Server;
   let baseUrl: string;
   let prisma: PrismaClient;
+
+  it('backfills abuse-control phone claims only for verified active accounts', () => {
+    const migrationSql = readFileSync(
+      new URL('../prisma/migrations/20260804193000_android_pilot_referrals/migration.sql', import.meta.url),
+      'utf8'
+    );
+
+    expect(migrationSql).toMatch(/INNER JOIN "User" u ON u\."id" = p\."userId"/);
+    expect(migrationSql).toMatch(/u\."status" = 'ACTIVE'/);
+    expect(migrationSql).toMatch(/u\."emailVerifiedAt" IS NOT NULL/);
+  });
 
   beforeAll(async () => {
     const db = await import('../src/db/prisma.js');

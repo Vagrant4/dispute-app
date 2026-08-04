@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
@@ -10,13 +10,11 @@ import { PrivacyScreen } from "./PrivacyScreen";
 import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
-  fetchSubscriptionStatus,
   formatTrialCountdown,
-  hasCurrentFullAccess,
   purchaseDisputeBasicSubscription,
   restoreDisputeBasicSubscription,
-  type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
+import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import {
   formatMonthlyStorePrice,
   useDisputeBasicStorePrice,
@@ -57,15 +55,16 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   const [workHoursStatus, setWorkHoursStatus] = useState(
     "Normal hours decide when OT starts in reports.",
   );
-  const [subscription, setSubscription] = useState<SubscriptionEntitlement | null>(
-    null,
-  );
-  const [subscriptionStatus, setSubscriptionStatus] = useState(
-    "Checking subscription status...",
-  );
-  const [subscriptionClock, setSubscriptionClock] = useState(0);
+  const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
+  const {
+    subscription,
+    canCreateRecords: hasFullAccess,
+    message: subscriptionMessage,
+    refresh: loadSubscriptionStatus,
+  } = useSubscriptionAccess(account);
   const storePrice = useDisputeBasicStorePrice(account);
-  const hasFullAccess = hasCurrentFullAccess(subscription, subscriptionClock);
+  const subscriptionStatus =
+    subscriptionActionStatus || formatTrialCountdown(subscription) || subscriptionMessage;
   const displayedSubscriptionStatus =
     subscription?.status === "TRIALING" && !hasFullAccess
       ? "EXPIRED"
@@ -79,50 +78,28 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
     { id: "privacy_data", label: "Privacy & data" },
   ];
 
-  useEffect(() => {
-    void loadWorkHours();
-    void loadSubscriptionStatus();
-    const timer = setInterval(() => setSubscriptionClock(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  async function loadSubscriptionStatus() {
-    const result = await fetchSubscriptionStatus(account.id);
-    if (!result.ok) {
-      setSubscription(null);
-      setSubscriptionStatus(result.message);
-      return;
-    }
-
-    setSubscription(result.subscription);
-    setSubscriptionClock(Date.now());
-    setSubscriptionStatus(
-      formatTrialCountdown(result.subscription) || result.subscription.message,
-    );
-  }
-
   async function handleSubscribe() {
-    setSubscriptionStatus("Opening store subscription...");
+    setSubscriptionActionStatus("Opening store subscription...");
     const purchase = await purchaseDisputeBasicSubscription(account, subscription);
     if (!purchase.ok) {
-      setSubscriptionStatus(purchase.message);
+      setSubscriptionActionStatus(purchase.message);
       return;
     }
 
-    setSubscriptionStatus(purchase.message);
+    setSubscriptionActionStatus(purchase.message);
     await loadSubscriptionStatus();
   }
 
   async function handleRestorePurchases() {
-    setSubscriptionStatus("Checking the store for previous purchases...");
+    setSubscriptionActionStatus("Checking the store for previous purchases...");
     const restore = await restoreDisputeBasicSubscription(account);
-    setSubscriptionStatus(restore.message);
+    setSubscriptionActionStatus(restore.message);
     if (restore.ok) {
       await loadSubscriptionStatus();
     }
   }
 
-  async function loadWorkHours() {
+  const loadWorkHours = useCallback(async () => {
     if (Platform.OS === "web") {
       return;
     }
@@ -141,7 +118,12 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
     } catch (error) {
       setWorkHoursStatus(getErrorMessage(error));
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const initialLoad = setTimeout(() => void loadWorkHours(), 0);
+    return () => clearTimeout(initialLoad);
+  }, [loadWorkHours]);
 
   async function handleSaveWorkHours() {
     try {

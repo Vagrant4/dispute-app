@@ -131,9 +131,10 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     try {
       const repositories = await getReportRepositories();
       const selectedProject = projects.find((project) => project.id === projectId);
+      const formatLabel = type === "progress_claim_csv" ? "CSV" : "PDF";
       setSelectedProjectId(projectId);
       setStatus(
-        `Creating PDF${selectedProject?.name ? ` for ${selectedProject.name}` : ""}...`,
+        `Creating ${formatLabel}${selectedProject?.name ? ` for ${selectedProject.name}` : ""}...`,
       );
       const result = await generateAndArchiveProgressClaim({
         type,
@@ -278,7 +279,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     <>
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Export</Text>
-        <Text style={styles.heading}>Create claim PDF</Text>
+        <Text style={styles.heading}>Create claim report</Text>
         <Text style={styles.muted}>{subscriptionStatus}</Text>
         {!subscription?.canExportReports ? (
           <Text style={styles.statusMessage}>
@@ -286,8 +287,8 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
           </Text>
         ) : null}
         <Text style={styles.muted}>
-          Choose one project. The PDF only includes that project&apos;s time,
-          locations, and photos.
+          Choose one project. PDF and CSV exports only include that project&apos;s
+          time, locations, and photos.
         </Text>
         <View style={styles.metricGrid}>
           <View style={styles.metricTile}>
@@ -295,8 +296,8 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
             <Text style={styles.metricLabel}>archived files</Text>
           </View>
           <View style={styles.metricTile}>
-            <Text style={styles.metricValue}>PDF</Text>
-            <Text style={styles.metricLabel}>export format</Text>
+            <Text style={styles.metricValue}>PDF / CSV</Text>
+            <Text style={styles.metricLabel}>export formats</Text>
           </View>
         </View>
         <Text style={styles.inputLabel}>Project to export</Text>
@@ -365,7 +366,25 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
             <Text style={styles.actionButtonText}>Create PDF</Text>
             <Text style={styles.actionButtonSubtext}>Ready for claim sharing</Text>
           </Pressable>
-          {lastExportedReport ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: !selectedProjectId || subscription?.canExportReports === false,
+            }}
+            disabled={!selectedProjectId || subscription?.canExportReports === false}
+            onPress={() => void handleGenerate("progress_claim_csv")}
+            style={[
+              styles.actionButtonSecondary,
+              (!selectedProjectId || subscription?.canExportReports === false) &&
+                styles.disabledButton,
+            ]}
+          >
+            <Text style={styles.actionButtonSecondaryText}>Create CSV</Text>
+            <Text style={styles.actionButtonSecondarySubtext}>
+              Spreadsheet-ready project data
+            </Text>
+          </Pressable>
+          {lastExportedReport?.type === "progress_claim_pdf" ? (
             <Pressable
               accessibilityRole="button"
               onPress={() =>

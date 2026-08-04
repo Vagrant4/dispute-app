@@ -39,6 +39,8 @@ services:
         value: dispute_basic_monthly
       - key: REVENUECAT_ENTITLEMENT_ID
         value: dispute_basic
+      - key: REVENUECAT_ALLOW_SANDBOX_EVENTS
+        value: "false"
     disk:
       name: dispute-data
       mountPath: /var/data
