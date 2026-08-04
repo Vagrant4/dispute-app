@@ -4,7 +4,7 @@ import { getSettingsRequest, saveSettingsRequest, type AppSettingsInput } from '
 const placeholderAreas = [
   'CPF placeholder',
   'MOM rule engine placeholder',
-  'Stripe subscription placeholder',
+  'Mobile store subscription configuration',
   'GPS verification placeholder',
   'Work Permit reminder placeholder',
   'AI OCR placeholder',

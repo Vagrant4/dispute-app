@@ -3,6 +3,10 @@ import rateLimit from 'express-rate-limit';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/auth.js';
+import { requireUser } from '../../middleware/requireUser.js';
+import { escapeHtml } from '../../utils/html.js';
+import { ACCOUNT_DELETION_CONFIRMATION } from './accountDeletion.constants.js';
+import { deleteAccountForAuthenticatedUser } from './accountDeletion.service.js';
 import {
   AuthServiceError,
   loginUser,
@@ -25,7 +29,8 @@ authRouter.post('/register', accountActionLimiter, async (req, res, next) => {
       email: String(req.body?.email ?? ''),
       password: String(req.body?.password ?? ''),
       fullName: String(req.body?.fullName ?? ''),
-      phone: String(req.body?.phone ?? '')
+      phone: String(req.body?.phone ?? ''),
+      referralCode: req.body?.referralCode ? String(req.body.referralCode) : undefined
     });
     res.status(201).json(result);
   } catch (error) {
@@ -120,6 +125,34 @@ authRouter.post('/logout', (_req, res) => {
   res.status(204).send();
 });
 
+authRouter.delete('/account', credentialLimiter, requireUser, async (req, res, next) => {
+  try {
+    if (String(req.body?.confirmation ?? '') !== ACCOUNT_DELETION_CONFIRMATION) {
+      res.status(400).json({
+        error: `Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm permanent account deletion`
+      });
+      return;
+    }
+
+    const result = await deleteAccountForAuthenticatedUser({
+      userId: req.user!.id,
+      password: String(req.body?.password ?? ''),
+      requestId: req.body?.requestId ? String(req.body.requestId) : undefined
+    });
+    clearAuthCookie(res);
+    res.json({
+      requestId: result.requestId,
+      deletedAt: result.deletedAt,
+      storageCleanupComplete: result.storageCleanupComplete,
+      message: result.storageCleanupComplete
+        ? 'Your Dispute account and associated data were permanently deleted.'
+        : 'Your account was deleted. File cleanup is pending; keep the deletion request ID for support.'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export function authErrorStatus(error: unknown): number | null {
   if (error instanceof AuthServiceError) return error.statusCode;
   return null;
@@ -170,13 +203,4 @@ function renderVerificationPage(title: string, message: string): string {
     </main>
   </body>
 </html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }

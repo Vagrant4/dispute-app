@@ -11,26 +11,27 @@ export const backupWarning =
   "dispute stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
 
 export const privacyContent = {
-  heading: "Local-first in V1",
+  heading: "Local-first work evidence",
   body:
-    "dispute V1 is designed around local-first records. Work logs, " +
-    "evidence notes, and status information are intended to stay on this " +
-    "device unless you choose an export or backup action in a later phase.",
-  analyticsHeading: "No analytics in V1",
+    "DISPUTE stores account and subscription status securely on the server. " +
+    "Work logs, evidence photos, location details and generated reports stay " +
+    "on this device unless you choose to export, back up or share them.",
+  analyticsHeading: "No advertising trackers",
   analyticsBody:
-    "This mobile foundation does not include analytics, tracking SDKs, cloud " +
-    "sync, or background evidence uploads.",
+    "The current mobile release does not include advertising trackers, cloud " +
+    "work-record sync or background evidence uploads. Google Play and RevenueCat " +
+    "process store subscription and entitlement information.",
 };
 
 export const subscriptionContent = {
   heading: "3-day trial",
   billingPath: "DISPUTE Basic",
   noCheckout:
-    "New verified users receive a 3-day trial. After the trial, subscribe to export PDF and CSV reports. Time records and evidence remain available.",
+    "New verified users receive a 3-day no-card trial. No charge starts automatically. After the trial, subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
   policyGated:
-    "DISPUTE Basic is SGD 4.99/month. Mobile subscriptions are policy-gated and use Apple App Store or Google Play billing; Stripe checkout is not used inside the app.",
+    "Google Play displays the localized subscription price for Android. Mobile store billing is policy-gated, and Stripe checkout is not used inside the app. App Store billing will be configured before the separate iOS release.",
   expiredExport:
-    "Trial ended. Subscribe to export reports. Your time and evidence records remain available.",
+    "Trial ended. Existing records remain readable and basic JSON backup remains available. Subscribe to create new records or export premium PDF and CSV reports.",
   checking:
     "Checking subscription status before export.",
 };
@@ -38,7 +39,7 @@ export const subscriptionContent = {
 export const trialReadinessContent = {
   heading: "3-day verified account trial",
   warning:
-    "New users verify their email, receive a 3-day trial, and then subscribe through Apple App Store or Google Play to keep exporting reports.",
+    "New users verify their email, receive a 3-day trial, and then subscribe through Google Play to keep creating records and exporting premium reports on Android.",
   backupReminder:
     "Export a backup before uninstalling, changing phone, clearing app data, or relying on important records.",
   localOnly:

@@ -15,8 +15,8 @@ import { progressClaimReportContent } from "../screenContent";
 import { styles } from "../styles";
 import {
   fetchSubscriptionStatus,
-  formatSubscriptionPrice,
   formatTrialCountdown,
+  hasCurrentFullAccess,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
 import type { WorkProject } from "../work/workRepository";
@@ -67,7 +67,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   }, []);
 
   async function refreshSubscriptionStatus() {
-    const result = await fetchSubscriptionStatus();
+    const result = await fetchSubscriptionStatus(account.id);
     if (!result.ok) {
       setSubscription(null);
       setSubscriptionStatus(result.message);
@@ -78,15 +78,14 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     const trialCountdown = formatTrialCountdown(result.subscription);
     setSubscriptionStatus(
       trialCountdown ||
-        `${result.subscription.planName} ${formatSubscriptionPrice(
-          result.subscription,
-        )}: ${result.subscription.message}`,
+        `${result.subscription.planName}: ${result.subscription.message}`,
     );
   }
 
   async function ensureCanExport(): Promise<boolean> {
     return ensureCanExportWithRefresh(
       subscription,
+      account.id,
       setSubscription,
       setSubscriptionStatus,
       setStatus,
@@ -132,9 +131,10 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     try {
       const repositories = await getReportRepositories();
       const selectedProject = projects.find((project) => project.id === projectId);
+      const formatLabel = type === "progress_claim_csv" ? "CSV" : "PDF";
       setSelectedProjectId(projectId);
       setStatus(
-        `Creating PDF${selectedProject?.name ? ` for ${selectedProject.name}` : ""}...`,
+        `Creating ${formatLabel}${selectedProject?.name ? ` for ${selectedProject.name}` : ""}...`,
       );
       const result = await generateAndArchiveProgressClaim({
         type,
@@ -254,6 +254,10 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   }
 
   async function handleDelete(document: GeneratedDocumentRow) {
+    if (!hasCurrentFullAccess(subscription)) {
+      setStatus("Expired access is read-only. Existing reports cannot be deleted.");
+      return;
+    }
     try {
       const repositories = await getReportRepositories();
       const fileResult =
@@ -275,7 +279,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     <>
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Export</Text>
-        <Text style={styles.heading}>Create claim PDF</Text>
+        <Text style={styles.heading}>Create claim report</Text>
         <Text style={styles.muted}>{subscriptionStatus}</Text>
         {!subscription?.canExportReports ? (
           <Text style={styles.statusMessage}>
@@ -283,8 +287,8 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
           </Text>
         ) : null}
         <Text style={styles.muted}>
-          Choose one project. The PDF only includes that project&apos;s time,
-          locations, and photos.
+          Choose one project. PDF and CSV exports only include that project&apos;s
+          time, locations, and photos.
         </Text>
         <View style={styles.metricGrid}>
           <View style={styles.metricTile}>
@@ -292,8 +296,8 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
             <Text style={styles.metricLabel}>archived files</Text>
           </View>
           <View style={styles.metricTile}>
-            <Text style={styles.metricValue}>PDF</Text>
-            <Text style={styles.metricLabel}>export format</Text>
+            <Text style={styles.metricValue}>PDF / CSV</Text>
+            <Text style={styles.metricLabel}>export formats</Text>
           </View>
         </View>
         <Text style={styles.inputLabel}>Project to export</Text>
@@ -362,7 +366,25 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
             <Text style={styles.actionButtonText}>Create PDF</Text>
             <Text style={styles.actionButtonSubtext}>Ready for claim sharing</Text>
           </Pressable>
-          {lastExportedReport ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: !selectedProjectId || subscription?.canExportReports === false,
+            }}
+            disabled={!selectedProjectId || subscription?.canExportReports === false}
+            onPress={() => void handleGenerate("progress_claim_csv")}
+            style={[
+              styles.actionButtonSecondary,
+              (!selectedProjectId || subscription?.canExportReports === false) &&
+                styles.disabledButton,
+            ]}
+          >
+            <Text style={styles.actionButtonSecondaryText}>Create CSV</Text>
+            <Text style={styles.actionButtonSecondarySubtext}>
+              Spreadsheet-ready project data
+            </Text>
+          </Pressable>
+          {lastExportedReport?.type === "progress_claim_pdf" ? (
             <Pressable
               accessibilityRole="button"
               onPress={() =>
@@ -455,8 +477,9 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
+                    disabled={subscription?.canCreateRecords !== true}
                     onPress={() => void handleDelete(document)}
-                    style={styles.statusPill}
+                    style={[styles.statusPill, subscription?.canCreateRecords !== true && styles.disabledButton]}
                   >
                     <Text style={styles.statusPillText}>Delete</Text>
                   </Pressable>
@@ -551,16 +574,17 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
 
 async function ensureCanExportWithRefresh(
   subscription: SubscriptionEntitlement | null,
+  expectedUserId: string | undefined,
   setSubscription: (value: SubscriptionEntitlement | null) => void,
   setSubscriptionStatus: (value: string) => void,
   setStatus: (value: string) => void,
 ): Promise<boolean> {
-  if (subscription?.canExportReports) {
+  if (subscription?.canExportReports && hasCurrentFullAccess(subscription)) {
     return true;
   }
 
   setStatus("Checking subscription before export...");
-  const result = await fetchSubscriptionStatus();
+  const result = await fetchSubscriptionStatus(expectedUserId);
   if (!result.ok) {
     setSubscription(null);
     setSubscriptionStatus(result.message);
@@ -572,7 +596,10 @@ async function ensureCanExportWithRefresh(
   setSubscriptionStatus(
     formatTrialCountdown(result.subscription) || result.subscription.message,
   );
-  if (result.subscription.canExportReports) {
+  if (
+    result.subscription.canExportReports &&
+    hasCurrentFullAccess(result.subscription)
+  ) {
     return true;
   }
 

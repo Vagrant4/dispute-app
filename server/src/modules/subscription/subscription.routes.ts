@@ -24,7 +24,12 @@ subscriptionRouter.post('/create-checkout-session', requireUser, (_req, res) => 
 
 subscriptionRouter.post('/webhook', async (req, res, next) => {
   try {
-    if (env.nodeEnv === 'production' && !env.revenueCat.webhookSecret) {
+    if (
+      env.nodeEnv === 'production' &&
+      (!env.revenueCat.webhookSecret ||
+        !env.revenueCat.productId ||
+        !env.revenueCat.entitlementId)
+    ) {
       res.status(503).json({ error: 'RevenueCat webhook is not configured.' });
       return;
     }

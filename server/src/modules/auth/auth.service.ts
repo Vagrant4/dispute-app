@@ -1,10 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { UserStatus, type User } from '@prisma/client';
+import { Prisma, UserStatus, type User } from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { isEmailDeliveryConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../email/email.service.js';
 import { createTrialSubscriptionForUser } from '../subscription/subscription.service.js';
+import {
+  findEligibleReferrer,
+  generateUniqueReferralCode,
+  normalizePhoneForAbuseControl,
+  normalizeReferralCode
+} from '../referrals/referral.service.js';
 
 export class AuthServiceError extends Error {
   constructor(
@@ -38,10 +44,12 @@ export async function registerUser(input: {
   password: string;
   fullName: string;
   phone: string;
+  referralCode?: string;
 }): Promise<RegistrationResult> {
   const email = normalizeEmail(input.email);
   validateCredentials(email, input.password);
   const profile = normalizeSignupProfile(input.fullName, input.phone);
+  const requestedReferralCode = normalizeReferralCode(input.referralCode);
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -53,26 +61,69 @@ export async function registerUser(input: {
     );
   }
 
+  const existingPhone = requestedReferralCode
+    ? await prisma.workerProfile.findFirst({
+        where: {
+          normalizedPhone: profile.normalizedPhone,
+          user: { status: UserStatus.ACTIVE, emailVerifiedAt: { not: null } }
+        },
+        select: { id: true }
+      })
+    : false;
+  if (existingPhone) {
+    throw new AuthServiceError('Mobile number is already registered', 409);
+  }
+
+  const referrer = requestedReferralCode
+    ? await findEligibleReferrer(requestedReferralCode)
+    : null;
+  if (requestedReferralCode && !referrer) {
+    throw new AuthServiceError('Referral code is invalid or not active', 400);
+  }
+
   const passwordHash = await bcrypt.hash(input.password, 12);
-  const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      role: 'WORKER',
-      status: 'PENDING_EMAIL_VERIFICATION',
-      appSetting: {
-        create: {}
-      },
-      profile: {
-        create: {
-          fullName: profile.fullName,
-          phone: profile.phone,
-          trade: 'Not specified',
-          employmentType: 'FREELANCER'
+  const referralCode = await generateUniqueReferralCode();
+  let user: User;
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          referralCode,
+          passwordHash,
+          role: 'WORKER',
+          status: 'PENDING_EMAIL_VERIFICATION',
+          appSetting: {
+            create: {}
+          },
+          profile: {
+            create: {
+              fullName: profile.fullName,
+              phone: profile.phone,
+              normalizedPhone: profile.normalizedPhone,
+              trade: 'Not specified',
+              employmentType: 'FREELANCER'
+            }
+          }
         }
+      });
+      if (referrer) {
+        await tx.referral.create({
+          data: {
+            referrerUserId: referrer.id,
+            referredUserId: created.id,
+            codeUsed: referrer.referralCode
+          }
+        });
       }
+      return created;
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new AuthServiceError('Email or mobile number is already registered', 409);
     }
-  });
+    throw error;
+  }
 
   const verification = await createEmailVerification(user.id);
   const emailSent = await trySendVerificationEmail({
@@ -335,26 +386,49 @@ export async function verifyEmail(input: {
     throw new AuthServiceError('Verification code is invalid or expired', 400);
   }
 
-  const verifiedUser = await prisma.$transaction(async (tx) => {
-    const verifiedAt = new Date();
-    await tx.emailVerificationToken.updateMany({
-      where: { userId: verificationToken.userId, consumedAt: null },
-      data: { consumedAt: verifiedAt }
-    });
-
-    const user = await tx.user.update({
-      where: { id: verificationToken.userId },
-      data: {
-        status: 'ACTIVE',
-        emailVerifiedAt: verifiedAt,
-        lastSeenAt: verifiedAt
+  let verifiedUser: User;
+  try {
+    verifiedUser = await prisma.$transaction(async (tx) => {
+      const verifiedAt = new Date();
+      const referral = await tx.referral.findUnique({
+        where: { referredUserId: verificationToken.userId },
+        select: { id: true }
+      });
+      if (referral) {
+        const profile = await tx.workerProfile.findUniqueOrThrow({
+          where: { userId: verificationToken.userId },
+          select: { normalizedPhone: true }
+        });
+        if (!profile.normalizedPhone) {
+          throw new AuthServiceError('A valid mobile number is required for referral verification', 400);
+        }
+        await tx.referralPhoneClaim.create({
+          data: { normalizedPhone: profile.normalizedPhone, userId: verificationToken.userId }
+        });
       }
+      await tx.emailVerificationToken.updateMany({
+        where: { userId: verificationToken.userId, consumedAt: null },
+        data: { consumedAt: verifiedAt }
+      });
+
+      const user = await tx.user.update({
+        where: { id: verificationToken.userId },
+        data: {
+          status: 'ACTIVE',
+          emailVerifiedAt: verifiedAt,
+          lastSeenAt: verifiedAt
+        }
+      });
+
+      await createTrialSubscriptionForUser(user.id, verifiedAt, tx);
+      return user;
     });
-
-    await createTrialSubscriptionForUser(user.id, verifiedAt, tx);
-
-    return user;
-  });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new AuthServiceError('Mobile number has already been used for a referral account', 409);
+    }
+    throw error;
+  }
 
   return toSafeUser(verifiedUser);
 }
@@ -385,12 +459,14 @@ function validateCredentials(email: string, password: string): void {
 function normalizeSignupProfile(
   fullName: string,
   phone: string
-): { fullName: string; phone: string } {
+): { fullName: string; phone: string; normalizedPhone: string } {
   const normalizedName = fullName.trim();
   const normalizedPhone = phone.trim();
   if (!normalizedName) throw new AuthServiceError('Full name is required', 400);
   if (!normalizedPhone) throw new AuthServiceError('Mobile number is required', 400);
-  return { fullName: normalizedName, phone: normalizedPhone };
+  const abuseControlPhone = normalizePhoneForAbuseControl(normalizedPhone);
+  if (abuseControlPhone.length < 8) throw new AuthServiceError('Enter a valid mobile number', 400);
+  return { fullName: normalizedName, phone: normalizedPhone, normalizedPhone: abuseControlPhone };
 }
 
 async function createEmailVerification(userId: string): Promise<{ id: string; token: string; code: string }> {

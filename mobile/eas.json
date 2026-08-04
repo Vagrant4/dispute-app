@@ -5,15 +5,31 @@
   },
   "build": {
     "development": {
-      "developmentClient": true,
-      "distribution": "internal"
+      "developmentClient": false,
+      "distribution": "internal",
+      "environment": "development",
+      "android": {
+        "gradleCommand": ":app:assembleDebug"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
-        "buildType": "apk"
+        "gradleCommand": ":app:assembleDebug"
       }
     },
-    "production": {}
+    "production": {
+      "distribution": "store",
+      "environment": "production",
+      "credentialsSource": "remote",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://dispute-api-live.onrender.com"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
   }
 }

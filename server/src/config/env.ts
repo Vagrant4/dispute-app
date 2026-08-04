@@ -26,30 +26,43 @@ type EnvSource = Partial<
     | 'SMTP_USER'
     | 'SMTP_PASS'
     | 'EMAIL_FROM'
+    | 'SUPPORT_EMAIL'
     | 'REVENUECAT_WEBHOOK_SECRET'
+    | 'REVENUECAT_SECRET_API_KEY'
+    | 'REVENUECAT_PRODUCT_ID'
+    | 'REVENUECAT_ENTITLEMENT_ID'
+    | 'REVENUECAT_ALLOW_SANDBOX_EVENTS'
   >
 >;
 
 export function createEnv(source: EnvSource = process.env) {
   const nodeEnv = source.NODE_ENV ?? 'development';
   const jwtSecret = source.JWT_SECRET ?? (nodeEnv === 'production' ? undefined : localJwtSecret);
+  const stripeBillingMode = parseStripeBillingMode(source.STRIPE_BILLING_MODE);
+  const serverPublicUrl = normalizeServerPublicUrl(source.SERVER_PUBLIC_URL);
 
   if (!jwtSecret || (nodeEnv === 'production' && jwtSecret.length < minimumProductionJwtSecretLength)) {
     throw new Error(
       `JWT_SECRET must be at least ${minimumProductionJwtSecretLength} characters in production`
     );
   }
+  if (nodeEnv === 'production' && stripeBillingMode !== 'disabled') {
+    throw new Error('STRIPE_BILLING_MODE must remain disabled in production mobile-store billing mode');
+  }
+  if (nodeEnv === 'production' && !serverPublicUrl.startsWith('https://')) {
+    throw new Error('SERVER_PUBLIC_URL must use HTTPS in production');
+  }
 
   return {
     nodeEnv,
     port: Number(source.PORT ?? 4000),
     clientOrigin: source.CLIENT_ORIGIN ?? 'http://localhost:5173',
-    serverPublicUrl: normalizeServerPublicUrl(source.SERVER_PUBLIC_URL),
+    serverPublicUrl,
     jwtSecret,
     jwtExpiresIn: '7d',
     uploadRoot: source.UPLOAD_ROOT ?? `${process.cwd()}/uploads`,
     stripe: {
-      billingMode: parseStripeBillingMode(source.STRIPE_BILLING_MODE),
+      billingMode: stripeBillingMode,
       secretKey: source.STRIPE_SECRET_KEY ?? '',
       webhookSecret: source.STRIPE_WEBHOOK_SECRET ?? '',
       priceIds: {
@@ -65,8 +78,17 @@ export function createEnv(source: EnvSource = process.env) {
       smtpPass: source.SMTP_PASS ?? '',
       from: source.EMAIL_FROM ?? source.SMTP_USER ?? ''
     },
+    supportEmail: source.SUPPORT_EMAIL?.trim() || '',
     revenueCat: {
-      webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? ''
+      webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? '',
+      secretApiKey: source.REVENUECAT_SECRET_API_KEY ?? '',
+      productId:
+        source.REVENUECAT_PRODUCT_ID?.trim() ||
+        (nodeEnv === 'production' ? '' : 'dispute_basic_monthly'),
+      entitlementId:
+        source.REVENUECAT_ENTITLEMENT_ID?.trim() ||
+        (nodeEnv === 'production' ? '' : 'dispute_basic'),
+      allowSandboxEvents: parseBoolean(source.REVENUECAT_ALLOW_SANDBOX_EVENTS, false)
     }
   } as const;
 }

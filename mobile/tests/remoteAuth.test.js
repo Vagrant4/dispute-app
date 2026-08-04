@@ -37,6 +37,7 @@ test("registerRemoteAccount sends backend registration and returns pending email
     phone: "+65 9000 0000",
     password: "Password123!",
     confirmPassword: "Password123!",
+    referralCode: "dsp-a1b2c3d4e5",
   }, fetcher);
 
   assert.equal(result.ok, true);
@@ -48,6 +49,7 @@ test("registerRemoteAccount sends backend registration and returns pending email
     password: "Password123!",
     fullName: "Local Worker",
     phone: "+65 9000 0000",
+    referralCode: "DSP-A1B2C3D4E5",
   });
 });
 
@@ -209,4 +211,64 @@ test("network failures do not expose the local development server URL to users",
   assert.equal(registerResult.ok, false);
   assert.doesNotMatch(loginResult.message, /127\.0\.0\.1|4000|http/);
   assert.doesNotMatch(registerResult.message, /127\.0\.0\.1|4000|http/);
+});
+
+test("deleteRemoteAccount requires confirmation and sends authenticated permanent deletion", async () => {
+  const { deleteRemoteAccount } = loadRemoteAuthModule();
+  const calls = [];
+  const result = await deleteRemoteAccount({
+    password: "Password123!",
+    confirmation: "DELETE",
+    requestId: "22222222-2222-4222-8222-222222222222",
+  }, async (url, init) => {
+    calls.push({ url, init });
+    return Response.json({
+      requestId: "22222222-2222-4222-8222-222222222222",
+      storageCleanupComplete: true,
+      message: "Your Dispute account and associated data were permanently deleted.",
+    });
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.storageCleanupComplete, true);
+  assert.equal(calls[0].url, "https://dispute-api-live.onrender.com/auth/account");
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+test("deleteRemoteAccount preserves an uncertain outcome after a lost server response", async () => {
+  const { deleteRemoteAccount } = loadRemoteAuthModule();
+  const result = await deleteRemoteAccount({
+    password: "Password123!",
+    confirmation: "DELETE",
+    requestId: "77777777-7777-4777-8777-777777777777",
+  }, async () => {
+    throw new Error("response lost");
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.outcomeUncertain, true);
+});
+
+test("getRemoteAccountDeletionStatus distinguishes completed and unknown requests", async () => {
+  const { getRemoteAccountDeletionStatus } = loadRemoteAuthModule();
+  const requestId = "88888888-8888-4888-8888-888888888888";
+  const completed = await getRemoteAccountDeletionStatus(requestId, async () =>
+    Response.json({
+      deleted: true,
+      requestId,
+      storageCleanupComplete: true,
+    }),
+  );
+  const unknown = await getRemoteAccountDeletionStatus(requestId, async () =>
+    Response.json({ deleted: false }, { status: 404 }),
+  );
+
+  assert.deepEqual(completed, {
+    ok: true,
+    deleted: true,
+    requestId,
+    storageCleanupComplete: true,
+  });
+  assert.deepEqual(unknown, { ok: true, deleted: false });
 });

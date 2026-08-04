@@ -1,9 +1,13 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { Router } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/db/prisma.js';
+import { env } from '../src/config/env.js';
 import { requireUser } from '../src/middleware/requireUser.js';
+import { deleteRevenueCatCustomer } from '../src/modules/auth/accountDeletion.service.js';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
@@ -49,6 +53,7 @@ describe('auth API', () => {
 
   beforeEach(async () => {
     await prisma.$transaction([
+      prisma.accountDeletionReceipt.deleteMany(),
       prisma.allowance.deleteMany(),
       prisma.deduction.deleteMany(),
       prisma.paySummary.deleteMany(),
@@ -368,6 +373,170 @@ describe('auth API', () => {
     expect(clearCookie).toContain('Expires=Thu, 01 Jan 1970 00:00:00 GMT');
   });
 
+  it('requires the current password and permanently deletes owned account data', async () => {
+    const cookie = await registerAndVerify('delete@example.com');
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email: 'delete@example.com' }
+    });
+    await prisma.company.create({
+      data: {
+        userId: user.id,
+        name: 'Delete Test Company',
+        contactPerson: 'Test Contact',
+        email: 'contact@example.com',
+        phone: '+65 9000 0000',
+        address: 'Test address',
+        notes: ''
+      }
+    });
+
+    const wrongPassword = await deleteJson('/auth/account', {
+      password: 'WrongPassword123!',
+      confirmation: 'DELETE',
+      requestId: '11111111-1111-4111-8111-111111111111'
+    }, cookie);
+    expect(wrongPassword.status).toBe(401);
+    expect(await prisma.user.findUnique({ where: { id: user.id } })).not.toBeNull();
+
+    const response = await deleteJson('/auth/account', {
+      password: 'Password123!',
+      confirmation: 'DELETE',
+      requestId: '22222222-2222-4222-8222-222222222222'
+    }, cookie);
+    expect(response.status).toBe(200);
+    const body = await jsonBody<{ requestId: string; storageCleanupComplete: boolean }>(response);
+    expect(body.requestId).toBe('22222222-2222-4222-8222-222222222222');
+    expect(body.storageCleanupComplete).toBe(true);
+    expect(response.headers.get('set-cookie')).toContain('claimproof_session=');
+    expect(await prisma.user.findUnique({ where: { id: user.id } })).toBeNull();
+    expect(await prisma.company.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.userSubscription.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.accountDeletionReceipt.findUnique({
+      where: { id: body.requestId }
+    })).toMatchObject({ storageCleanupComplete: true });
+    expect((await fetch(`${baseUrl}/test/protected`, {
+      headers: { Cookie: cookie }
+    })).status).toBe(401);
+
+    const status = await fetch(`${baseUrl}/account-deletion/status/${body.requestId}`);
+    expect(status.status).toBe(200);
+    expect(await jsonBody(status)).toMatchObject({
+      deleted: true,
+      requestId: body.requestId,
+      storageCleanupComplete: true
+    });
+  });
+
+  it('never accepts a previous anonymous receipt in place of current-password confirmation', async () => {
+    const cookie = await registerAndVerify('receipt-bypass@example.com');
+    const requestId = '44444444-4444-4444-8444-444444444444';
+    await prisma.accountDeletionReceipt.create({ data: { id: requestId } });
+
+    const response = await deleteJson('/auth/account', {
+      password: 'WrongPassword123!',
+      confirmation: 'DELETE',
+      requestId
+    }, cookie);
+
+    expect(response.status).toBe(401);
+    expect(await prisma.user.findUnique({
+      where: { email: 'receipt-bypass@example.com' }
+    })).not.toBeNull();
+  });
+
+  it('retries pending staged-file cleanup when anonymous deletion status is checked', async () => {
+    const requestId = '55555555-5555-4555-8555-555555555555';
+    const stagedPath = join(
+      resolve(env.uploadRoot),
+      '.pending-account-deletion',
+      requestId
+    );
+    await mkdir(stagedPath, { recursive: true });
+    await writeFile(join(stagedPath, 'evidence.jpg'), 'test evidence');
+    await prisma.accountDeletionReceipt.create({ data: { id: requestId } });
+
+    try {
+      const status = await fetch(`${baseUrl}/account-deletion/status/${requestId}`);
+      expect(status.status).toBe(200);
+      expect(await jsonBody(status)).toMatchObject({
+        deleted: true,
+        storageCleanupComplete: true
+      });
+      await expect(access(stagedPath)).rejects.toThrow();
+    } finally {
+      await rm(stagedPath, { force: true, recursive: true });
+    }
+  });
+
+  it('does not reveal data for an unknown deletion request ID', async () => {
+    const status = await fetch(
+      `${baseUrl}/account-deletion/status/66666666-6666-4666-8666-666666666666`
+    );
+    expect(status.status).toBe(404);
+    expect(await jsonBody(status)).toEqual({ deleted: false });
+  });
+
+  it('serves public privacy and account deletion pages', async () => {
+    const privacy = await fetch(`${baseUrl}/privacy`);
+    expect(privacy.status).toBe(200);
+    expect(await privacy.text()).toContain('DISPUTE is a work-evidence application published by Vagrant4');
+
+    const deletion = await fetch(`${baseUrl}/account-deletion`);
+    expect(deletion.status).toBe(200);
+    const page = await deletion.text();
+    expect(page).toContain('Delete your DISPUTE account');
+    expect(page).toContain('name="password"');
+    expect(page).toContain('Google Play subscriptions');
+  });
+
+  it('deletes the matching RevenueCat customer with a server-only secret', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    await deleteRevenueCatCustomer({
+      appUserId: 'user/with special id',
+      nodeEnv: 'production',
+      secretApiKey: 'server-secret-for-test-only',
+      fetcher: async (url, init) => {
+        calls.push({ url: String(url), init });
+        return Response.json({ deleted: true });
+      }
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('user%2Fwith%20special%20id');
+    expect(calls[0].init?.method).toBe('DELETE');
+    expect(calls[0].init?.headers).toMatchObject({
+      Authorization: 'Bearer server-secret-for-test-only'
+    });
+  });
+
+  it('fails closed before local deletion when the RevenueCat secret is missing in production', async () => {
+    await expect(deleteRevenueCatCustomer({
+      appUserId: 'user-id',
+      nodeEnv: 'production',
+      secretApiKey: ''
+    })).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it('allows permanent deletion through the public web form with valid credentials', async () => {
+    await registerAndVerify('web-delete@example.com');
+    const form = new URLSearchParams({
+      email: 'web-delete@example.com',
+      password: 'Password123!',
+      confirmation: 'DELETE',
+      requestId: '33333333-3333-4333-8333-333333333333'
+    });
+    const response = await fetch(`${baseUrl}/account-deletion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString()
+    });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('Account deleted');
+    expect(await prisma.user.findUnique({
+      where: { email: 'web-delete@example.com' }
+    })).toBeNull();
+  });
+
   it('rejects protected requests without auth', async () => {
     const response = await fetch(`${baseUrl}/test/protected`);
 
@@ -411,6 +580,17 @@ describe('auth API', () => {
   function postJson(path: string, body: unknown, cookie?: string): Promise<Response> {
     return fetch(`${baseUrl}${path}`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(cookie ? { Cookie: cookie } : {})
+      },
+      body: JSON.stringify(body)
+    });
+  }
+
+  function deleteJson(path: string, body: unknown, cookie?: string): Promise<Response> {
+    return fetch(`${baseUrl}${path}`, {
+      method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
         ...(cookie ? { Cookie: cookie } : {})

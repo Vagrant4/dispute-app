@@ -6,11 +6,13 @@ import express, { type ErrorRequestHandler, type Router } from 'express';
 import { env } from './config/env.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
 import { authErrorStatus, authRouter } from './modules/auth/auth.routes.js';
+import { complianceRouter } from './modules/compliance/compliance.routes.js';
 import { companyRouter } from './modules/companies/company.routes.js';
 import { payRouter } from './modules/pay/pay.routes.js';
 import { photoRouter } from './modules/photos/photo.routes.js';
 import { profileRouter } from './modules/profile/profile.routes.js';
 import { projectRouter } from './modules/projects/project.routes.js';
+import { referralRouter } from './modules/referrals/referral.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
 import { settingsRouter } from './modules/settings/settings.routes.js';
 import { subscriptionRouter } from './modules/subscription/subscription.routes.js';
@@ -34,6 +36,7 @@ export function createApp(options: CreateAppOptions = {}) {
     })
   );
   app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
   app.get('/health', (_req, res) => {
@@ -53,6 +56,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use('/auth', authRouter);
+  app.use(complianceRouter);
   app.use('/profile', profileRouter);
   app.use('/companies', companyRouter);
   app.use('/projects', projectRouter);
@@ -60,6 +64,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use('/photo-evidence', photoRouter);
   app.use('/pay-summaries', payRouter);
   app.use('/reports', reportRouter);
+  app.use('/referrals', referralRouter);
   app.use('/settings', settingsRouter);
   app.use('/subscription', subscriptionRouter);
   app.use('/admin', adminRouter);

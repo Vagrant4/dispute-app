@@ -41,7 +41,8 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
     contentSource,
     /dispute stores records locally on this device\. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up\./,
   );
-  assert.match(contentSource, /No analytics in V1/);
+  assert.match(contentSource, /No advertising trackers/);
+  assert.match(contentSource, /Google Play and RevenueCat/);
   assert.match(contentSource, /policy-gated/);
 
   for (const lockState of ["Draft", "Finalized", "Locked"]) {
@@ -51,12 +52,15 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
 
 test("mobile subscription screen copy declares 3-day trial and store billing", () => {
   for (const requiredCopy of [
-    "New verified users receive a 3-day trial",
-    "subscribe to export PDF and CSV reports",
-    "SGD 4.99/month",
-    "Apple App Store or Google Play billing",
+    "no-card trial",
+    "No charge starts automatically",
+    "subscribe to create new records and export premium PDF and CSV reports",
+    "localized subscription price",
+    "Google Play displays the localized subscription price for Android",
+    "App Store billing will be configured before the separate iOS release",
     "Stripe checkout is not used inside the app",
   ]) {
     assert.match(contentSource, new RegExp(requiredCopy));
   }
+  assert.doesNotMatch(contentSource, /SGD 4\.99\/month/);
 });

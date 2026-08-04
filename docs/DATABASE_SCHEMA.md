@@ -217,3 +217,13 @@ Placeholder only.
 - `price`
 - `limitsJson`
 - `status`
+
+# Anonymous account deletion receipt
+
+`AccountDeletionReceipt` contains only:
+
+- `id`: random deletion request UUID
+- `deletedAt`: deletion timestamp
+- `storageCleanupComplete`: whether staged server files were removed
+
+It has no relation to `User` and stores no identifying, work, evidence, report, location, or payment data.

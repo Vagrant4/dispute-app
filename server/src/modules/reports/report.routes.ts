@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { requireUser } from '../../middleware/requireUser.js';
 import { requireReportExportAccess } from '../../middleware/requireReportExportAccess.js';
+import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
 import { requiredDateOnly, requiredMoney } from '../../utils/validation.js';
 import {
   deleteReport,
@@ -97,9 +98,9 @@ reportRouter.get('/:id/csv', requireReportExportAccess, async (req, res, next) =
   }
 });
 
-reportRouter.delete('/:id', async (req, res, next) => {
+reportRouter.delete('/:id', requireRecordMutationAccess, async (req, res, next) => {
   try {
-    await deleteReport(req.user!.id, req.params.id);
+    await deleteReport(req.user!.id, String(req.params.id));
     res.status(204).send();
   } catch (error) {
     handleReportError(error, res, next);

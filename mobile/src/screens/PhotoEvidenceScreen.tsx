@@ -12,7 +12,9 @@ import type { PhotoEvidenceRow } from "../photos/photoEvidenceRepository";
 import { type PhotoEvidenceType, type PhotoGpsResult } from "../photos/photoEvidenceTypes";
 import { photoEvidenceContent } from "../screenContent";
 import { styles } from "../styles";
+import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
+import type { LocalAccount } from "../auth/localAuth";
 
 const LOCAL_USER_ID = "local-user";
 type PhotoAction = "camera" | "gallery";
@@ -24,7 +26,8 @@ const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
 ];
 const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 
-export function PhotoEvidenceScreen() {
+export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
+  const access = useSubscriptionAccess(account);
   const [status, setStatus] = useState(photoEvidenceContent.localStorageBody);
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -65,6 +68,7 @@ export function PhotoEvidenceScreen() {
 
   async function handlePhotoAction(action: PhotoAction) {
     try {
+      if (!access.hasCurrentCreateAccess()) throw new Error("An active trial, subscription or fulfilled referral reward is required to capture new evidence.");
       if (!projectId) throw new Error("Choose a project before adding evidence.");
       const permission = action === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -103,6 +107,10 @@ export function PhotoEvidenceScreen() {
   }
 
   async function handleSave() {
+    if (!access.hasCurrentCreateAccess()) {
+      setStatus("Existing evidence remains readable. Subscribe to save new evidence.");
+      return;
+    }
     if (!projectId) {
       setStatus("Create a project before saving evidence.");
       return;
@@ -158,6 +166,7 @@ export function PhotoEvidenceScreen() {
 
   async function handleDelete(row: PhotoEvidenceRow) {
     try {
+      if (!access.hasCurrentCreateAccess()) throw new Error("Expired access is read-only. Existing evidence cannot be changed.");
       if (Platform.OS === "web") {
         const nextRows = readWebPhotoEvidenceRows().filter((item) => item.id !== row.id);
         writeWebPhotoEvidenceRows(nextRows);
@@ -181,6 +190,12 @@ export function PhotoEvidenceScreen() {
         <Text style={styles.eyebrow}>Evidence</Text>
         <Text style={styles.heading}>Add photo proof</Text>
         <Text style={styles.muted}>Shoot, describe, save.</Text>
+        {!access.canCreateRecords ? (
+          <View style={styles.statusCard}>
+            <Text style={styles.statusTitle}>Read-only access</Text>
+            <Text style={styles.statusMessage}>{access.message}</Text>
+          </View>
+        ) : null}
         <Text style={styles.inputLabel}>Project</Text>
         <View style={styles.actionRow}>
           {projects.length ? projects.map((project) => (
@@ -203,18 +218,18 @@ export function PhotoEvidenceScreen() {
         <TextInput accessibilityLabel="Photo evidence caption" multiline onChangeText={setCaption} placeholder="What does this photo prove?" style={[styles.textInput, styles.textArea]} value={caption} />
         <View style={styles.clockButtonRow}>
           <Pressable
-            accessibilityState={{ disabled: !projectId }}
-            disabled={!projectId}
+            accessibilityState={{ disabled: !projectId || !access.canCreateRecords }}
+            disabled={!projectId || !access.canCreateRecords}
             onPress={() => void handlePhotoAction("camera")}
-            style={[styles.actionButton, !projectId && styles.disabledButton]}
+            style={[styles.actionButton, (!projectId || !access.canCreateRecords) && styles.disabledButton]}
           >
             <Text style={styles.actionButtonText}>Take photo</Text>
           </Pressable>
           <Pressable
-            accessibilityState={{ disabled: !projectId }}
-            disabled={!projectId}
+            accessibilityState={{ disabled: !projectId || !access.canCreateRecords }}
+            disabled={!projectId || !access.canCreateRecords}
             onPress={() => void handlePhotoAction("gallery")}
-            style={[styles.actionButtonSecondary, !projectId && styles.disabledButton]}
+            style={[styles.actionButtonSecondary, (!projectId || !access.canCreateRecords) && styles.disabledButton]}
           >
             <Text style={styles.actionButtonSecondaryText}>Gallery</Text>
           </Pressable>
@@ -223,7 +238,7 @@ export function PhotoEvidenceScreen() {
           <View style={styles.previewPanel}>
             <Text style={styles.inputLabel}>Preview before saving</Text>
             <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} />
-            <Pressable accessibilityRole="button" onPress={() => void handleSave()} style={styles.actionButton}>
+            <Pressable accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => void handleSave()} style={[styles.actionButton, !access.canCreateRecords && styles.disabledButton]}>
               <Text style={styles.actionButtonText}>Save Evidence</Text>
             </Pressable>
           </View>
@@ -241,7 +256,7 @@ export function PhotoEvidenceScreen() {
           <View key={row.id} style={styles.row}>
             <Image source={{ uri: row.local_uri }} style={{ width: 64, height: 64, borderRadius: 8 }} />
             <View style={{ flex: 1, gap: 4 }}><Text style={styles.rowLabel}>{formatEvidenceType(row.evidence_type)}</Text><Text style={styles.body}>{row.caption || "No caption"}</Text><Text style={styles.muted}>{new Date(row.captured_at).toLocaleString()}</Text></View>
-            <Pressable onPress={() => void handleDelete(row)} style={styles.statusPill}><Text style={styles.statusPillText}>Delete</Text></Pressable>
+            <Pressable disabled={!access.canCreateRecords} onPress={() => void handleDelete(row)} style={[styles.statusPill, !access.canCreateRecords && styles.disabledButton]}><Text style={styles.statusPillText}>Delete</Text></Pressable>
           </View>
         )) : <Text style={styles.muted}>No photo evidence saved on this device yet.</Text>}
       </View>

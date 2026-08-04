@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
+import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
 
 const maxUploadBytes = 10 * 1024 * 1024;
 const acceptedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
@@ -110,6 +111,7 @@ const updateSchema = z
 export const photoRouter = Router();
 
 photoRouter.use(requireUser);
+photoRouter.use(requireRecordMutationAccess);
 
 photoRouter.get('/', async (req, res, next) => {
   try {

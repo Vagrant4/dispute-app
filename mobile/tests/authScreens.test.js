@@ -24,6 +24,22 @@ test("phone app has separate create account and login pages before main tabs", (
     path.join(__dirname, "..", "src", "screens", "VerifyEmailScreen.tsx"),
     "utf8",
   );
+  const settingsSource = readFileSync(
+    path.join(__dirname, "..", "src", "screens", "SettingsScreen.tsx"),
+    "utf8",
+  );
+  const deleteAccountSource = readFileSync(
+    path.join(__dirname, "..", "src", "screens", "DeleteAccountScreen.tsx"),
+    "utf8",
+  );
+  const remoteAuthSource = readFileSync(
+    path.join(__dirname, "..", "src", "auth", "remoteAuth.ts"),
+    "utf8",
+  );
+  const deletionRuntimeSource = readFileSync(
+    path.join(__dirname, "..", "src", "account", "accountDeletionExpo.ts"),
+    "utf8",
+  );
 
   assert.match(appSource, /useState<"logo" \| "create" \| "verify" \| "login" \| "forgot">\("logo"\)/);
   assert.match(appSource, /LogoScreen/);
@@ -65,6 +81,18 @@ test("phone app has separate create account and login pages before main tabs", (
   assert.match(loginSource, /loadSavedLoginDetails/);
   assert.match(loginSource, /saveSavedLoginDetails/);
   assert.match(loginSource, /New user\? Create account/);
+  assert.match(settingsSource, /Privacy & data/);
+  assert.match(deleteAccountSource, /Delete account and data/);
+  assert.match(deleteAccountSource, /Manage subscription/);
+  assert.match(remoteAuthSource, /ACCOUNT_DELETION_CONFIRMATION = "DELETE"/);
+  assert.match(deleteAccountSource, /Type \{ACCOUNT_DELETION_CONFIRMATION\} to confirm/);
+  assert.match(deleteAccountSource, /Current password/);
+  assert.match(deleteAccountSource, /Delete account permanently/);
+  assert.match(deleteAccountSource, /previous deletion response was interrupted/);
+  assert.match(deletionRuntimeSource, /if \(existing\) return existing\.requestId/);
+  assert.match(deletionRuntimeSource, /getRemoteAccountDeletionStatus/);
+  assert.match(deletionRuntimeSource, /STATUS_RETRY_DELAYS_MS = \[0, 1_000, 3_000\]/);
+  assert.match(deleteAccountSource, /deletionSubmissionStarted\.current/);
 });
 
 test("remote auth validates account creation verification and login fields", () => {

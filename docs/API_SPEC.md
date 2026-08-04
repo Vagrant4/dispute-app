@@ -90,3 +90,21 @@ Progress claim reports must snapshot worker, company, project, entries, and phot
 - `PUT /settings`
 
 Settings include standard daily hours, standard weekly hours, overtime multiplier, and default currency.
+
+# Privacy and account deletion
+
+## GET `/privacy`
+
+Returns the public DISPUTE privacy policy as HTML.
+
+## GET `/account-deletion`
+
+Returns the public credential-confirmed account deletion form as HTML.
+
+## POST `/account-deletion`
+
+Accepts URL-encoded `email`, `password`, `confirmation=DELETE`, and a random `requestId`. Permanently deletes the account and associated data after credential verification.
+
+## DELETE `/auth/account`
+
+Requires the authenticated session cookie plus JSON `password`, `confirmation=DELETE`, and `requestId`. Returns the anonymous deletion receipt and clears the session cookie.

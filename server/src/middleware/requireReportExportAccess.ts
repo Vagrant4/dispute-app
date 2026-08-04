@@ -6,7 +6,7 @@ export async function requireReportExportAccess(req: Request, res: Response, nex
     const entitlement = await getSubscriptionEntitlement(req.user!.id);
     if (!entitlement.canExportReports) {
       res.status(402).json({
-        error: 'An active DISPUTE trial or subscription is required to export reports.',
+        error: 'An active DISPUTE trial, subscription or fulfilled referral reward is required to export reports.',
         subscription: entitlement
       });
       return;

@@ -41,6 +41,42 @@ describe('env config', () => {
     expect(env.revenueCat.webhookSecret).toBe('rc_webhook_secret');
   });
 
+  it('requires production RevenueCat product and entitlement identifiers to be configured explicitly', () => {
+    const env = createEnv({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+      SERVER_PUBLIC_URL: 'https://dispute-api.example.com'
+    });
+
+    expect(env.revenueCat.productId).toBe('');
+    expect(env.revenueCat.entitlementId).toBe('');
+    expect(env.revenueCat.allowSandboxEvents).toBe(false);
+  });
+
+  it('parses RevenueCat product and entitlement identifiers when provided', () => {
+    const env = createEnv({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+      SERVER_PUBLIC_URL: 'https://dispute-api.example.com',
+      REVENUECAT_PRODUCT_ID: 'dispute_basic_monthly',
+      REVENUECAT_ENTITLEMENT_ID: 'dispute_basic'
+    });
+
+    expect(env.revenueCat.productId).toBe('dispute_basic_monthly');
+    expect(env.revenueCat.entitlementId).toBe('dispute_basic');
+  });
+
+  it('enables RevenueCat sandbox events only through the explicit pilot flag', () => {
+    const env = createEnv({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+      SERVER_PUBLIC_URL: 'https://dispute-api.example.com',
+      REVENUECAT_ALLOW_SANDBOX_EVENTS: 'true'
+    });
+
+    expect(env.revenueCat.allowSandboxEvents).toBe(true);
+  });
+
   it('defaults blank Stripe billing mode placeholders to disabled', () => {
     expect(createEnv({ NODE_ENV: 'development', STRIPE_BILLING_MODE: '' }).stripe.billingMode).toBe('disabled');
     expect(createEnv({ NODE_ENV: 'development', STRIPE_BILLING_MODE: '   ' }).stripe.billingMode).toBe('disabled');
@@ -76,6 +112,16 @@ describe('env config', () => {
     ).toThrow(/STRIPE_BILLING_MODE/);
   });
 
+  it('rejects Stripe test mode in production mobile-store billing', () => {
+    expect(() =>
+      createEnv({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+        STRIPE_BILLING_MODE: 'test'
+      })
+    ).toThrow(/STRIPE_BILLING_MODE/);
+  });
+
   it('uses a public server URL for production email links', () => {
     const env = createEnv({
       NODE_ENV: 'production',
@@ -84,5 +130,15 @@ describe('env config', () => {
     });
 
     expect(env.serverPublicUrl).toBe('https://dispute-api.example.com');
+  });
+
+  it('rejects a cleartext public server URL in production', () => {
+    expect(() =>
+      createEnv({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a-production-secret-with-more-than-32-characters',
+        SERVER_PUBLIC_URL: 'http://dispute-api.example.com'
+      })
+    ).toThrow(/SERVER_PUBLIC_URL/);
   });
 });

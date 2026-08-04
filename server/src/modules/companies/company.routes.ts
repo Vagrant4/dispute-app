@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
+import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
 
 const companySchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
@@ -20,6 +21,7 @@ const companyUpdateSchema = companySchema.partial().refine((data) => Object.keys
 export const companyRouter = Router();
 
 companyRouter.use(requireUser);
+companyRouter.use(requireRecordMutationAccess);
 
 companyRouter.get('/', async (req, res, next) => {
   try {

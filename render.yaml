@@ -5,6 +5,7 @@ services:
     plan: starter
     buildCommand: npm install --include=dev && npm run build --workspace @claimproof/shared && npm run prisma:generate --workspace server && npm run build --workspace server
     startCommand: npm run db:deploy --workspace server && npm run start --workspace server
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -34,6 +35,12 @@ services:
         value: disabled
       - key: REVENUECAT_WEBHOOK_SECRET
         sync: false
+      - key: REVENUECAT_PRODUCT_ID
+        value: dispute_basic_monthly
+      - key: REVENUECAT_ENTITLEMENT_ID
+        value: dispute_basic
+      - key: REVENUECAT_ALLOW_SANDBOX_EVENTS
+        value: "false"
     disk:
       name: dispute-data
       mountPath: /var/data

@@ -21,6 +21,7 @@ export function CreateAccountScreen({
   const [countryCode, setCountryCode] = useState("+65");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [phone, setPhone] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -41,6 +42,7 @@ export function CreateAccountScreen({
         phone: formatPhoneNumber(countryCode, phone),
         password,
         confirmPassword,
+        referralCode,
       });
       if (result.ok) {
         setStatus(result.pending.message);
@@ -147,6 +149,20 @@ export function CreateAccountScreen({
           style={styles.textInput}
           value={phone}
         />
+
+        <Text style={styles.inputLabel}>Referral code (optional)</Text>
+        <TextInput
+          accessibilityLabel="Referral code"
+          autoCapitalize="characters"
+          onChangeText={setReferralCode}
+          placeholder="DSP-XXXXXXXXXX"
+          placeholderTextColor="#677064"
+          style={styles.textInput}
+          value={referralCode}
+        />
+        <Text style={styles.muted}>
+          Enter the code before creating the account. It cannot be changed after registration.
+        </Text>
 
         <Text style={styles.inputLabel}>Password</Text>
         <View style={styles.passwordInputRow}>

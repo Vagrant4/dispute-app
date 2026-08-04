@@ -8,8 +8,9 @@ Use this when testers are outside your local Wi-Fi or outside Singapore.
 - Database: SQLite on Render persistent disk for the first external trial
 - Email verification: Gmail SMTP app password
 - Mobile APK: rebuilt with `EXPO_PUBLIC_API_BASE_URL=<public backend URL>`
-- Billing: three-day server trial, followed by Apple App Store or Google Play billing through RevenueCat
-- Store product ID: `dispute_basic_monthly` in both RevenueCat and the app stores
+- Billing: three-day no-card server trial, followed by Google Play billing through RevenueCat for the Android pilot
+- RevenueCat product ID: `dispute_basic_monthly`
+- RevenueCat entitlement ID: `dispute_basic`
 
 ## Required owner accounts and secrets
 
@@ -38,7 +39,26 @@ SMTP_PASS=<your gmail app password, not normal gmail password>
 EMAIL_FROM=Dispute <your gmail address>
 STRIPE_BILLING_MODE=disabled
 REVENUECAT_WEBHOOK_SECRET=<strong RevenueCat webhook authorization secret>
+REVENUECAT_PRODUCT_ID=dispute_basic_monthly
+REVENUECAT_ENTITLEMENT_ID=dispute_basic
+REVENUECAT_ALLOW_SANDBOX_EVENTS=true
 ```
+
+The mobile RevenueCat public SDK key belongs in the EAS production environment, not the server. Never put a RevenueCat secret API key, Google service-account JSON, keystore or private key in the repository.
+
+Set `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` only while Google Play license testers are validating Internal Testing purchases. RevenueCat webhooks remain protected by the webhook authorization secret and restricted to Google Play or Apple App Store events. Set the flag back to `false` before any public production rollout.
+
+## Pre-deployment database gate
+
+The deployment start command runs `prisma migrate deploy` before the API starts. Before allowing Render to deploy:
+
+1. Confirm the persistent disk is mounted at `/var/data`.
+2. Create a recoverable copy or snapshot of `/var/data/dispute.db`.
+3. Confirm `DATABASE_URL=file:/var/data/dispute.db`.
+4. Confirm the migration `20260804193000_android_pilot_referrals` is present in the deployed commit.
+5. Trigger only one deployment and watch the migration log before testing account creation.
+
+Do not delete or replace the database if migration fails. Stop the deploy, retain the backup and inspect `prisma migrate status` before retrying.
 
 ## Health check
 
@@ -54,7 +74,16 @@ Expected result:
 {"status":"ok"}
 ```
 
-## Build public APK
+Then verify, in order:
+
+1. Existing user login still works.
+2. A new disposable account receives and verifies its email code.
+3. `/subscription/status` returns a three-day trial based on the verification time.
+4. Existing expired data remains readable while new mutations are rejected.
+5. RevenueCat webhook authentication rejects requests without the configured secret.
+6. Referral codes appear only for authenticated users and an unverified referral is not counted.
+
+## Build the Android internal-test artifact
 
 Use the public URL when building the APK:
 
@@ -62,7 +91,7 @@ Use the public URL when building the APK:
 $env:EXPO_PUBLIC_API_BASE_URL="https://<your-render-service>.onrender.com"
 ```
 
-Then build the Android release APK and share that APK with testers.
+Then build the signed Android App Bundle and upload it to Google Play Internal Testing. Keep direct APK files clearly marked as test builds; do not use them as evidence that Play Billing is ready.
 
 ## Important
 

@@ -8,10 +8,13 @@ import {
 } from "react-native";
 
 import { styles } from "../styles";
+import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { getOptionalWorkLocationAddress } from "../work/workLocation";
+import type { LocalAccount } from "../auth/localAuth";
 
-export function HomeScreen() {
+export function HomeScreen({ account }: { account: LocalAccount }) {
+  const access = useSubscriptionAccess(account);
   const [clockInAt, setClockInAt] = useState<Date | null>(null);
   const [clockOutAt, setClockOutAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -55,6 +58,8 @@ export function HomeScreen() {
     projects.find((project) => project.id === selectedProjectId) ?? homeState?.project;
 
   useEffect(() => {
+    // Intentional local-database hydration of the editable project draft.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProjectName(activeProject?.name ?? "");
     setProjectDescription(activeProject?.description ?? "");
   }, [activeProject?.description, activeProject?.id, activeProject?.name]);
@@ -98,6 +103,10 @@ export function HomeScreen() {
   }
 
   async function handleClockIn() {
+    if (!access.hasCurrentCreateAccess()) {
+      setWorkStatus("An active trial or subscription is required to create new time records.");
+      return;
+    }
     if (!selectedProjectId) {
       setWorkStatus("Create a project before Time In.");
       return;
@@ -124,6 +133,10 @@ export function HomeScreen() {
   }
 
   async function handleSaveProject() {
+    if (!access.hasCurrentCreateAccess()) {
+      setWorkStatus("Existing projects remain readable. Subscribe to create or edit project records.");
+      return;
+    }
     try {
       const store = await getWorkStore();
       if (activeProject) {
@@ -211,6 +224,10 @@ export function HomeScreen() {
   }
 
   async function handleDeleteEntry(entryId: string) {
+    if (!access.hasCurrentCreateAccess()) {
+      setWorkStatus("Expired access is read-only. Existing time records cannot be changed.");
+      return;
+    }
     if (pendingDeleteEntryId !== entryId) {
       setPendingDeleteEntryId(entryId);
       setWorkStatus("Tap Confirm Delete to remove this recent time entry.");
@@ -260,6 +277,12 @@ export function HomeScreen() {
         </View>
 
         <Text style={styles.inputLabel}>Project</Text>
+        {!access.canCreateRecords ? (
+          <View style={styles.statusCard}>
+            <Text style={styles.statusTitle}>Read-only access</Text>
+            <Text style={styles.statusMessage}>{access.message}</Text>
+          </View>
+        ) : null}
         <View style={styles.actionRow}>
           {projects.length ? projects.map((project) => {
             const selected = project.id === activeProject?.id;
@@ -298,6 +321,7 @@ export function HomeScreen() {
           </Text>
           <TextInput
             accessibilityLabel="Project name"
+            editable={access.canCreateRecords}
             onChangeText={setProjectName}
             placeholder="Enter project name"
             style={styles.textInput}
@@ -305,6 +329,7 @@ export function HomeScreen() {
           />
           <TextInput
             accessibilityLabel="Project description"
+            editable={access.canCreateRecords}
             multiline
             onChangeText={setProjectDescription}
             placeholder="Site address, work scope, or reference"
@@ -313,8 +338,10 @@ export function HomeScreen() {
           />
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: !access.canCreateRecords }}
+            disabled={!access.canCreateRecords}
             onPress={() => void handleSaveProject()}
-            style={styles.actionButtonSecondary}
+            style={[styles.actionButtonSecondary, !access.canCreateRecords && styles.disabledButton]}
           >
             <Text style={styles.actionButtonSecondaryText}>
               {activeProject ? "Save Project Detail" : "Create Project"}
@@ -376,13 +403,13 @@ export function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityState={{
-              disabled: Boolean(clockInAt && !clockOutAt) || !selectedProjectId,
+              disabled: Boolean(clockInAt && !clockOutAt) || !selectedProjectId || !access.canCreateRecords,
             }}
-            disabled={Boolean(clockInAt && !clockOutAt) || !selectedProjectId}
+            disabled={Boolean(clockInAt && !clockOutAt) || !selectedProjectId || !access.canCreateRecords}
             onPress={() => void handleClockIn()}
             style={[
               styles.clockPrimaryButton,
-              (clockInAt && !clockOutAt || !selectedProjectId) &&
+              (clockInAt && !clockOutAt || !selectedProjectId || !access.canCreateRecords) &&
                 styles.disabledButton,
             ]}
           >
@@ -447,8 +474,9 @@ export function HomeScreen() {
                       <Pressable
                         accessibilityLabel={`Delete time entry for ${entry.projectName}`}
                         accessibilityRole="button"
+                        disabled={!access.canCreateRecords}
                         onPress={() => void handleDeleteEntry(entry.id)}
-                        style={styles.compactSecondaryButton}
+                        style={[styles.compactSecondaryButton, !access.canCreateRecords && styles.disabledButton]}
                       >
                         <Text style={styles.compactSecondaryButtonText}>Delete</Text>
                       </Pressable>
