@@ -284,7 +284,9 @@ export function validateRevenueCatStoreContext(
     return 'RevenueCat webhook store must be Google Play or Apple App Store.';
   }
   const environment = getString(event, 'environment');
-  if (nodeEnv === 'production' && environment !== 'PRODUCTION' && !allowSandboxEvents) {
+  const isAllowedPlaySandbox =
+    allowSandboxEvents && store === 'PLAY_STORE' && environment === 'SANDBOX';
+  if (nodeEnv === 'production' && environment !== 'PRODUCTION' && !isAllowedPlaySandbox) {
     return 'RevenueCat production webhook must come from the production environment.';
   }
   if (environment !== 'PRODUCTION' && environment !== 'SANDBOX') {

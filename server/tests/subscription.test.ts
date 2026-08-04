@@ -150,6 +150,13 @@ describe('subscription API', () => {
         true
       )
     ).toMatch(/Google Play or Apple App Store/i);
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'APP_STORE', environment: 'SANDBOX' },
+        'production',
+        true
+      )
+    ).toMatch(/production environment/i);
   });
 
   it('blocks export when the 3-day trial is expired', async () => {
