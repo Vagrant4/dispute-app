@@ -2,6 +2,8 @@
 
 ## Status
 
+The 4 August 2026 pre-deployment follow-up safely refreshed four transitive packages, pinned the web router, and made clean server build/test commands generate Prisma Client automatically. Current verification is recorded in `SECURITY_VERIFICATION_RESULTS.md`: 307 tests passed across shared, server, client, and mobile; the root build, mobile typecheck, Prisma validation, and Expo Doctor 20/20 all passed. The production dependency tree is reduced to 15 advisories (0 critical, 3 high, 12 moderate); residual findings are either unreachable RSC behavior in the BrowserRouter-only client or Expo/React Native build-tool dependencies requiring a separate framework upgrade.
+
 The source-level and locally verifiable Android fixes are implemented on branch `codex/android-production-security-fixes`. The release is **not yet production-ready** because the newly built AAB is intentionally unsigned and the Google Play/RevenueCat production dashboards have not been verified. No completion claim is made for those external gates.
 
 The 1 August 2026 follow-up also implements Google Play account-deletion and privacy compliance: authenticated in-app deletion, a public web deletion form, a public privacy policy, server and local data cleanup, an anonymous deletion receipt, subscription-management warning, tests, and version `0.3.0` / code `3`. These routes still require production server deployment and live URL verification.

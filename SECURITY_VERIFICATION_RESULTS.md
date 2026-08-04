@@ -1,5 +1,23 @@
 # Android security verification results
 
+## 4 August 2026 pre-deployment verification
+
+The release branch was reinstalled from the lockfile with npm `10.9.4` and install scripts disabled, then built through the normal root command. The server now generates Prisma Client automatically in its `prebuild` and `pretest` hooks, closing the clean-install reproducibility gap without adding a repository-wide install hook.
+
+- Root production build: passed after the clean install.
+- Shared tests: 30/30 passed.
+- Server tests: 133/133 passed across 15 files using one worker to avoid Windows SQLite lock contention.
+- Client tests: 24/24 passed.
+- Mobile tests: 120/120 passed.
+- Mobile typecheck: passed.
+- Expo Doctor: 20/20 passed.
+- Expo lint: 0 errors and 14 warnings.
+- Prisma schema validation: passed.
+- Tracked-source secret scan: no production credentials or signing material found; matches were limited to dummy values in tests.
+- Production dependency audit: 15 advisories (0 critical, 3 high, 12 moderate). Safe updates fixed `brace-expansion`, `ip-address`, `postcss`, and `nanoid`; `react-router-dom` is pinned to `7.18.2`. The remaining React Router high advisory affects RSC action mode, which this BrowserRouter-only client does not use. The remaining `shell-quote` and `uuid` findings are transitive React Native/Expo build-tool dependencies; breaking framework overrides were not applied.
+
+The initial grouped server command timed out because its three-minute wrapper was shorter than the database-backed suite and left a child process holding `server/prisma/test.db`. A deterministic single-worker rerun completed in 340.83 seconds with all 133 tests passing.
+
 ## 1 August 2026 compliance follow-up
 
 The mandatory Google Play account-deletion and privacy paths were added after the original hardening audit. The app is now version `0.3.0` / Android code `3`.

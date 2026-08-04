@@ -5,10 +5,10 @@
   "scripts": {
     "predev": "npm run build --workspace @claimproof/shared",
     "dev": "tsx watch src/server.ts",
-    "prebuild": "npm run build --workspace @claimproof/shared",
+    "prebuild": "npm run build --workspace @claimproof/shared && npm run prisma:generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
-    "pretest": "npm run build --workspace @claimproof/shared",
+    "pretest": "npm run build --workspace @claimproof/shared && npm run prisma:generate",
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
