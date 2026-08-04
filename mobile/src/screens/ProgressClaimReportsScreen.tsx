@@ -15,8 +15,8 @@ import { progressClaimReportContent } from "../screenContent";
 import { styles } from "../styles";
 import {
   fetchSubscriptionStatus,
-  formatSubscriptionPrice,
   formatTrialCountdown,
+  hasCurrentFullAccess,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
 import type { WorkProject } from "../work/workRepository";
@@ -67,7 +67,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   }, []);
 
   async function refreshSubscriptionStatus() {
-    const result = await fetchSubscriptionStatus();
+    const result = await fetchSubscriptionStatus(account.id);
     if (!result.ok) {
       setSubscription(null);
       setSubscriptionStatus(result.message);
@@ -78,15 +78,14 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     const trialCountdown = formatTrialCountdown(result.subscription);
     setSubscriptionStatus(
       trialCountdown ||
-        `${result.subscription.planName} ${formatSubscriptionPrice(
-          result.subscription,
-        )}: ${result.subscription.message}`,
+        `${result.subscription.planName}: ${result.subscription.message}`,
     );
   }
 
   async function ensureCanExport(): Promise<boolean> {
     return ensureCanExportWithRefresh(
       subscription,
+      account.id,
       setSubscription,
       setSubscriptionStatus,
       setStatus,
@@ -254,6 +253,10 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   }
 
   async function handleDelete(document: GeneratedDocumentRow) {
+    if (!hasCurrentFullAccess(subscription)) {
+      setStatus("Expired access is read-only. Existing reports cannot be deleted.");
+      return;
+    }
     try {
       const repositories = await getReportRepositories();
       const fileResult =
@@ -455,8 +458,9 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
+                    disabled={subscription?.canCreateRecords !== true}
                     onPress={() => void handleDelete(document)}
-                    style={styles.statusPill}
+                    style={[styles.statusPill, subscription?.canCreateRecords !== true && styles.disabledButton]}
                   >
                     <Text style={styles.statusPillText}>Delete</Text>
                   </Pressable>
@@ -551,16 +555,17 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
 
 async function ensureCanExportWithRefresh(
   subscription: SubscriptionEntitlement | null,
+  expectedUserId: string | undefined,
   setSubscription: (value: SubscriptionEntitlement | null) => void,
   setSubscriptionStatus: (value: string) => void,
   setStatus: (value: string) => void,
 ): Promise<boolean> {
-  if (subscription?.canExportReports) {
+  if (subscription?.canExportReports && hasCurrentFullAccess(subscription)) {
     return true;
   }
 
   setStatus("Checking subscription before export...");
-  const result = await fetchSubscriptionStatus();
+  const result = await fetchSubscriptionStatus(expectedUserId);
   if (!result.ok) {
     setSubscription(null);
     setSubscriptionStatus(result.message);
@@ -572,7 +577,10 @@ async function ensureCanExportWithRefresh(
   setSubscriptionStatus(
     formatTrialCountdown(result.subscription) || result.subscription.message,
   );
-  if (result.subscription.canExportReports) {
+  if (
+    result.subscription.canExportReports &&
+    hasCurrentFullAccess(result.subscription)
+  ) {
     return true;
   }
 

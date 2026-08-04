@@ -37,6 +37,7 @@ test("registerRemoteAccount sends backend registration and returns pending email
     phone: "+65 9000 0000",
     password: "Password123!",
     confirmPassword: "Password123!",
+    referralCode: "dsp-a1b2c3d4e5",
   }, fetcher);
 
   assert.equal(result.ok, true);
@@ -48,6 +49,7 @@ test("registerRemoteAccount sends backend registration and returns pending email
     password: "Password123!",
     fullName: "Local Worker",
     phone: "+65 9000 0000",
+    referralCode: "DSP-A1B2C3D4E5",
   });
 });
 

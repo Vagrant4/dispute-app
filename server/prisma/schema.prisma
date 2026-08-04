@@ -26,6 +26,19 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+  REJECTED
+}
+
+enum ReferralRewardStatus {
+  EARNED
+  FULFILLED
+  VOID
+}
+
 enum EmploymentType {
   HOURLY
   DAILY
@@ -66,6 +79,7 @@ enum RateType {
 model User {
   id              String      @id @default(cuid())
   email           String      @unique
+  referralCode    String?     @unique
   passwordHash    String
   role            UserRole    @default(WORKER)
   status          UserStatus  @default(PENDING_EMAIL_VERIFICATION)
@@ -85,6 +99,11 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens  PasswordResetToken[]
   subscriptions        UserSubscription[]
+  referralsMade        Referral[]          @relation("ReferralReferrer")
+  referralReceived     Referral?           @relation("ReferralReferredUser")
+  referralRewards      ReferralReward[]
+  referralPhoneClaim   ReferralPhoneClaim?
+  subscriptionEvents   SubscriptionEvent[]
 }
 
 model EmailVerificationToken {
@@ -121,6 +140,7 @@ model WorkerProfile {
   userId               String         @unique
   fullName             String
   phone                String
+  normalizedPhone      String?
   workerIdentifier     String?
   finNric              String?
   trade                String
@@ -132,6 +152,8 @@ model WorkerProfile {
   updatedAt            DateTime       @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([normalizedPhone])
 }
 
 model Company {
@@ -367,6 +389,69 @@ model UserSubscription {
   @@index([userId])
   @@index([planId])
   @@index([status])
+}
+
+model Referral {
+  id              String         @id @default(cuid())
+  referrerUserId  String
+  referredUserId  String         @unique
+  codeUsed        String
+  status          ReferralStatus @default(PENDING)
+  paidPeriodCount Int            @default(0)
+  qualifiedAt     DateTime?
+  rewardedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  referrer     User @relation("ReferralReferrer", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referredUser User @relation("ReferralReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerUserId])
+  @@index([status])
+}
+
+model ReferralReward {
+  id             String               @id @default(cuid())
+  userId         String
+  ordinal        Int
+  status         ReferralRewardStatus @default(EARNED)
+  earnedAt       DateTime             @default(now())
+  fulfilledAt    DateTime?
+  fulfillmentStartsAt DateTime?
+  fulfillmentEndsAt   DateTime?
+  fulfillmentRef String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ordinal])
+  @@index([status])
+}
+
+model SubscriptionEvent {
+  id              String   @id @default(cuid())
+  providerEventId String   @unique
+  paidPeriodKey   String?  @unique
+  userId          String
+  eventType       String
+  transactionId   String?
+  purchasedAt     DateTime?
+  priceCents      Int?
+  currency        String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+}
+
+model ReferralPhoneClaim {
+  id              String   @id @default(cuid())
+  normalizedPhone String   @unique
+  userId          String   @unique
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AccountDeletionReceipt {

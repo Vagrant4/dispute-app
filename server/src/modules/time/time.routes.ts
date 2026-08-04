@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireUser } from '../../middleware/requireUser.js';
+import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
 import { nullableDate, requiredDate } from '../../utils/validation.js';
 import {
   clockIn,
@@ -83,6 +84,7 @@ const updateEntrySchema = z
 export const timeRouter = Router();
 
 timeRouter.use(requireUser);
+timeRouter.use(requireRecordMutationAccess);
 
 timeRouter.get('/', async (req, res, next) => {
   try {

@@ -27,11 +27,11 @@ export const subscriptionContent = {
   heading: "3-day trial",
   billingPath: "DISPUTE Basic",
   noCheckout:
-    "New verified users receive a 3-day trial. After the trial, subscribe to export PDF and CSV reports. Time records and evidence remain available.",
+    "New verified users receive a 3-day no-card trial. No charge starts automatically. After the trial, subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
   policyGated:
-    "DISPUTE Basic is SGD 4.99/month. Mobile subscriptions are policy-gated and use Apple App Store or Google Play billing; Stripe checkout is not used inside the app.",
+    "Google Play displays the localized subscription price for Android. Mobile store billing is policy-gated, and Stripe checkout is not used inside the app. App Store billing will be configured before the separate iOS release.",
   expiredExport:
-    "Trial ended. Subscribe to export reports. Your time and evidence records remain available.",
+    "Trial ended. Existing records remain readable and basic JSON backup remains available. Subscribe to create new records or export premium PDF and CSV reports.",
   checking:
     "Checking subscription status before export.",
 };
@@ -39,7 +39,7 @@ export const subscriptionContent = {
 export const trialReadinessContent = {
   heading: "3-day verified account trial",
   warning:
-    "New users verify their email, receive a 3-day trial, and then subscribe through Apple App Store or Google Play to keep exporting reports.",
+    "New users verify their email, receive a 3-day trial, and then subscribe through Google Play to keep creating records and exporting premium reports on Android.",
   backupReminder:
     "Export a backup before uninstalling, changing phone, clearing app data, or relying on important records.",
   localOnly:

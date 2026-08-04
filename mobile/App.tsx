@@ -17,6 +17,7 @@ import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsSc
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
+import { clearCachedSubscriptionEntitlement } from "./src/subscription/subscriptionClient";
 
 function renderScreen(
   activeTab: TabId,
@@ -27,7 +28,7 @@ function renderScreen(
 ) {
   switch (activeTab) {
     case "evidence":
-      return <PhotoEvidenceScreen />;
+      return <PhotoEvidenceScreen account={account} />;
     case "reports":
       return <ProgressClaimReportsScreen account={account} />;
     case "settings":
@@ -40,7 +41,7 @@ function renderScreen(
       );
     case "home":
     default:
-      return <HomeScreen />;
+      return <HomeScreen account={account} />;
   }
 }
 
@@ -141,11 +142,13 @@ export default function App() {
               setActiveTab,
               account,
               () => {
+                void clearCachedSubscriptionEntitlement(account.id);
                 setAccount(null);
                 setActiveTab("home");
                 setAuthMode("logo");
               },
               (message) => {
+                void clearCachedSubscriptionEntitlement(account.id);
                 setAccount(null);
                 setActiveTab("home");
                 setAuthNotice(message);

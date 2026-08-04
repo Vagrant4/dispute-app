@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
+import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
 import { endDateMustNotBeBeforeStartDate, nullableDate, nullableMoney, requiredDate } from '../../utils/validation.js';
 
 const nullableText = z.string().trim().min(1).nullable().optional();
@@ -32,6 +33,7 @@ const projectUpdateSchema = projectBaseSchema
 export const projectRouter = Router();
 
 projectRouter.use(requireUser);
+projectRouter.use(requireRecordMutationAccess);
 
 projectRouter.get('/', async (req, res, next) => {
   try {

@@ -29,6 +29,9 @@ interface SubscriptionStatusResponse {
     planName: string;
     priceCents: number;
     currency: string;
+    canCreateRecords: boolean;
+    hasReferralRewardAccess: boolean;
+    referralRewardEndsAt: string | null;
     trialEndsAt: string | null;
     message: string;
   };
@@ -62,6 +65,10 @@ describe('subscription API', () => {
       prisma.project.deleteMany(),
       prisma.company.deleteMany(),
       prisma.workerProfile.deleteMany(),
+      prisma.subscriptionEvent.deleteMany(),
+      prisma.referralReward.deleteMany(),
+      prisma.referral.deleteMany(),
+      prisma.referralPhoneClaim.deleteMany(),
       prisma.emailVerificationToken.deleteMany(),
       prisma.userSubscription.deleteMany(),
       prisma.appSetting.deleteMany(),
@@ -99,7 +106,7 @@ describe('subscription API', () => {
       billingProvider: 'store',
       billingEnforcementActive: true,
       planName: 'DISPUTE Basic',
-      priceCents: 499,
+      priceCents: 720,
       currency: 'SGD'
     });
     expect(body.subscription.trialEndsAt).toEqual(expect.any(String));
@@ -146,12 +153,43 @@ describe('subscription API', () => {
       isActive: false,
       canExportReports: false
     });
-    expect(body.subscription.message).toMatch(/Subscribe to export reports/i);
+    expect(body.subscription.message).toMatch(/Subscribe to create new records or export premium PDF\/CSV reports/i);
 
     const reportResponse = await postJson('/reports/progress-claim', {}, user.cookie);
     expect(reportResponse.status).toBe(402);
     await expect(reportResponse.json()).resolves.toMatchObject({
-      error: 'An active DISPUTE trial or subscription is required to export reports.'
+      error: 'An active DISPUTE trial, subscription or fulfilled referral reward is required to export reports.'
+    });
+
+    const projectResponse = await postJson('/projects', {}, user.cookie);
+    expect(projectResponse.status).toBe(402);
+    await expect(projectResponse.json()).resolves.toMatchObject({
+      error: 'An active DISPUTE trial, subscription or fulfilled referral reward is required to create or change work records.'
+    });
+
+    const payResponse = await postJson('/pay-summaries/generate', {}, user.cookie);
+    expect(payResponse.status).toBe(402);
+
+    const reportDeleteResponse = await fetch(`${baseUrl}/reports/not-a-report`, {
+      method: 'DELETE',
+      headers: { Cookie: user.cookie }
+    });
+    expect(reportDeleteResponse.status).toBe(402);
+  });
+
+  it('fails closed when an active entitlement has no period end', async () => {
+    const user = await registerUser('subscription-missing-end@example.com');
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: { status: 'ACTIVE', currentPeriodEnd: null }
+    });
+
+    const response = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const body = await jsonBody<SubscriptionStatusResponse>(response);
+    expect(body.subscription).toMatchObject({
+      status: 'EXPIRED', isActive: false, canCreateRecords: false, canExportReports: false
     });
   });
 
@@ -185,7 +223,7 @@ describe('subscription API', () => {
         environment: 'SANDBOX',
         app_user_id: user.id,
         transaction_id: 'store_txn_123',
-        price_in_purchased_currency: 4.99,
+        price_in_purchased_currency: 7.2,
         currency: 'SGD',
         purchased_at_ms: Date.now(),
         expiration_at_ms: Date.now() + 1000 * 60 * 60 * 24 * 30
@@ -208,7 +246,7 @@ describe('subscription API', () => {
       status: 'ACTIVE',
       isActive: true,
       canExportReports: true,
-      priceCents: 499,
+      priceCents: 720,
       currency: 'SGD'
     });
   });
@@ -225,7 +263,7 @@ describe('subscription API', () => {
         environment: 'SANDBOX',
         app_user_id: user.id,
         transaction_id: 'store_txn_canceled',
-        price_in_purchased_currency: 4.99,
+        price_in_purchased_currency: 7.2,
         currency: 'SGD',
         purchased_at_ms: Date.now() - 1000 * 60 * 60 * 24 * 20,
         expiration_at_ms: periodEnd
@@ -264,6 +302,8 @@ describe('subscription API', () => {
   it('backfills a 3-day trial for a verified user missing a subscription row', async () => {
     const user = await registerUser('subscription-backfill@example.com');
     await prisma.userSubscription.deleteMany({ where: { userId: user.id } });
+    const verifiedAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
+    await prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: verifiedAt } });
 
     const response = await fetch(`${baseUrl}/subscription/status`, {
       headers: { Cookie: user.cookie }
@@ -271,8 +311,54 @@ describe('subscription API', () => {
     const body = await jsonBody<SubscriptionStatusResponse>(response);
 
     expect(response.status).toBe(200);
-    expect(body.subscription).toMatchObject({ status: 'TRIALING', isActive: true, canExportReports: true });
+    expect(body.subscription).toMatchObject({ status: 'EXPIRED', isActive: false, canExportReports: false });
     expect(await prisma.userSubscription.count({ where: { userId: user.id } })).toBe(1);
+  });
+
+  it('grants and expires a fulfilled referral reward access window', async () => {
+    const user = await registerUser('subscription-reward@example.com');
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: { status: 'EXPIRED', trialEndsAt: new Date(0), currentPeriodEnd: new Date(0) }
+    });
+    await prisma.referralReward.create({
+      data: {
+        userId: user.id,
+        ordinal: 1,
+        status: 'FULFILLED',
+        fulfilledAt: new Date(),
+        fulfillmentStartsAt: new Date(Date.now() - 1000),
+        fulfillmentEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        fulfillmentRef: 'test-fulfillment'
+      }
+    });
+
+    const activeResponse = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const active = await jsonBody<SubscriptionStatusResponse>(activeResponse);
+    expect(active.subscription).toMatchObject({
+      status: 'EXPIRED',
+      isActive: true,
+      canCreateRecords: true,
+      canExportReports: true,
+      hasReferralRewardAccess: true
+    });
+
+    await prisma.referralReward.updateMany({
+      where: { userId: user.id },
+      data: { fulfillmentEndsAt: new Date(Date.now() - 1000) }
+    });
+    const expiredResponse = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const expired = await jsonBody<SubscriptionStatusResponse>(expiredResponse);
+    expect(expired.subscription).toMatchObject({
+      isActive: false,
+      canCreateRecords: false,
+      canExportReports: false,
+      hasReferralRewardAccess: false
+    });
   });
 
   it('rejects webhooks for another product or an unknown event type', async () => {
@@ -325,6 +411,21 @@ describe('subscription API', () => {
       }
     });
     expect(unknownEvent.status).toBe(400);
+
+    const missingExpiration = await postJson('/subscription/webhook', {
+      event: {
+        type: 'INITIAL_PURCHASE',
+        product_id: 'dispute_basic_monthly',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'SANDBOX',
+        app_user_id: user.id,
+        transaction_id: 'missing-expiration',
+        price_in_purchased_currency: 7.2,
+        currency: 'SGD'
+      }
+    });
+    expect(missingExpiration.status).toBe(400);
 
     const subscription = await prisma.userSubscription.findFirst({ where: { userId: user.id } });
     expect(subscription?.status).toBe('TRIALING');

@@ -1,18 +1,24 @@
 import { Prisma, SubscriptionStatus } from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
+import { recordPaidReferralPeriod } from '../referrals/referral.service.js';
 
 export interface SubscriptionEntitlement {
   userId: string;
   status: SubscriptionStatus | 'NONE';
   isActive: boolean;
+  canCreateRecords: boolean;
   canExportReports: boolean;
+  canExportPremiumReports: boolean;
+  canExportBasicData: true;
   billingProvider: 'store';
   billingEnforcementActive: boolean;
   planName: string;
   priceCents: number;
   currency: string;
   billingInterval: 'month';
+  hasReferralRewardAccess: boolean;
+  referralRewardEndsAt: string | null;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   message: string;
@@ -24,7 +30,7 @@ const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
 const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
 const supportedRevenueCatStores = new Set(['PLAY_STORE', 'APP_STORE']);
 const basicPlanName = 'DISPUTE Basic';
-const basicPlanPriceCents = 499;
+const basicPlanPriceCents = 720;
 const basicPlanCurrency = 'SGD';
 
 type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
@@ -71,7 +77,7 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
       select: { emailVerifiedAt: true }
     });
     if (verifiedUser?.emailVerifiedAt) {
-      await createTrialSubscriptionForUser(userId, new Date());
+      await createTrialSubscriptionForUser(userId, verifiedUser.emailVerifiedAt);
       subscription = await prisma.userSubscription.findFirst({
         where: { userId },
         include: { plan: true },
@@ -80,21 +86,39 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     }
   }
 
+  const activeReward = await prisma.referralReward.findFirst({
+    where: {
+      userId,
+      status: 'FULFILLED',
+      fulfillmentStartsAt: { lte: new Date() },
+      fulfillmentEndsAt: { gt: new Date() }
+    },
+    orderBy: { fulfillmentEndsAt: 'desc' }
+  });
+
   if (!subscription) {
+    const hasReferralRewardAccess = Boolean(activeReward);
     return {
       userId,
       status: 'NONE',
-      isActive: false,
-      canExportReports: false,
+      isActive: hasReferralRewardAccess,
+      canCreateRecords: hasReferralRewardAccess,
+      canExportReports: hasReferralRewardAccess,
+      canExportPremiumReports: hasReferralRewardAccess,
+      canExportBasicData: true,
       billingProvider: 'store',
       billingEnforcementActive: true,
       planName: basicPlanName,
       priceCents: basicPlanPriceCents,
       currency: basicPlanCurrency,
       billingInterval: 'month',
+      hasReferralRewardAccess: Boolean(activeReward),
+      referralRewardEndsAt: activeReward?.fulfillmentEndsAt?.toISOString() ?? null,
       trialEndsAt: null,
       currentPeriodEnd: null,
-      message: 'No trial or subscription is active. Subscribe to export reports.'
+      message: activeReward
+        ? `Referral reward access is active until ${activeReward.fulfillmentEndsAt!.toISOString()}.`
+        : 'No trial or subscription is active. Existing records remain readable; subscribe to create new records or export premium PDF/CSV reports.'
     };
   }
 
@@ -103,28 +127,37 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     subscription.trialEndsAt,
     subscription.currentPeriodEnd
   );
-  const isActive =
+  const hasSubscriptionAccess =
     effectiveStatus === SubscriptionStatus.ACTIVE ||
     effectiveStatus === SubscriptionStatus.TRIALING ||
     effectiveStatus === SubscriptionStatus.CANCELED;
+  const hasReferralRewardAccess = Boolean(activeReward);
+  const hasFullAccess = hasSubscriptionAccess || hasReferralRewardAccess;
   return {
     userId,
     status: effectiveStatus,
-    isActive,
-    canExportReports: isActive,
+    isActive: hasFullAccess,
+    canCreateRecords: hasFullAccess,
+    canExportReports: hasFullAccess,
+    canExportPremiumReports: hasFullAccess,
+    canExportBasicData: true,
     billingProvider: 'store',
     billingEnforcementActive: true,
     planName: subscription.plan.name,
     priceCents: subscription.monthlyRecurringCents,
     currency: subscription.currency,
     billingInterval: 'month',
+    hasReferralRewardAccess,
+    referralRewardEndsAt: activeReward?.fulfillmentEndsAt?.toISOString() ?? null,
     trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
     currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
-    message: buildEntitlementMessage(
-      effectiveStatus,
-      subscription.trialEndsAt,
-      subscription.currentPeriodEnd
-    )
+    message: hasReferralRewardAccess && !hasSubscriptionAccess
+      ? `Referral reward access is active until ${activeReward!.fulfillmentEndsAt!.toISOString()}.`
+      : buildEntitlementMessage(
+          effectiveStatus,
+          subscription.trialEndsAt,
+          subscription.currentPeriodEnd
+        )
   };
 }
 
@@ -169,10 +202,18 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const plan = await ensureBasicPlan(prisma);
   const purchasedAt = getDateFromMs(event, 'purchased_at_ms');
   const expirationAt = getDateFromMs(event, 'expiration_at_ms');
-  const priceCents = getRevenueCents(event) ?? basicPlanPriceCents;
+  if (requiresFutureExpiration(status) && (!expirationAt || expirationAt <= new Date())) {
+    return {
+      statusCode: 400,
+      body: { error: 'RevenueCat access-granting event must include a future expiration_at_ms.' }
+    } as const;
+  }
+  const reportedPriceCents = getRevenueCents(event);
+  const priceCents = reportedPriceCents ?? basicPlanPriceCents;
   const currency = getString(event, 'currency') ?? basicPlanCurrency;
   const providerSubscriptionId =
     getString(event, 'transaction_id') ?? getString(event, 'original_transaction_id');
+  const paidPeriodTransactionId = getString(event, 'transaction_id');
 
   await prisma.userSubscription.upsert({
     where: {
@@ -210,6 +251,17 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
       trialEndsAt: status === SubscriptionStatus.TRIALING ? expirationAt : undefined,
       canceledAt: status === SubscriptionStatus.CANCELED ? new Date() : null
     }
+  });
+
+  await recordPaidReferralPeriod({
+    userId,
+    event,
+    eventType: getString(event, 'type') ?? '',
+    transactionId: paidPeriodTransactionId,
+    store: getString(event, 'store'),
+    purchasedAt,
+    priceCents: reportedPriceCents,
+    currency
   });
 
   return {
@@ -251,7 +303,7 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
     where: { id: basicPlanCode },
     update: {
       name: basicPlanName,
-      price: new Prisma.Decimal('4.99'),
+      price: new Prisma.Decimal('7.20'),
       currency: basicPlanCurrency,
       billingInterval: 'month',
       limitsJson: JSON.stringify({ exportReports: true }),
@@ -260,7 +312,7 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
     create: {
       id: basicPlanCode,
       name: basicPlanName,
-      price: new Prisma.Decimal('4.99'),
+      price: new Prisma.Decimal('7.20'),
       currency: basicPlanCurrency,
       billingInterval: 'month',
       limitsJson: JSON.stringify({ exportReports: true }),
@@ -274,15 +326,31 @@ function getEffectiveStatus(
   trialEndsAt: Date | null,
   currentPeriodEnd: Date | null
 ): SubscriptionStatus {
-  if (status === SubscriptionStatus.TRIALING && trialEndsAt && trialEndsAt <= new Date()) {
-    return SubscriptionStatus.EXPIRED;
+  if (status === SubscriptionStatus.TRIALING) {
+    return trialEndsAt && trialEndsAt > new Date()
+      ? SubscriptionStatus.TRIALING
+      : SubscriptionStatus.EXPIRED;
   }
   if (status === SubscriptionStatus.CANCELED) {
     return currentPeriodEnd && currentPeriodEnd > new Date()
       ? SubscriptionStatus.CANCELED
       : SubscriptionStatus.EXPIRED;
   }
+  if (status === SubscriptionStatus.ACTIVE) {
+    return currentPeriodEnd && currentPeriodEnd > new Date()
+      ? SubscriptionStatus.ACTIVE
+      : SubscriptionStatus.EXPIRED;
+  }
   return status;
+}
+
+function requiresFutureExpiration(status: SubscriptionStatus): boolean {
+  const accessStatuses: SubscriptionStatus[] = [
+    SubscriptionStatus.TRIALING,
+    SubscriptionStatus.ACTIVE,
+    SubscriptionStatus.CANCELED
+  ];
+  return accessStatuses.includes(status);
 }
 
 function buildEntitlementMessage(
@@ -306,7 +374,7 @@ function buildEntitlementMessage(
       ? `Subscription canceled. Export remains available until ${currentPeriodEnd.toISOString()}.`
       : 'Subscription was canceled. Subscribe again to export reports.';
   }
-  return 'Trial ended. Subscribe to export reports. Your time and evidence records remain available.';
+  return 'Trial ended. Existing records remain readable and basic JSON backup stays available. Subscribe to create new records or export premium PDF/CSV reports.';
 }
 
 function addDays(date: Date, days: number): Date {

@@ -6,7 +6,11 @@ import { pickBackupFile, shareBackupFile, writeBackupFile } from "../backup/back
 import { backupWarning } from "../screenContent";
 import { styles } from "../styles";
 
-export function SettingsBackupScreen() {
+type SettingsBackupScreenProps = {
+  exportOnly?: boolean;
+};
+
+export function SettingsBackupScreen({ exportOnly = false }: SettingsBackupScreenProps) {
   const [backupJson, setBackupJson] = useState<string | null>(null);
   const [backupPath, setBackupPath] = useState<string | null>(null);
   const [restoreArmed, setRestoreArmed] = useState(false);
@@ -28,6 +32,10 @@ export function SettingsBackupScreen() {
   }
 
   async function handleChooseImport() {
+    if (exportOnly) {
+      setStatus("Restore is unavailable in read-only mode. Export and share remain available.");
+      return;
+    }
     try {
       const picked = await pickBackupFile();
       if (picked.canceled || !picked.json) {
@@ -43,6 +51,10 @@ export function SettingsBackupScreen() {
   }
 
   async function handleImport() {
+    if (exportOnly) {
+      setStatus("Restore is unavailable in read-only mode. Existing records were not changed.");
+      return;
+    }
     if (!backupJson || !restoreArmed) {
       setStatus("Choose a valid backup file before confirming restore.");
       return;
@@ -83,8 +95,9 @@ export function SettingsBackupScreen() {
       <View style={styles.card}>
         <Text style={styles.heading}>Backup tools</Text>
         <Text style={styles.body}>
-          Export creates a dispute JSON backup from local SQLite. Import
-          validates a selected JSON file and restores it only after explicit overwrite confirmation.
+          Export creates a dispute JSON backup from local SQLite. {exportOnly
+            ? "Read-only mode keeps export and share available without changing records."
+            : "Import validates a selected JSON file and restores it only after explicit overwrite confirmation."}
         </Text>
         <View style={styles.actionRow}>
           <Pressable style={styles.actionButton} onPress={handleExport}>
@@ -93,11 +106,13 @@ export function SettingsBackupScreen() {
           <Pressable style={styles.actionButtonSecondary} onPress={handleShare}>
             <Text style={styles.actionButtonSecondaryText}>Share Backup</Text>
           </Pressable>
-          <Pressable style={styles.actionButtonSecondary} onPress={handleChooseImport}>
-            <Text style={styles.actionButtonSecondaryText}>Choose Backup File</Text>
-          </Pressable>
+          {!exportOnly ? (
+            <Pressable style={styles.actionButtonSecondary} onPress={handleChooseImport}>
+              <Text style={styles.actionButtonSecondaryText}>Choose Backup File</Text>
+            </Pressable>
+          ) : null}
         </View>
-        {restoreArmed ? (
+        {restoreArmed && !exportOnly ? (
           <Pressable style={styles.actionButton} onPress={handleImport}>
             <Text style={styles.actionButtonText}>Confirm Overwrite Restore</Text>
           </Pressable>

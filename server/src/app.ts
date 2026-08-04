@@ -12,6 +12,7 @@ import { payRouter } from './modules/pay/pay.routes.js';
 import { photoRouter } from './modules/photos/photo.routes.js';
 import { profileRouter } from './modules/profile/profile.routes.js';
 import { projectRouter } from './modules/projects/project.routes.js';
+import { referralRouter } from './modules/referrals/referral.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
 import { settingsRouter } from './modules/settings/settings.routes.js';
 import { subscriptionRouter } from './modules/subscription/subscription.routes.js';
@@ -63,6 +64,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use('/photo-evidence', photoRouter);
   app.use('/pay-summaries', payRouter);
   app.use('/reports', reportRouter);
+  app.use('/referrals', referralRouter);
   app.use('/settings', settingsRouter);
   app.use('/subscription', subscriptionRouter);
   app.use('/admin', adminRouter);

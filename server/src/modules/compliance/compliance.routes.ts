@@ -97,10 +97,11 @@ function renderPrivacyPolicy(): string {
     <ul>
       <li>Account data: name, email address, mobile number, password hash, verification status and account timestamps.</li>
       <li>Subscription data: plan, trial and entitlement status, store product identifiers and provider subscription identifiers.</li>
+      <li>Referral data: referral code, referring account, paid-period qualification count and earned reward status. A normalized mobile number is used to limit duplicate-account abuse.</li>
       <li>Work evidence: projects, time entries, optional location information, photos and generated reports are stored locally on the device by the current mobile release unless the user explicitly exports, backs up or shares them.</li>
     </ul>
     <h2>Why data is used</h2>
-    <p>Data is used to create and secure accounts, verify email, restore access, provide subscriptions, generate user-requested evidence and reports, and prevent abuse.</p>
+    <p>Data is used to create and secure accounts, verify email, restore access, provide subscriptions, operate the referral pilot, generate user-requested evidence and reports, and prevent abuse.</p>
     <h2>Service providers</h2>
     <p>Email delivery providers process verification and password-reset email. Google Play and RevenueCat process subscription and entitlement information. DISPUTE does not sell personal data. When a DISPUTE account is deleted, the server requests deletion of the matching RevenueCat customer profile.</p>
     <h2>Retention and deletion</h2>

@@ -52,12 +52,15 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
 
 test("mobile subscription screen copy declares 3-day trial and store billing", () => {
   for (const requiredCopy of [
-    "New verified users receive a 3-day trial",
-    "subscribe to export PDF and CSV reports",
-    "SGD 4.99/month",
-    "Apple App Store or Google Play billing",
+    "no-card trial",
+    "No charge starts automatically",
+    "subscribe to create new records and export premium PDF and CSV reports",
+    "localized subscription price",
+    "Google Play displays the localized subscription price for Android",
+    "App Store billing will be configured before the separate iOS release",
     "Stripe checkout is not used inside the app",
   ]) {
     assert.match(contentSource, new RegExp(requiredCopy));
   }
+  assert.doesNotMatch(contentSource, /SGD 4\.99\/month/);
 });

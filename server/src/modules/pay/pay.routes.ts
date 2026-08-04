@@ -2,6 +2,7 @@ import { RateType } from '@prisma/client';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { requireUser } from '../../middleware/requireUser.js';
+import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
 import { requiredDateOnly, requiredMoney } from '../../utils/validation.js';
 import {
   deletePaySummary,
@@ -56,7 +57,7 @@ payRouter.get('/', async (req, res, next) => {
   }
 });
 
-payRouter.post('/generate', async (req, res, next) => {
+payRouter.post('/generate', requireRecordMutationAccess, async (req, res, next) => {
   try {
     const parsed = generatePaySummarySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -80,9 +81,9 @@ payRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-payRouter.delete('/:id', async (req, res, next) => {
+payRouter.delete('/:id', requireRecordMutationAccess, async (req, res, next) => {
   try {
-    await deletePaySummary(req.user!.id, req.params.id);
+    await deletePaySummary(req.user!.id, String(req.params.id));
     res.status(204).send();
   } catch (error) {
     handlePaySummaryError(error, res, next);

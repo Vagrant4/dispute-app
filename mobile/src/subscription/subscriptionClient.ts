@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import type RevenueCatPurchases from "react-native-purchases";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { getAuthApiBaseUrl } from "../auth/remoteAuth";
@@ -15,13 +16,18 @@ export type SubscriptionEntitlement = {
   userId: string;
   status: SubscriptionStatus;
   isActive: boolean;
+  canCreateRecords: boolean;
   canExportReports: boolean;
+  canExportPremiumReports: boolean;
+  canExportBasicData: boolean;
   billingProvider: "store";
   billingEnforcementActive: boolean;
   planName: string;
   priceCents: number;
   currency: string;
   billingInterval: "month";
+  hasReferralRewardAccess: boolean;
+  referralRewardEndsAt: string | null;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   message: string;
@@ -35,8 +41,10 @@ const disputeBasicProductId =
   process.env.EXPO_PUBLIC_REVENUECAT_PRODUCT_ID?.trim() || "dispute_basic_monthly";
 const disputeBasicEntitlementId =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || "";
+const entitlementCacheKeyPrefix = "dispute.subscription-entitlement.v1";
 
 export async function fetchSubscriptionStatus(
+  expectedUserId?: string,
   fetcher: FetchLike = fetch,
 ): Promise<
   | { ok: true; subscription: SubscriptionEntitlement }
@@ -63,11 +71,21 @@ export async function fetchSubscriptionStatus(
       };
     }
 
+    if (expectedUserId && subscription.userId !== expectedUserId) {
+      return { ok: false, message: "Subscription status does not match the signed-in account." };
+    }
+    await saveCachedSubscriptionEntitlement(subscription);
     return {
       ok: true,
       subscription,
     };
   } catch {
+    const cached = expectedUserId
+      ? await loadCachedSubscriptionEntitlement(expectedUserId)
+      : null;
+    if (cached && hasCurrentFullAccess(cached)) {
+      return { ok: true, subscription: cached };
+    }
     return {
       ok: false,
       message:
@@ -76,18 +94,58 @@ export async function fetchSubscriptionStatus(
   }
 }
 
+export function hasCurrentFullAccess(
+  subscription: SubscriptionEntitlement | null,
+  nowMs = Date.now(),
+): boolean {
+  if (!subscription) return false;
+  if (
+    subscription.hasReferralRewardAccess &&
+    isFutureTimestamp(subscription.referralRewardEndsAt, nowMs)
+  ) {
+    return true;
+  }
+  if (subscription.status === "TRIALING") {
+    return subscription.canCreateRecords && isFutureTimestamp(subscription.trialEndsAt, nowMs);
+  }
+  if (subscription.status === "ACTIVE" || subscription.status === "CANCELED") {
+    return subscription.canCreateRecords && isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
+  }
+  return false;
+}
+
 export async function purchaseDisputeBasicSubscription(
   account: LocalAccount,
+  currentSubscription?: SubscriptionEntitlement | null,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const eligibility = currentSubscription
+    ? { ok: true as const, subscription: currentSubscription }
+    : await fetchSubscriptionStatus(account.id);
+  if (!eligibility.ok) {
+    return {
+      ok: false,
+      message: "Subscription status must be checked before opening Google Play. Connect to the internet and try again.",
+    };
+  }
+  const checkedSubscription = eligibility.subscription;
+  if (
+    checkedSubscription?.status === "TRIALING" &&
+    hasCurrentFullAccess(checkedSubscription)
+  ) {
+    return {
+      ok: false,
+      message: "No card is required during the 3-day trial. Subscribe after the trial ends.",
+    };
+  }
+  if (hasCurrentFullAccess(checkedSubscription)) {
+    return { ok: false, message: "Your current access period is still active." };
+  }
   try {
     const configured = await getConfiguredPurchases(account);
     if (!configured.ok) return configured;
     const { Purchases } = configured;
 
-    const offerings = await Purchases.getOfferings();
-    const selectedPackage = offerings.current?.availablePackages?.find(
-      (item) => item.product.identifier === disputeBasicProductId,
-    );
+    const selectedPackage = await getDisputeBasicPackage(Purchases);
     if (!selectedPackage) {
       return {
         ok: false,
@@ -117,6 +175,34 @@ export async function purchaseDisputeBasicSubscription(
         error instanceof Error
           ? error.message
           : "Subscription purchase could not be completed.",
+    };
+  }
+}
+
+export async function fetchDisputeBasicStorePrice(
+  account: LocalAccount,
+): Promise<
+  | { ok: true; localizedPrice: string }
+  | { ok: false; message: string }
+> {
+  try {
+    const configured = await getConfiguredPurchases(account);
+    if (!configured.ok) return configured;
+
+    const selectedPackage = await getDisputeBasicPackage(configured.Purchases);
+    const localizedPrice = selectedPackage?.product.priceString?.trim();
+    if (!localizedPrice) {
+      return {
+        ok: false,
+        message: "The store price is not available yet.",
+      };
+    }
+
+    return { ok: true, localizedPrice };
+  } catch {
+    return {
+      ok: false,
+      message: "Unable to load the localized store price.",
     };
   }
 }
@@ -173,14 +259,31 @@ async function getConfiguredPurchases(account: LocalAccount) {
   const purchasesModule = await import("react-native-purchases");
   const Purchases =
     "default" in purchasesModule ? purchasesModule.default : purchasesModule;
-  Purchases.configure({
-    apiKey,
-    appUserID: account.id ?? account.email,
-    useAmazon: false,
-    diagnosticsEnabled: false,
-    automaticDeviceIdentifierCollectionEnabled: false,
-  });
+  const appUserID = account.id ?? account.email;
+  if (!(await Purchases.isConfigured())) {
+    Purchases.configure({
+      apiKey,
+      appUserID,
+      useAmazon: false,
+      diagnosticsEnabled: false,
+      automaticDeviceIdentifierCollectionEnabled: false,
+    });
+  } else if (configuredRevenueCatUserId !== appUserID) {
+    await Purchases.logIn(appUserID);
+  }
+  configuredRevenueCatUserId = appUserID;
   return { ok: true as const, Purchases };
+}
+
+let configuredRevenueCatUserId: string | null = null;
+
+async function getDisputeBasicPackage(
+  Purchases: typeof RevenueCatPurchases,
+) {
+  const offerings = await Purchases.getOfferings();
+  return offerings.current?.availablePackages?.find(
+    (item) => item.product.identifier === disputeBasicProductId,
+  );
 }
 
 function getRevenueCatConfigurationError(
@@ -201,10 +304,6 @@ function getRevenueCatConfigurationError(
     return "The iOS subscription key is not an App Store RevenueCat public key.";
   }
   return null;
-}
-
-export function formatSubscriptionPrice(subscription: SubscriptionEntitlement): string {
-  return `${subscription.currency} ${(subscription.priceCents / 100).toFixed(2)}/month`;
 }
 
 export function formatTrialCountdown(subscription: SubscriptionEntitlement | null): string {
@@ -255,10 +354,15 @@ function parseSubscriptionEntitlement(value: unknown): SubscriptionEntitlement |
   if (!isNullableString(item.trialEndsAt) || !isNullableString(item.currentPeriodEnd)) return null;
   if (
     typeof item.isActive !== "boolean" ||
+    typeof item.canCreateRecords !== "boolean" ||
     typeof item.canExportReports !== "boolean" ||
+    typeof item.canExportPremiumReports !== "boolean" ||
+    typeof item.canExportBasicData !== "boolean" ||
+    typeof item.hasReferralRewardAccess !== "boolean" ||
     typeof item.billingEnforcementActive !== "boolean" ||
     item.billingProvider !== "store" ||
-    item.billingInterval !== "month"
+    item.billingInterval !== "month" ||
+    !isNullableString(item.referralRewardEndsAt)
   ) return null;
 
   return item as SubscriptionEntitlement;
@@ -266,4 +370,61 @@ function parseSubscriptionEntitlement(value: unknown): SubscriptionEntitlement |
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+function isFutureTimestamp(value: string | null, nowMs: number): boolean {
+  if (!value) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp > nowMs;
+}
+
+async function saveCachedSubscriptionEntitlement(
+  subscription: SubscriptionEntitlement,
+): Promise<void> {
+  try {
+    const serialized = JSON.stringify(subscription);
+    if (Platform.OS === "web") {
+      globalThis.localStorage?.setItem(getEntitlementCacheKey(subscription.userId), serialized);
+      return;
+    }
+    const SecureStore = await import("expo-secure-store");
+    await SecureStore.setItemAsync(getEntitlementCacheKey(subscription.userId), serialized);
+  } catch {
+    // A cache failure must never block a verified server entitlement.
+  }
+}
+
+async function loadCachedSubscriptionEntitlement(
+  expectedUserId: string,
+): Promise<SubscriptionEntitlement | null> {
+  try {
+    const serialized = Platform.OS === "web"
+      ? globalThis.localStorage?.getItem(getEntitlementCacheKey(expectedUserId)) ?? null
+      : await (await import("expo-secure-store")).getItemAsync(
+          getEntitlementCacheKey(expectedUserId),
+        );
+    if (!serialized) return null;
+    const subscription = parseSubscriptionEntitlement(JSON.parse(serialized));
+    return subscription?.userId === expectedUserId ? subscription : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearCachedSubscriptionEntitlement(userId?: string): Promise<void> {
+  if (!userId) return;
+  try {
+    const key = getEntitlementCacheKey(userId);
+    if (Platform.OS === "web") {
+      globalThis.localStorage?.removeItem(key);
+      return;
+    }
+    await (await import("expo-secure-store")).deleteItemAsync(key);
+  } catch {
+    // Logout and deletion continue even if the cache was already unavailable.
+  }
+}
+
+function getEntitlementCacheKey(userId: string): string {
+  return `${entitlementCacheKeyPrefix}.${userId}`;
 }

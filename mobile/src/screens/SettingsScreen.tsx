@@ -7,14 +7,20 @@ import { subscriptionContent } from "../screenContent";
 import { styles } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
 import { PrivacyScreen } from "./PrivacyScreen";
+import { ReferralScreen } from "./ReferralScreen";
+import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
   fetchSubscriptionStatus,
-  formatSubscriptionPrice,
   formatTrialCountdown,
+  hasCurrentFullAccess,
   purchaseDisputeBasicSubscription,
   restoreDisputeBasicSubscription,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
+import {
+  formatMonthlyStorePrice,
+  useDisputeBasicStorePrice,
+} from "../subscription/useDisputeBasicStorePrice";
 
 type SettingsScreenProps = {
   account: LocalAccount;
@@ -22,7 +28,7 @@ type SettingsScreenProps = {
   onAccountDeleted: (message: string) => void;
 };
 
-type SettingPanel = "profile" | "work_hours" | "subscription" | "privacy_data";
+type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
 
 export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
   const [panel, setPanel] = useState<SettingPanel>("profile");
@@ -57,21 +63,31 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   const [subscriptionStatus, setSubscriptionStatus] = useState(
     "Checking subscription status...",
   );
+  const [subscriptionClock, setSubscriptionClock] = useState(0);
+  const storePrice = useDisputeBasicStorePrice(account);
+  const hasFullAccess = hasCurrentFullAccess(subscription, subscriptionClock);
+  const displayedSubscriptionStatus =
+    subscription?.status === "TRIALING" && !hasFullAccess
+      ? "EXPIRED"
+      : subscription?.status ?? "Check";
 
   const options: Array<{ id: SettingPanel; label: string }> = [
     { id: "profile", label: "Profile" },
     { id: "work_hours", label: "Work hours" },
     { id: "subscription", label: "Subscription" },
+    { id: "referrals", label: "Referrals" },
     { id: "privacy_data", label: "Privacy & data" },
   ];
 
   useEffect(() => {
     void loadWorkHours();
     void loadSubscriptionStatus();
+    const timer = setInterval(() => setSubscriptionClock(Date.now()), 30_000);
+    return () => clearInterval(timer);
   }, []);
 
   async function loadSubscriptionStatus() {
-    const result = await fetchSubscriptionStatus();
+    const result = await fetchSubscriptionStatus(account.id);
     if (!result.ok) {
       setSubscription(null);
       setSubscriptionStatus(result.message);
@@ -79,6 +95,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
     }
 
     setSubscription(result.subscription);
+    setSubscriptionClock(Date.now());
     setSubscriptionStatus(
       formatTrialCountdown(result.subscription) || result.subscription.message,
     );
@@ -86,7 +103,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
 
   async function handleSubscribe() {
     setSubscriptionStatus("Opening store subscription...");
-    const purchase = await purchaseDisputeBasicSubscription(account);
+    const purchase = await purchaseDisputeBasicSubscription(account, subscription);
     if (!purchase.ok) {
       setSubscriptionStatus(purchase.message);
       return;
@@ -413,18 +430,26 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
           <View style={styles.metricGrid}>
             <View style={styles.metricTile}>
               <Text style={styles.metricValue}>
-                {subscription?.status ?? "Check"}
+                {displayedSubscriptionStatus}
               </Text>
               <Text style={styles.metricLabel}>current plan</Text>
             </View>
             <View style={styles.metricTile}>
               <Text style={styles.metricValue}>
-                {subscription ? formatSubscriptionPrice(subscription) : "SGD 4.99/month"}
+                {formatMonthlyStorePrice(storePrice)}
               </Text>
               <Text style={styles.metricLabel}>price</Text>
             </View>
           </View>
-          {subscription?.status !== "ACTIVE" ? (
+          {subscription?.status === "TRIALING" && hasFullAccess ? (
+            <View style={styles.statusCard}>
+              <Text style={styles.statusTitle}>No card required</Text>
+              <Text style={styles.statusMessage}>
+                Use every feature during the 3-day trial. The Subscribe button becomes available after the trial ends, and no charge starts automatically.
+              </Text>
+            </View>
+          ) : null}
+          {subscription && !hasFullAccess ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => void handleSubscribe()}
@@ -432,7 +457,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             >
               <Text style={styles.actionButtonText}>Subscribe</Text>
               <Text style={styles.actionButtonSubtext}>
-                DISPUTE Basic - SGD 4.99/month
+                DISPUTE Basic - {formatMonthlyStorePrice(storePrice)}
               </Text>
             </Pressable>
           ) : null}
@@ -455,9 +480,12 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
         </View>
       ) : null}
 
+      {panel === "referrals" ? <ReferralScreen /> : null}
+
       {panel === "privacy_data" ? (
         <>
           <PrivacyScreen />
+          <SettingsBackupScreen exportOnly={!hasFullAccess} />
           <DeleteAccountScreen
             account={account}
             onAccountDeleted={onAccountDeleted}

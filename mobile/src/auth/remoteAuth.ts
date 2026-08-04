@@ -66,6 +66,7 @@ export async function registerRemoteAccount(
     phone: string;
     password: string;
     confirmPassword: string;
+    referralCode?: string;
   },
   fetcher: FetchLike = fetch,
 ): Promise<RemoteRegistrationResult> {
@@ -84,6 +85,9 @@ export async function registerRemoteAccount(
         password: input.password,
         fullName: input.name.trim(),
         phone: input.phone.trim(),
+        ...(input.referralCode?.trim()
+          ? { referralCode: input.referralCode.trim().toUpperCase() }
+          : {}),
       }),
     });
     const body = await readJsonBody(response);

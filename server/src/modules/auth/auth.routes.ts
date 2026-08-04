@@ -29,7 +29,8 @@ authRouter.post('/register', accountActionLimiter, async (req, res, next) => {
       email: String(req.body?.email ?? ''),
       password: String(req.body?.password ?? ''),
       fullName: String(req.body?.fullName ?? ''),
-      phone: String(req.body?.phone ?? '')
+      phone: String(req.body?.phone ?? ''),
+      referralCode: req.body?.referralCode ? String(req.body.referralCode) : undefined
     });
     res.status(201).json(result);
   } catch (error) {
