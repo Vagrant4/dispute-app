@@ -5,7 +5,7 @@
 - A verified account receives a three-day DISPUTE trial without entering payment details.
 - During the trial, the user can create work records, capture evidence and export premium PDF/CSV reports.
 - The app must not initiate a store purchase or charge during the trial.
-- After the trial, the user may subscribe to DISPUTE Basic through Google Play for the store-localized equivalent of S$7.20 per month.
+- After the trial, the user may subscribe to DISPUTE Basic through Google Play for the store-localized equivalent of S$6.99 per month.
 - A canceled subscription keeps full access until the paid period ends.
 - After entitlement expiry, existing local records remain readable and a basic JSON backup remains available. New work/evidence capture and premium PDF/CSV export require an active trial, subscription or fulfilled referral reward.
 
