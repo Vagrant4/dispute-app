@@ -33,6 +33,7 @@ jobs:
         run: |
           base64 --decode "$RUNNER_TEMP/rectification.patch.b64" > "$RUNNER_TEMP/rectification.patch"
           echo "34390cc3a549f523884b37fef194b02ce7e2f0021e4deb3552038b7bb8b7f13f  $RUNNER_TEMP/rectification.patch" | sha256sum --check --strict
+          sed --in-place 's/\r$//' "$RUNNER_TEMP/rectification.patch"
           git config user.name "Codex Automation"
           git config user.email "actions@users.noreply.github.com"
           git switch --create codex/android-subscription-project-rectification-final
