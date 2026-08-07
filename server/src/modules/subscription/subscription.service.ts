@@ -30,7 +30,7 @@ const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
 const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
 const supportedRevenueCatStores = new Set(['PLAY_STORE', 'APP_STORE']);
 const basicPlanName = 'DISPUTE Basic';
-const basicPlanPriceCents = 720;
+const basicPlanPriceCents = 699;
 const basicPlanCurrency = 'SGD';
 
 type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
@@ -310,7 +310,7 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
     where: { id: basicPlanCode },
     update: {
       name: basicPlanName,
-      price: new Prisma.Decimal('7.20'),
+      price: new Prisma.Decimal('6.99'),
       currency: basicPlanCurrency,
       billingInterval: 'month',
       limitsJson: JSON.stringify({ exportReports: true }),
@@ -319,7 +319,7 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
     create: {
       id: basicPlanCode,
       name: basicPlanName,
-      price: new Prisma.Decimal('7.20'),
+      price: new Prisma.Decimal('6.99'),
       currency: basicPlanCurrency,
       billingInterval: 'month',
       limitsJson: JSON.stringify({ exportReports: true }),
