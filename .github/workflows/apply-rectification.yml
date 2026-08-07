@@ -1,0 +1,40 @@
+name: Apply reviewed DISPUTE rectification
+
+on:
+  push:
+    branches:
+      - codex/android-subscription-project-rectification-clean
+    paths:
+      - .github/workflows/apply-rectification.yml
+      - .github/workflows/rectification-f00535c.patch.b64
+
+permissions:
+  contents: write
+
+jobs:
+  apply-reviewed-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out bridge branch
+        uses: actions/checkout@v4
+
+      - name: Preserve reviewed patch payload
+        shell: bash
+        run: cp .github/workflows/rectification-f00535c.patch.b64 "$RUNNER_TEMP/rectification.patch.b64"
+
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify and apply reviewed commit
+        shell: bash
+        run: |
+          base64 --decode "$RUNNER_TEMP/rectification.patch.b64" > "$RUNNER_TEMP/rectification.patch"
+          echo "34390cc3a549f523884b37fef194b02ce7e2f0021e4deb3552038b7bb8b7f13f  $RUNNER_TEMP/rectification.patch" | sha256sum --check --strict
+          git config user.name "Codex Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git switch --create codex/android-subscription-project-rectification-final
+          git am "$RUNNER_TEMP/rectification.patch"
+          git push origin HEAD:refs/heads/codex/android-subscription-project-rectification-final
