@@ -36,5 +36,6 @@ jobs:
           git config user.name "Codex Automation"
           git config user.email "actions@users.noreply.github.com"
           git switch --create codex/android-subscription-project-rectification-final
-          git am "$RUNNER_TEMP/rectification.patch"
+          git apply --index "$RUNNER_TEMP/rectification.patch"
+          git commit --message "fix: restore project creation and Play subscription matching"
           git push origin HEAD:refs/heads/codex/android-subscription-project-rectification-final
