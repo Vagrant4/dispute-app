@@ -343,3 +343,56 @@ test("generateAndArchiveProgressClaim requests the selected project snapshot", a
   ]);
   assert.equal(inserted.length, 1);
 });
+
+test("generateAndArchiveProgressClaim creates and archives the selected project PDF", async () => {
+  const requestedSnapshots = [];
+  const inserted = [];
+  const snapshot = createSnapshot();
+  const { generateAndArchiveProgressClaim } = createTsLoader({
+    "expo-file-system/legacy": {
+      documentDirectory: "file:///documents/",
+      EncodingType: { UTF8: "utf8" },
+    },
+    "expo-print": {
+      printToFileAsync: async () => ({ uri: "file:///cache/report.pdf" }),
+    },
+  })("src/reports/progressClaimReportArchive.ts");
+
+  const result = await generateAndArchiveProgressClaim({
+    type: "progress_claim_pdf",
+    userId: "user-a",
+    projectId: "project-selected",
+    repositories: {
+      progressClaims: {
+        buildLatestProgressClaimSnapshot: async (params) => {
+          requestedSnapshots.push(params);
+          return snapshot;
+        },
+      },
+      generatedDocuments: {
+        insertGeneratedDocument: async (row) => inserted.push(row),
+      },
+    },
+    createDocumentId: () => "claim-pdf-1",
+    savePdf: async (params) => {
+      assert.equal(params.snapshot, snapshot);
+      return {
+        filePath: "file:///documents/selected-project-report.pdf",
+        message: "PDF saved.",
+      };
+    },
+  });
+
+  assert.deepEqual(requestedSnapshots, [
+    { userId: "user-a", projectId: "project-selected" },
+  ]);
+  assert.equal(inserted.length, 1);
+  assert.equal(inserted[0].type, "progress_claim_pdf");
+  assert.equal(
+    inserted[0].filePath,
+    "file:///documents/selected-project-report.pdf",
+  );
+  assert.equal(result.filePath, "file:///documents/selected-project-report.pdf");
+  assert.equal(result.message, "PDF saved.");
+  assert.match(result.fileName, /\.pdf$/);
+});
