@@ -3,6 +3,7 @@ import type RevenueCatPurchases from "react-native-purchases";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { getAuthApiBaseUrl } from "../auth/remoteAuth";
+import { matchesConfiguredStoreProductIdentifier } from "./subscriptionProduct";
 
 export type SubscriptionStatus =
   | "NONE"
@@ -112,6 +113,15 @@ export function hasCurrentFullAccess(
     return subscription.canCreateRecords && isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
   }
   return false;
+}
+
+export function canExportProgressClaim(
+  subscription: SubscriptionEntitlement | null,
+  nowMs = Date.now(),
+): boolean {
+  return Boolean(
+    subscription?.canExportReports && hasCurrentFullAccess(subscription, nowMs),
+  );
 }
 
 export async function purchaseDisputeBasicSubscription(
@@ -282,7 +292,10 @@ async function getDisputeBasicPackage(
 ) {
   const offerings = await Purchases.getOfferings();
   return offerings.current?.availablePackages?.find(
-    (item) => item.product.identifier === disputeBasicProductId,
+    (item) => matchesConfiguredStoreProductIdentifier(
+      item.product.identifier,
+      disputeBasicProductId,
+    ),
   );
 }
 

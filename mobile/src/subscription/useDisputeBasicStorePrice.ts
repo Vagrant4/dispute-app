@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { LocalAccount } from "../auth/localAuth";
 import { fetchDisputeBasicStorePrice } from "./subscriptionClient";
 
-const STORE_PRICE_FALLBACK = "S$7.20/month - final price shown in store";
+const STORE_PRICE_FALLBACK = "S$6.99/month - final price shown in store";
 
 export function useDisputeBasicStorePrice(account: LocalAccount): string | null {
   const [localizedPrice, setLocalizedPrice] = useState<string | null>(null);
