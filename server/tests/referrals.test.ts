@@ -255,7 +255,7 @@ describe('referral pilot', () => {
       transactionId,
       store: 'PLAY_STORE',
       purchasedAt,
-      priceCents: 720,
+      priceCents: 699,
       currency: 'SGD'
     });
   }
