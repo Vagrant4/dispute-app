@@ -241,7 +241,7 @@ describe('subscription API', () => {
     const response = await postJson('/subscription/webhook', {
       event: {
         type: 'INITIAL_PURCHASE',
-        product_id: 'dispute_basic_monthly',
+        product_id: 'dispute_basic_monthly:monthly-plan',
         entitlement_ids: ['dispute_basic'],
         store: 'PLAY_STORE',
         environment: 'SANDBOX',
@@ -391,7 +391,7 @@ describe('subscription API', () => {
     const wrongProduct = await postJson('/subscription/webhook', {
       event: {
         type: 'INITIAL_PURCHASE',
-        product_id: 'another_product',
+        product_id: 'dispute_basic_monthly:legacy-plan',
         entitlement_ids: ['dispute_basic'],
         store: 'PLAY_STORE',
         environment: 'SANDBOX',

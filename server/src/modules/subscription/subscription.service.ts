@@ -1,4 +1,5 @@
 import { Prisma, SubscriptionStatus } from '@prisma/client';
+import { matchesConfiguredStoreProductIdentifier } from '@claimproof/shared';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { recordPaidReferralPeriod } from '../referrals/referral.service.js';
@@ -172,7 +173,7 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   }
 
   const productId = getString(event, 'product_id');
-  if (productId !== storeProductId) {
+  if (!matchesConfiguredStoreProductIdentifier(productId, storeProductId)) {
     return {
       statusCode: 400,
       body: { error: `RevenueCat webhook product_id must be ${storeProductId}.` }
