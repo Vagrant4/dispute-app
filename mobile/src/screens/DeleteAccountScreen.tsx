@@ -90,7 +90,12 @@ export function DeleteAccountScreen({
     const generatedRequestId = Crypto.randomUUID();
     setDeleting(true);
     setStatus("Permanently deleting account and data...");
-    const requestId = await markAccountDeletionPending(generatedRequestId);
+    const userId = account.id ?? account.email.trim().toLowerCase();
+    const requestId = await markAccountDeletionPending({
+      requestId: generatedRequestId,
+      userId,
+      email: account.email,
+    });
     const result = await deleteRemoteAccount({
       password,
       confirmation,
@@ -108,7 +113,7 @@ export function DeleteAccountScreen({
 
     await markServerAccountDeleted(result.requestId);
     try {
-      await clearDeletedAccountLocalData();
+      await clearDeletedAccountLocalData({ userId, email: account.email });
       onAccountDeleted(result.message);
     } catch {
       onAccountDeleted(

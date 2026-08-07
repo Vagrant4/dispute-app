@@ -83,6 +83,25 @@ export async function clearAllLocalAuthData(): Promise<void> {
   await FileSystem.deleteAsync(AUTH_DIRECTORY, { idempotent: true });
 }
 
+export async function removeLocalAccountData(params: {
+  userId: string;
+  email: string;
+}): Promise<void> {
+  const normalizedEmail = params.email.trim().toLowerCase();
+  const accounts = await phoneLocalAccountStorage.loadAccounts();
+  await phoneLocalAccountStorage.saveAccounts(
+    accounts.filter(
+      (account) =>
+        account.id !== params.userId &&
+        account.email.trim().toLowerCase() !== normalizedEmail,
+    ),
+  );
+  const savedLogin = await loadSavedLoginDetails();
+  if (savedLogin?.email.trim().toLowerCase() === normalizedEmail) {
+    await clearSavedLoginDetails();
+  }
+}
+
 async function loadLegacySavedLoginDetails(): Promise<SavedLoginDetails | null> {
   const fileInfo = await FileSystem.getInfoAsync(LEGACY_SAVED_LOGIN_FILE);
   if (!fileInfo.exists) {

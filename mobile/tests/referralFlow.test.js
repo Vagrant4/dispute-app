@@ -27,7 +27,7 @@ test("settings exposes a server-backed referral share link and progress", () => 
   assert.match(referralScreenSource, /Five qualified referrals/);
 });
 
-test("expired access gates new local capture while preserving existing records", () => {
+test("expired access gates new local capture while preserving user control of existing records", () => {
   assert.match(homeSource, /canCreateRecords/);
   assert.match(homeSource, /Read-only access/);
   assert.match(evidenceSource, /canCreateRecords/);
@@ -35,7 +35,7 @@ test("expired access gates new local capture while preserving existing records",
   assert.match(settingsSource, /SettingsBackupScreen/);
   assert.match(settingsSource, /exportOnly=/);
   assert.match(backupSource, /Restore is unavailable in read-only mode/);
-  assert.match(reportsSource, /Existing reports cannot be deleted/);
+  assert.doesNotMatch(reportsSource, /Existing reports cannot be deleted/);
 });
 
 test("report export screen offers individual-project PDF and CSV generation", () => {

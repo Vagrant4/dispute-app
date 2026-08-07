@@ -22,8 +22,8 @@ export {
 export { CURRENT_SCHEMA_VERSION } from "../db/schema";
 
 export type BackupRepositoryPort = {
-  exportTables?: () => Promise<BackupTables>;
-  applyBackup: (envelope: BackupEnvelope) => Promise<void>;
+  exportTables?: (userId?: string) => Promise<BackupTables>;
+  applyBackup: (envelope: BackupEnvelope, userId?: string) => Promise<void>;
 };
 
 export function createBackupEnvelope(tables: BackupTables): BackupEnvelope {
@@ -39,8 +39,9 @@ export function createBackupEnvelope(tables: BackupTables): BackupEnvelope {
 
 export async function exportBackupJson(
   repository: Required<Pick<BackupRepositoryPort, "exportTables">>,
+  userId?: string,
 ): Promise<string> {
-  const tables = await repository.exportTables();
+  const tables = await repository.exportTables(userId);
   return JSON.stringify(createBackupEnvelope(tables), null, 2);
 }
 
@@ -131,7 +132,7 @@ export async function importBackupJson(
     throw new Error("Import requires explicit overwrite mode before replacing local records.");
   }
 
-  await repository.applyBackup(envelope);
+  await repository.applyBackup(envelope, options.userId);
 
   return {
     importedTableCounts: getImportedTableCounts(envelope.tables),

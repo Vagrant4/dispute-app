@@ -5,12 +5,15 @@ import { exportBackupJson, importBackupJson } from "../backup/backupService";
 import { pickBackupFile, shareBackupFile, writeBackupFile } from "../backup/backupFiles";
 import { backupWarning } from "../screenContent";
 import { styles } from "../styles";
+import type { LocalAccount } from "../auth/localAuth";
 
 type SettingsBackupScreenProps = {
+  account: LocalAccount;
   exportOnly?: boolean;
 };
 
-export function SettingsBackupScreen({ exportOnly = false }: SettingsBackupScreenProps) {
+export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBackupScreenProps) {
+  const userId = account.id ?? account.email.trim().toLowerCase();
   const [backupJson, setBackupJson] = useState<string | null>(null);
   const [backupPath, setBackupPath] = useState<string | null>(null);
   const [restoreArmed, setRestoreArmed] = useState(false);
@@ -20,9 +23,9 @@ export function SettingsBackupScreen({ exportOnly = false }: SettingsBackupScree
 
   async function handleExport() {
     try {
-      const repositories = await getNativeRepositories();
-      const json = await exportBackupJson(repositories.backup);
-      const file = await writeBackupFile(json);
+      const repositories = await getNativeRepositories(userId);
+      const json = await exportBackupJson(repositories.backup, userId);
+      const file = await writeBackupFile(json, userId);
       setBackupJson(json);
       setBackupPath(file.filePath);
       setStatus(`${file.message} Use Share Backup to copy it off this device.`);
@@ -61,9 +64,10 @@ export function SettingsBackupScreen({ exportOnly = false }: SettingsBackupScree
     }
 
     try {
-      const repositories = await getNativeRepositories();
+      const repositories = await getNativeRepositories(userId);
       const result = await importBackupJson(backupJson, repositories.backup, {
         mode: "overwrite",
+        userId,
       });
       const tableCount = Object.keys(result.importedTableCounts).length;
       setStatus(`JSON backup restored in overwrite mode across ${tableCount} tables.`);
@@ -132,7 +136,7 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Backup action failed.";
 }
 
-async function getNativeRepositories() {
+async function getNativeRepositories(userId: string) {
   const { getLocalRepositories } = await import("../db/repositories");
-  return getLocalRepositories();
+  return getLocalRepositories(userId);
 }

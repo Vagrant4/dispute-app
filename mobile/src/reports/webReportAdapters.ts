@@ -18,11 +18,15 @@ export function getWebProgressClaimRepositories() {
       buildLatestProgressClaimSnapshot: async (params: {
         userId: string;
         projectId?: string;
-      }) => buildWebWorkProgressClaimSnapshot({ projectId: params.projectId }),
+      }) =>
+        buildWebWorkProgressClaimSnapshot({
+          userId: params.userId,
+          projectId: params.projectId,
+        }),
     },
     generatedDocuments: {
       insertGeneratedDocument: async (params: InsertGeneratedDocumentParams) => {
-        const rows = readRows();
+        const rows = readRows(params.userId);
         rows.unshift(toGeneratedDocumentRow(params));
         writeRows(rows);
       },
@@ -30,12 +34,19 @@ export function getWebProgressClaimRepositories() {
         userId: string;
         limit?: number;
       }) =>
-        readRows()
+        readRows(params.userId)
           .filter((row) => row.user_id === params.userId)
           .slice(0, Math.max(1, Math.min(params.limit ?? 20, 100))),
+      getGeneratedDocumentById: async (params: {
+        id: string;
+        userId: string;
+      }) =>
+        readRows(params.userId).find(
+          (row) => row.id === params.id && row.user_id === params.userId,
+        ) ?? null,
       deleteGeneratedDocument: async (params: { id: string; userId: string }) => {
         writeRows(
-          readRows().filter(
+          readRows(params.userId).filter(
             (row) => row.id !== params.id || row.user_id !== params.userId,
           ),
         );
@@ -159,7 +170,7 @@ function downloadTextFile(fileName: string, contents: string, mimeType: string) 
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function readRows(): GeneratedDocumentRow[] {
+function readRows(userId?: string): GeneratedDocumentRow[] {
   if (typeof localStorage === "undefined") {
     return [];
   }
@@ -170,6 +181,28 @@ function readRows(): GeneratedDocumentRow[] {
   } catch {
     return [];
   }
+}
+
+export function hasLegacyWebGeneratedDocuments(): boolean {
+  return readRows().some((row) => row.user_id === "local-user");
+}
+
+export function claimLegacyWebGeneratedDocuments(userId: string): boolean {
+  const rows = readRows();
+  if (
+    !userId ||
+    userId === "local-user" ||
+    rows.some((row) => row.user_id === userId) ||
+    !rows.some((row) => row.user_id === "local-user")
+  ) {
+    return false;
+  }
+  writeRows(
+    rows.map((row) =>
+      row.user_id === "local-user" ? { ...row, user_id: userId } : row,
+    ),
+  );
+  return true;
 }
 
 function writeRows(rows: GeneratedDocumentRow[]) {

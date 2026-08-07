@@ -6,6 +6,7 @@ import {
   type BackupTables,
   type BackupTableName,
 } from "./backupTypes";
+import { DEFAULT_USER_ID } from "../db/settingsValidation";
 
 type BackupSqlValue = string | number | boolean | null | Uint8Array;
 
@@ -32,29 +33,39 @@ const INSERT_ORDER: BackupTableName[] = [
 export class BackupRepository {
   constructor(private readonly database: LocalDatabase) {}
 
-  async exportTables(): Promise<BackupTables> {
+  async exportTables(userId = DEFAULT_USER_ID): Promise<BackupTables> {
     const tables: BackupTables = {};
 
     for (const tableName of BACKUP_TABLES) {
       tables[tableName] = await this.database.getAllAsync<BackupRow>(
-        `SELECT * FROM ${quoteIdentifier(tableName)};`,
+        `SELECT * FROM ${quoteIdentifier(tableName)} WHERE user_id = ?;`,
+        [userId],
       );
     }
 
     return tables;
   }
 
-  async applyBackup(envelope: BackupEnvelope): Promise<void> {
+  async applyBackup(
+    envelope: BackupEnvelope,
+    userId = DEFAULT_USER_ID,
+  ): Promise<void> {
     await this.database.execAsync("BEGIN IMMEDIATE TRANSACTION;");
     try {
       for (const tableName of DELETE_ORDER) {
-        await this.database.execAsync(`DELETE FROM ${quoteIdentifier(tableName)}`);
+        await this.database.runAsync(
+          `DELETE FROM ${quoteIdentifier(tableName)} WHERE user_id = ?`,
+          [userId],
+        );
       }
 
       for (const tableName of INSERT_ORDER) {
         const rows = envelope.tables[tableName] ?? [];
         for (const row of rows) {
-          await this.insertRow(tableName, row);
+          await this.insertRow(
+            tableName,
+            sanitizeRestoredRow(tableName, row, userId),
+          );
         }
       }
 
@@ -93,6 +104,25 @@ export class BackupRepository {
       throw new Error("Backup restore failed foreign key validation.");
     }
   }
+}
+
+function sanitizeRestoredRow(
+  tableName: BackupTableName,
+  row: BackupRow,
+  userId: string,
+): BackupRow {
+  const ownedRow = { ...row, user_id: userId };
+  if (tableName === "generated_documents") {
+    return { ...ownedRow, local_uri: null };
+  }
+  if (tableName === "photo_evidence") {
+    const id = typeof row.id === "string" ? row.id : "restored-photo";
+    return {
+      ...ownedRow,
+      local_uri: `backup-metadata-only://${encodeURIComponent(id)}`,
+    };
+  }
+  return ownedRow;
 }
 
 function quoteIdentifier(identifier: string): string {

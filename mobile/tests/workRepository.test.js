@@ -233,6 +233,35 @@ test("WorkRepository deletes a recent time entry", async () => {
   assert.equal(database.timeEntries.length, 0);
 });
 
+test("WorkRepository prevents one user from deleting another user's time entry", async () => {
+  const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
+  const database = new FakeWorkDatabase();
+  const repository = new WorkRepository(database);
+  const client = await repository.createClient({
+    userId: "user-a",
+    name: "User A Client",
+  });
+  const project = await repository.createProject({
+    userId: "user-a",
+    clientId: client.id,
+    name: "User A Project",
+  });
+  const entry = await repository.createManualEntry({
+    userId: "user-a",
+    projectId: project.id,
+    clockInAt: new Date("2026-08-07T00:00:00.000Z"),
+    clockOutAt: new Date("2026-08-07T01:00:00.000Z"),
+    activity: "User A owned entry.",
+  });
+
+  assert.equal((await repository.getHomeState("user-b")).recentEntries.length, 0);
+  await assert.rejects(
+    () => repository.deleteEntry({ userId: "user-b", entryId: entry.id }),
+    /Time entry not found/,
+  );
+  assert.equal((await repository.getHomeState("user-a")).recentEntries.length, 1);
+});
+
 test("WorkRepository unlinks photo evidence before deleting a time entry", async () => {
   const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
   const database = new FakeWorkDatabase();
