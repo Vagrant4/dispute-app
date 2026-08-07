@@ -11,6 +11,7 @@ import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { getOptionalWorkLocationAddress } from "../work/workLocation";
+import { getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
 import type { LocalAccount } from "../auth/localAuth";
 
 export function HomeScreen({ account }: { account: LocalAccount }) {
@@ -54,8 +55,9 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
 
   const clockStatus = clockInAt && !clockOutAt ? "Clocked in" : "Ready";
   const trackedTodayMinutes = homeState?.totalMinutesToday ?? 0;
-  const activeProject =
-    projects.find((project) => project.id === selectedProjectId) ?? homeState?.project;
+  const activeProject = selectedProjectId
+    ? projects.find((project) => project.id === selectedProjectId) ?? null
+    : null;
 
   useEffect(() => {
     // Intentional local-database hydration of the editable project draft.
@@ -139,7 +141,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     }
     try {
       const store = await getWorkStore();
-      if (activeProject) {
+      if (getProjectSaveMode(activeProject?.id) === "update" && activeProject) {
         if (!("updateProject" in store) || typeof store.updateProject !== "function") {
           throw new Error("Project editing is unavailable in this runtime.");
         }
@@ -178,6 +180,21 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
     }
+  }
+
+  function handleStartNewProject() {
+    const result = startNewProjectDraft({
+      hasCreateAccess: access.hasCurrentCreateAccess(),
+      isClockRunning: Boolean(clockInAt && !clockOutAt),
+    });
+    if (!result.ok) {
+      setWorkStatus(result.message);
+      return;
+    }
+    setSelectedProjectId(result.selectedProjectId);
+    setProjectName(result.projectName);
+    setProjectDescription(result.projectDescription);
+    setWorkStatus(result.message);
   }
 
   async function handleLocateMe() {
@@ -314,6 +331,24 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
             <Text style={styles.muted}>No project yet. Create one below.</Text>
           )}
         </View>
+
+        {projects.length ? (
+          <Pressable
+            accessibilityLabel="Create a new project"
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: Boolean(clockInAt && !clockOutAt) || !access.canCreateRecords,
+            }}
+            disabled={Boolean(clockInAt && !clockOutAt) || !access.canCreateRecords}
+            onPress={handleStartNewProject}
+            style={[
+              styles.actionButtonSecondary,
+              (clockInAt && !clockOutAt || !access.canCreateRecords) && styles.disabledButton,
+            ]}
+          >
+            <Text style={styles.actionButtonSecondaryText}>+ New Project</Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.inlineFormPanel}>
           <Text style={styles.inputLabel}>
