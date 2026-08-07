@@ -32,6 +32,7 @@ export type BackupImportMode = "overwrite";
 
 export type BackupImportOptions = {
   mode?: BackupImportMode;
+  userId?: string;
 };
 
 export type BackupImportResult = {

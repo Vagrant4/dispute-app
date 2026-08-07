@@ -29,6 +29,7 @@ type SettingsScreenProps = {
 type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
 
 export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
+  const userId = account.id ?? account.email.trim().toLowerCase();
   const [panel, setPanel] = useState<SettingPanel>("profile");
   const [name, setName] = useState(account.name);
   const [email, setEmail] = useState(account.email);
@@ -104,8 +105,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       return;
     }
     try {
-      const repositories = await getNativeRepositories();
-      const settings = await repositories.settings.getSettings();
+      const repositories = await getNativeRepositories(userId);
+      const settings = await repositories.settings.getSettings(userId);
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -118,7 +119,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
     } catch (error) {
       setWorkHoursStatus(getErrorMessage(error));
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     const initialLoad = setTimeout(() => void loadWorkHours(), 0);
@@ -134,7 +135,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
         setWorkHoursStatus("Work hours are saved in the native phone app build.");
         return;
       }
-      const repositories = await getNativeRepositories();
+      const repositories = await getNativeRepositories(userId);
       const settings = await repositories.settings.updateSettings({
         currency,
         rateBasis,
@@ -149,7 +150,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
         overtimeMultiplier: multiplier,
         offDayMultiplier: offDayRate,
         holidayMultiplier: holidayRate,
-      });
+      }, userId);
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -467,7 +468,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       {panel === "privacy_data" ? (
         <>
           <PrivacyScreen />
-          <SettingsBackupScreen exportOnly={!hasFullAccess} />
+          <SettingsBackupScreen account={account} exportOnly={!hasFullAccess} />
           <DeleteAccountScreen
             account={account}
             onAccountDeleted={onAccountDeleted}
@@ -504,9 +505,9 @@ function getRateBasisLabel(rateBasis: AppSettings["rateBasis"]): string {
   return option?.label ?? rateBasis;
 }
 
-async function getNativeRepositories() {
+async function getNativeRepositories(userId: string) {
   const { getLocalRepositories } = await import("../db/repositories");
-  return getLocalRepositories();
+  return getLocalRepositories(userId);
 }
 
 function calculateNormalHours(startTime: string, endTime: string): number {

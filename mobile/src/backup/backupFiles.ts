@@ -7,11 +7,14 @@ export type BackupFileResult = {
   message: string;
 };
 
-export async function writeBackupFile(json: string): Promise<BackupFileResult> {
+export async function writeBackupFile(
+  json: string,
+  userId = "local-user",
+): Promise<BackupFileResult> {
   if (!FileSystem.documentDirectory) {
     throw new Error("Durable app storage is unavailable on this device.");
   }
-  const directory = `${FileSystem.documentDirectory}backups/`;
+  const directory = `${FileSystem.documentDirectory}backups/${sanitizePathSegment(userId)}/`;
   await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filePath = `${directory}dispute-backup-${stamp}.json`;
@@ -23,6 +26,14 @@ export async function writeBackupFile(json: string): Promise<BackupFileResult> {
     throw new Error("Backup file could not be verified after writing.");
   }
   return { filePath, message: "Backup saved in dispute local storage." };
+}
+
+function sanitizePathSegment(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  return sanitized || "unknown";
 }
 
 export async function shareBackupFile(filePath: string): Promise<string> {

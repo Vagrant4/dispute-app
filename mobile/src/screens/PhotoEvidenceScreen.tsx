@@ -16,7 +16,6 @@ import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
 import type { LocalAccount } from "../auth/localAuth";
 
-const LOCAL_USER_ID = "local-user";
 type PhotoAction = "camera" | "gallery";
 const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
   "DURING_WORK",
@@ -28,6 +27,7 @@ const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 
 export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
   const access = useSubscriptionAccess(account);
+  const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(photoEvidenceContent.localStorageBody);
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -46,17 +46,17 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
   async function refresh() {
     if (Platform.OS === "web") {
       const { webWorkStore } = await import("../work/webWorkStore");
-      const nextProjects = await webWorkStore.listProjects();
+      const nextProjects = await webWorkStore.listProjects(userId);
       setProjects(nextProjects);
       setProjectId((current) => current || nextProjects[0]?.id || "");
-      setRows(readWebPhotoEvidenceRows());
+      setRows(readWebPhotoEvidenceRows(userId));
       return;
     }
     try {
-      const repositories = await getNativeRepositories();
+      const repositories = await getNativeRepositories(userId);
       const [nextProjects, nextRows] = await Promise.all([
-        repositories.work.listProjects(),
-        repositories.photoEvidence.listRecentPhotoEvidence({ userId: LOCAL_USER_ID }),
+        repositories.work.listProjects(userId),
+        repositories.photoEvidence.listRecentPhotoEvidence({ userId }),
       ]);
       setProjects(nextProjects);
       setProjectId((current) => current || nextProjects[0]?.id || "");
@@ -88,7 +88,7 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       const capturedAt = new Date();
       const photoId = `photo-${capturedAt.getTime()}`;
       const destinationUri = buildEvidencePhotoPath({
-        userId: LOCAL_USER_ID,
+        userId,
         projectId,
         photoId,
         timestamp: capturedAt,
@@ -121,6 +121,7 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
     }
     if (Platform.OS === "web") {
       const row = buildWebPhotoEvidenceRow({
+        userId,
         id: pendingId,
         projectId,
         localUri: pendingUri,
@@ -128,8 +129,8 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
         evidenceType,
         gps: pendingGps,
       });
-      const nextRows = [row, ...readWebPhotoEvidenceRows()].slice(0, 20);
-      writeWebPhotoEvidenceRows(nextRows);
+      const nextRows = [row, ...readWebPhotoEvidenceRows(userId)].slice(0, 20);
+      writeWebPhotoEvidenceRows(nextRows, userId);
       setRows(nextRows);
       setPendingUri(null);
       setPendingId(null);
@@ -140,10 +141,10 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       return;
     }
     try {
-      const repositories = await getNativeRepositories();
+      const repositories = await getNativeRepositories(userId);
       await repositories.photoEvidence.insertPhotoEvidence({
         id: pendingId,
-        userId: LOCAL_USER_ID,
+        userId,
         projectId,
         localUri: pendingUri,
         caption,
@@ -168,14 +169,14 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
     try {
       if (!access.hasCurrentCreateAccess()) throw new Error("Expired access is read-only. Existing evidence cannot be changed.");
       if (Platform.OS === "web") {
-        const nextRows = readWebPhotoEvidenceRows().filter((item) => item.id !== row.id);
-        writeWebPhotoEvidenceRows(nextRows);
+        const nextRows = readWebPhotoEvidenceRows(userId).filter((item) => item.id !== row.id);
+        writeWebPhotoEvidenceRows(nextRows, userId);
         setRows(nextRows);
         setStatus("Saved photo removed from this phone preview.");
         return;
       }
-      const repositories = await getNativeRepositories();
-      await repositories.photoEvidence.deletePhotoEvidence({ id: row.id, userId: LOCAL_USER_ID });
+      const repositories = await getNativeRepositories(userId);
+      await repositories.photoEvidence.deletePhotoEvidence({ id: row.id, userId });
       const fileResult = await deleteEvidencePhotoFile(row.local_uri);
       setStatus(`Evidence row deleted. ${fileResult.message}`);
       await refresh();
@@ -277,12 +278,13 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Photo evidence action failed.";
 }
 
-async function getNativeRepositories() {
+async function getNativeRepositories(userId: string) {
   const { getLocalRepositories } = await import("../db/repositories");
-  return getLocalRepositories();
+  return getLocalRepositories(userId);
 }
 
 function buildWebPhotoEvidenceRow(params: {
+  userId: string;
   id: string;
   projectId: string;
   localUri: string;
@@ -292,7 +294,7 @@ function buildWebPhotoEvidenceRow(params: {
 }): PhotoEvidenceRow {
   return {
     id: params.id,
-    user_id: LOCAL_USER_ID,
+    user_id: params.userId,
     project_id: params.projectId,
     time_entry_id: null,
     local_uri: params.localUri,
@@ -306,23 +308,27 @@ function buildWebPhotoEvidenceRow(params: {
   };
 }
 
-function readWebPhotoEvidenceRows(): PhotoEvidenceRow[] {
+function readWebPhotoEvidenceRows(userId: string): PhotoEvidenceRow[] {
   try {
     const storage = globalThis.localStorage;
     if (!storage) {
       return [];
     }
-    const parsed = JSON.parse(storage.getItem(WEB_PHOTO_STORAGE_KEY) ?? "[]") as PhotoEvidenceRow[];
+    const parsed = JSON.parse(storage.getItem(getWebPhotoStorageKey(userId)) ?? "[]") as PhotoEvidenceRow[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
-function writeWebPhotoEvidenceRows(rows: PhotoEvidenceRow[]): void {
+function writeWebPhotoEvidenceRows(rows: PhotoEvidenceRow[], userId: string): void {
   try {
-    globalThis.localStorage?.setItem(WEB_PHOTO_STORAGE_KEY, JSON.stringify(rows));
+    globalThis.localStorage?.setItem(getWebPhotoStorageKey(userId), JSON.stringify(rows));
   } catch {
     // Preview storage failure should not block the native evidence path.
   }
+}
+
+function getWebPhotoStorageKey(userId: string): string {
+  return `${WEB_PHOTO_STORAGE_KEY}:${encodeURIComponent(userId)}`;
 }

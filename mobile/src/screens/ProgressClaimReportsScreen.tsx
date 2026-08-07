@@ -17,7 +17,6 @@ import {
   fetchSubscriptionStatus,
   formatTrialCountdown,
   canExportProgressClaim,
-  hasCurrentFullAccess,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
 import type { WorkProject } from "../work/workRepository";
@@ -30,13 +29,12 @@ import {
   viewWebGeneratedDocumentFile,
 } from "../reports/webReportAdapters";
 
-const LOCAL_USER_ID = "local-user";
-
 type ProgressClaimReportsScreenProps = {
   account: LocalAccount;
 };
 
 export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScreenProps) {
+  const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
   const [subscription, setSubscription] = useState<SubscriptionEntitlement | null>(
     null,
@@ -61,6 +59,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   const [reportPreview, setReportPreview] = useState<ProgressClaimSnapshot | null>(
     null,
   );
+  const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
 
   useEffect(() => {
     void refreshArchive();
@@ -95,13 +94,13 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
 
   async function refreshArchive() {
     try {
-      const repositories = await getReportRepositories();
+      const repositories = await getReportRepositories(userId);
       const [rows, projectRows] = await Promise.all([
         repositories.generatedDocuments.listRecentGeneratedDocuments({
-          userId: LOCAL_USER_ID,
+          userId,
           limit: 10,
         }),
-        repositories.work.listProjects(),
+        repositories.work.listProjects(userId),
       ]);
       setDocuments(rows);
       setProjects(projectRows);
@@ -110,6 +109,20 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
           ? current
           : projectRows[0]?.id ?? null,
       );
+      if (Platform.OS === "web" && rows.length === 0 && projectRows.length === 0) {
+        const { hasLegacyWebGeneratedDocuments } = await import(
+          "../reports/webReportAdapters"
+        );
+        const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
+        setLegacyDataAvailable(
+          hasLegacyWebGeneratedDocuments() || hasLegacyWebWorkData(),
+        );
+      } else if (Platform.OS !== "web" && rows.length === 0 && projectRows.length === 0) {
+        const { hasLegacyLocalRepositories } = await import("../db/repositories");
+        setLegacyDataAvailable(await hasLegacyLocalRepositories());
+      } else {
+        setLegacyDataAvailable(false);
+      }
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
@@ -130,7 +143,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     }
 
     try {
-      const repositories = await getReportRepositories();
+      const repositories = await getReportRepositories(userId);
       const selectedProject = projects.find((project) => project.id === projectId);
       const formatLabel = type === "progress_claim_csv" ? "CSV" : "PDF";
       setSelectedProjectId(projectId);
@@ -139,7 +152,7 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
       );
       const result = await generateAndArchiveProgressClaim({
         type,
-        userId: LOCAL_USER_ID,
+        userId,
         projectId,
         repositories,
         saveCsv: Platform.OS === "web" ? saveProgressClaimCsvForWeb : undefined,
@@ -255,21 +268,58 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   }
 
   async function handleDelete(document: GeneratedDocumentRow) {
-    if (!hasCurrentFullAccess(subscription)) {
-      setStatus("Expired access is read-only. Existing reports cannot be deleted.");
-      return;
-    }
     try {
-      const repositories = await getReportRepositories();
+      const repositories = await getReportRepositories(userId);
+      const ownedDocument =
+        await repositories.generatedDocuments.getGeneratedDocumentById({
+          id: document.id,
+          userId,
+        });
+      if (!ownedDocument) {
+        throw new Error("Report not found for this account.");
+      }
       const fileResult =
         Platform.OS === "web"
-          ? await deleteWebGeneratedDocumentFile(document.local_uri)
-          : await deleteNativeGeneratedDocumentFile(document.local_uri);
+          ? await deleteWebGeneratedDocumentFile(ownedDocument.local_uri)
+          : await deleteNativeGeneratedDocumentFile(ownedDocument.local_uri);
       await repositories.generatedDocuments.deleteGeneratedDocument({
-        id: document.id,
-        userId: LOCAL_USER_ID,
+        id: ownedDocument.id,
+        userId,
       });
       setStatus(`Archive row deleted. ${fileResult.message}`);
+      await refreshArchive();
+    } catch (error) {
+      setStatus(getErrorMessage(error));
+    }
+  }
+
+  async function handleClaimLegacyData() {
+    try {
+      if (Platform.OS === "web") {
+        const { claimLegacyWebGeneratedDocuments } = await import(
+          "../reports/webReportAdapters"
+        );
+        const { claimLegacyWebWorkData } = await import("../work/webWorkStore");
+        const reportsClaimed = claimLegacyWebGeneratedDocuments(userId);
+        const workClaimed = claimLegacyWebWorkData(userId);
+        const claimed = reportsClaimed || workClaimed;
+        setStatus(
+          claimed
+            ? "Existing browser records are now assigned to this account."
+            : "No unassigned browser records were found.",
+        );
+        await refreshArchive();
+        return;
+      }
+      const { claimLegacyLocalRepositoriesForUser } = await import(
+        "../db/repositories"
+      );
+      const claimed = await claimLegacyLocalRepositoriesForUser(userId);
+      setStatus(
+        claimed
+          ? "Existing phone records are now assigned to this account."
+          : "No unassigned phone records were found.",
+      );
       await refreshArchive();
     } catch (error) {
       setStatus(getErrorMessage(error));
@@ -291,6 +341,17 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
           Choose one project. PDF and CSV exports only include that project&apos;s
           time, locations, and photos.
         </Text>
+        {legacyDataAvailable ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void handleClaimLegacyData()}
+            style={styles.actionButtonSecondary}
+          >
+            <Text style={styles.actionButtonSecondaryText}>
+              Use Existing Phone Records
+            </Text>
+          </Pressable>
+        ) : null}
         <View style={styles.metricGrid}>
           <View style={styles.metricTile}>
             <Text style={styles.metricValue}>{documents.length}</Text>
@@ -478,9 +539,8 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    disabled={subscription?.canCreateRecords !== true}
                     onPress={() => void handleDelete(document)}
-                    style={[styles.statusPill, subscription?.canCreateRecords !== true && styles.disabledButton]}
+                    style={styles.statusPill}
                   >
                     <Text style={styles.statusPillText}>Delete</Text>
                   </Pressable>
@@ -643,13 +703,13 @@ function parseSnapshot(value: string | null | undefined): ProgressClaimSnapshot 
   }
 }
 
-async function getReportRepositories() {
+async function getReportRepositories(userId: string) {
   if (Platform.OS === "web") {
     return getWebProgressClaimRepositories();
   }
 
   const { getLocalRepositories } = await import("../db/repositories");
-  return getLocalRepositories();
+  return getLocalRepositories(userId);
 }
 
 async function deleteNativeGeneratedDocumentFile(

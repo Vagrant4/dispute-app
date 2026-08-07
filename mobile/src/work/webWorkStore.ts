@@ -13,6 +13,7 @@ import type {
   CreateManualEntryParams,
   DeleteEntryParams,
 } from "./workRepository";
+import { DEFAULT_USER_ID } from "../db/settingsValidation";
 
 const STORAGE_KEY = "claimproof-sg-web-work-state";
 
@@ -24,20 +25,21 @@ type WebWorkState = {
 };
 
 export const webWorkStore = {
-  async getHomeState(): Promise<WorkHomeState> {
-    return toHomeState(readState());
+  async getHomeState(userId = DEFAULT_USER_ID): Promise<WorkHomeState> {
+    return toHomeState(readState(userId));
   },
 
-  async listClients(): Promise<WorkClient[]> {
-    return readState().clients;
+  async listClients(userId = DEFAULT_USER_ID): Promise<WorkClient[]> {
+    return readState(userId).clients;
   },
 
-  async listProjects(): Promise<WorkProject[]> {
-    return readState().projects;
+  async listProjects(userId = DEFAULT_USER_ID): Promise<WorkProject[]> {
+    return readState(userId).projects;
   },
 
   async createClient(params: CreateClientParams): Promise<WorkClient> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const client: WorkClient = {
       id: createLocalId("web-client"),
       name: requireText(params.name, "Client name"),
@@ -48,12 +50,13 @@ export const webWorkStore = {
     writeState({
       ...state,
       clients: [client, ...state.clients],
-    });
+    }, userId);
     return client;
   },
 
   async createProject(params: CreateProjectParams): Promise<WorkProject> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const client =
       state.clients.find((item) => item.id === params.clientId) ??
       state.clients[0];
@@ -75,12 +78,13 @@ export const webWorkStore = {
       ...state,
       project,
       projects: [project, ...state.projects],
-    });
+    }, userId);
     return project;
   },
 
   async updateProject(params: UpdateProjectParams): Promise<WorkProject> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const existingProject = state.projects.find(
       (project) => project.id === params.projectId,
     );
@@ -108,12 +112,13 @@ export const webWorkStore = {
           ? { ...entry, projectName: savedProject.name }
           : entry,
       ),
-    });
+    }, userId);
     return savedProject;
   },
 
   async clockIn(params: ClockInParams = {}): Promise<WorkEntry> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const clockInAt = params.clockInAt ?? new Date();
     const project =
       state.projects.find((item) => item.id === params.projectId) ?? state.project;
@@ -142,12 +147,13 @@ export const webWorkStore = {
     writeState({
       ...state,
       entries: [entry, ...state.entries],
-    });
+    }, userId);
     return entry;
   },
 
   async createManualEntry(params: CreateManualEntryParams): Promise<WorkEntry> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const project = state.projects.find((item) => item.id === params.projectId);
     if (!project) {
       throw new Error("Selected project was not found in browser preview storage.");
@@ -181,21 +187,23 @@ export const webWorkStore = {
       clockOutGpsLongitude: null,
       status: "finalized",
     };
-    writeState({ ...state, entries: [entry, ...state.entries] });
+    writeState({ ...state, entries: [entry, ...state.entries] }, userId);
     return entry;
   },
 
   async deleteEntry(params: DeleteEntryParams): Promise<void> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const entries = state.entries.filter((entry) => entry.id !== params.entryId);
     if (entries.length === state.entries.length) {
       throw new Error("Time entry not found in browser preview storage.");
     }
-    writeState({ ...state, entries });
+    writeState({ ...state, entries }, userId);
   },
 
   async clockOut(params: ClockOutParams): Promise<WorkEntry> {
-    const state = readState();
+    const userId = params.userId ?? DEFAULT_USER_ID;
+    const state = readState(userId);
     const clockOutAt = params.clockOutAt ?? new Date();
     const breakMinutes = Math.max(0, Math.floor(params.breakMinutes ?? 0));
     let updated: WorkEntry | null = null;
@@ -228,15 +236,16 @@ export const webWorkStore = {
       throw new Error("Time entry not found in browser preview storage.");
     }
 
-    writeState({ ...state, entries });
+    writeState({ ...state, entries }, userId);
     return updated;
   },
 };
 
 export function buildWebWorkProgressClaimSnapshot(params: {
+  userId?: string;
   projectId?: string;
 } = {}): ProgressClaimSnapshot {
-  const state = readState();
+  const state = readState(params.userId ?? DEFAULT_USER_ID);
   const selectedProject =
     (params.projectId
       ? state.projects.find((project) => project.id === params.projectId)
@@ -328,10 +337,11 @@ function toHomeState(state: WebWorkState): WorkHomeState {
   };
 }
 
-function readState(): WebWorkState {
+function readState(userId = DEFAULT_USER_ID): WebWorkState {
   if (typeof localStorage !== "undefined") {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const key = getStorageKey(userId);
+      const raw = localStorage.getItem(key);
       if (raw) {
         return normalizeState(JSON.parse(raw) as WebWorkState);
       }
@@ -348,10 +358,40 @@ function readState(): WebWorkState {
   });
 }
 
-function writeState(state: WebWorkState): void {
+function writeState(state: WebWorkState, userId = DEFAULT_USER_ID): void {
   if (typeof localStorage !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeState(state)));
+    localStorage.setItem(
+      getStorageKey(userId),
+      JSON.stringify(normalizeState(state)),
+    );
   }
+}
+
+export function hasLegacyWebWorkData(): boolean {
+  return typeof localStorage !== "undefined" && Boolean(localStorage.getItem(STORAGE_KEY));
+}
+
+export function claimLegacyWebWorkData(userId: string): boolean {
+  if (typeof localStorage === "undefined" || userId === DEFAULT_USER_ID) {
+    return false;
+  }
+  const key = getStorageKey(userId);
+  if (localStorage.getItem(key)) {
+    return false;
+  }
+  const legacy = localStorage.getItem(STORAGE_KEY);
+  if (!legacy) {
+    return false;
+  }
+  localStorage.setItem(key, legacy);
+  localStorage.removeItem(STORAGE_KEY);
+  return true;
+}
+
+function getStorageKey(userId: string): string {
+  return userId === DEFAULT_USER_ID
+    ? STORAGE_KEY
+    : `${STORAGE_KEY}:${encodeURIComponent(userId)}`;
 }
 
 function normalizeState(state: WebWorkState): WebWorkState {

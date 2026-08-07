@@ -16,6 +16,7 @@ import type { LocalAccount } from "../auth/localAuth";
 
 export function HomeScreen({ account }: { account: LocalAccount }) {
   const access = useSubscriptionAccess(account);
+  const userId = account.id ?? account.email.trim().toLowerCase();
   const [clockInAt, setClockInAt] = useState<Date | null>(null);
   const [clockOutAt, setClockOutAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -34,6 +35,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [dayType, setDayType] = useState<WorkDayType>("normal");
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
+  const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -68,10 +70,10 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
 
   async function refreshWorkState() {
     try {
-      const store = await getWorkStore();
+      const store = await getWorkStore(userId);
       const [nextState, nextProjects] = await Promise.all([
-        store.getHomeState(),
-        store.listProjects(),
+        store.getHomeState(userId),
+        store.listProjects(userId),
       ]);
       setHomeState(nextState);
       setProjects(nextProjects);
@@ -99,6 +101,15 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
           ? "Local work records are ready on this device."
           : "No project yet. Enter your project detail below, then tap Create Project.",
       );
+      if (Platform.OS === "web" && nextProjects.length === 0) {
+        const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
+        setLegacyDataAvailable(hasLegacyWebWorkData());
+      } else if (Platform.OS !== "web" && nextProjects.length === 0) {
+        const { hasLegacyLocalRepositories } = await import("../db/repositories");
+        setLegacyDataAvailable(await hasLegacyLocalRepositories());
+      } else {
+        setLegacyDataAvailable(false);
+      }
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
     }
@@ -115,8 +126,9 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     }
     const nextClockIn = new Date();
     try {
-      const store = await getWorkStore();
+      const store = await getWorkStore(userId);
       await store.clockIn({
+        userId,
         projectId: selectedProjectId ?? undefined,
         clockInAt: nextClockIn,
         dayType,
@@ -140,12 +152,13 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       return;
     }
     try {
-      const store = await getWorkStore();
+      const store = await getWorkStore(userId);
       if (getProjectSaveMode(activeProject?.id) === "update" && activeProject) {
         if (!("updateProject" in store) || typeof store.updateProject !== "function") {
           throw new Error("Project editing is unavailable in this runtime.");
         }
         const updated = await store.updateProject({
+          userId,
           projectId: activeProject.id,
           name: projectName,
           description: projectDescription,
@@ -165,9 +178,11 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         throw new Error("Project editing is unavailable in this runtime.");
       }
       const client = await store.createClient({
+        userId,
         name: "Local Client",
       });
       const created = await store.createProject({
+        userId,
         clientId: client.id,
         name: projectName,
         description: projectDescription,
@@ -222,8 +237,9 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
 
     const nextClockOut = new Date();
     try {
-      const store = await getWorkStore();
+      const store = await getWorkStore(userId);
       await store.clockOut({
+        userId,
         entryId: homeState.activeEntry.id,
         clockOutAt: nextClockOut,
         breakMinutes: parseBreakMinutes(breakMinutes),
@@ -241,10 +257,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   }
 
   async function handleDeleteEntry(entryId: string) {
-    if (!access.hasCurrentCreateAccess()) {
-      setWorkStatus("Expired access is read-only. Existing time records cannot be changed.");
-      return;
-    }
     if (pendingDeleteEntryId !== entryId) {
       setPendingDeleteEntryId(entryId);
       setWorkStatus("Tap Confirm Delete to remove this recent time entry.");
@@ -252,13 +264,41 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     }
 
     try {
-      const store = await getWorkStore();
+      const store = await getWorkStore(userId);
       if (!("deleteEntry" in store) || typeof store.deleteEntry !== "function") {
         throw new Error("Delete time entry is unavailable in this runtime.");
       }
-      await store.deleteEntry({ entryId });
+      await store.deleteEntry({ userId, entryId });
       setPendingDeleteEntryId(null);
       setWorkStatus("Time entry deleted.");
+      await refreshWorkState();
+    } catch (error) {
+      setWorkStatus(getErrorMessage(error));
+    }
+  }
+
+  async function handleClaimLegacyData() {
+    try {
+      if (Platform.OS === "web") {
+        const { claimLegacyWebWorkData } = await import("../work/webWorkStore");
+        const claimed = claimLegacyWebWorkData(userId);
+        setWorkStatus(
+          claimed
+            ? "Existing browser records are now assigned to this account."
+            : "No unassigned browser records were found.",
+        );
+        await refreshWorkState();
+        return;
+      }
+      const { claimLegacyLocalRepositoriesForUser } = await import(
+        "../db/repositories"
+      );
+      const claimed = await claimLegacyLocalRepositoriesForUser(userId);
+      setWorkStatus(
+        claimed
+          ? "Existing phone records are now assigned to this account."
+          : "No unassigned phone records were found.",
+      );
       await refreshWorkState();
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
@@ -470,6 +510,17 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
 
       <View style={styles.card}>
         <Text style={styles.heading}>Recent time</Text>
+        {legacyDataAvailable ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void handleClaimLegacyData()}
+            style={styles.actionButtonSecondary}
+          >
+            <Text style={styles.actionButtonSecondaryText}>
+              Use Existing Phone Records
+            </Text>
+          </Pressable>
+        ) : null}
         {homeState?.recentEntries.length ? (
           <View style={styles.list}>
             {homeState.recentEntries.slice(0, 4).map((entry) => {
@@ -509,9 +560,8 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
                       <Pressable
                         accessibilityLabel={`Delete time entry for ${entry.projectName}`}
                         accessibilityRole="button"
-                        disabled={!access.canCreateRecords}
                         onPress={() => void handleDeleteEntry(entry.id)}
-                        style={[styles.compactSecondaryButton, !access.canCreateRecords && styles.disabledButton]}
+                        style={styles.compactSecondaryButton}
                       >
                         <Text style={styles.compactSecondaryButtonText}>Delete</Text>
                       </Pressable>
@@ -539,14 +589,14 @@ const DAY_TYPE_OPTIONS: Array<{ id: WorkDayType; label: string }> = [
   { id: "holiday", label: "Holiday" },
 ];
 
-async function getWorkStore() {
+async function getWorkStore(userId: string) {
   if (Platform.OS === "web") {
     const { webWorkStore } = await import("../work/webWorkStore");
     return webWorkStore;
   }
 
   const { getLocalRepositories } = await import("../db/repositories");
-  const repositories = await getLocalRepositories();
+  const repositories = await getLocalRepositories(userId);
   return repositories.work;
 }
 

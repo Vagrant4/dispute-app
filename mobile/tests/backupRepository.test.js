@@ -85,8 +85,8 @@ function createFakeDatabase(initialRows = {}) {
         tables.set(deleteMatch[1], []);
       }
     },
-    async getAllAsync(sql) {
-      calls.push({ method: "getAllAsync", sql });
+    async getAllAsync(sql, params = []) {
+      calls.push({ method: "getAllAsync", sql, params });
       if (sql === "PRAGMA foreign_key_check;") {
         return [];
       }
@@ -94,10 +94,20 @@ function createFakeDatabase(initialRows = {}) {
       if (!selectMatch) {
         throw new Error(`Unexpected SELECT: ${sql}`);
       }
-      return (tables.get(selectMatch[1]) ?? []).map((row) => ({ ...row }));
+      return (tables.get(selectMatch[1]) ?? [])
+        .filter((row) => !/WHERE user_id = \?/i.test(sql) || row.user_id === params[0])
+        .map((row) => ({ ...row }));
     },
     async runAsync(sql, params = []) {
       calls.push({ method: "runAsync", sql, params });
+      const deleteMatch = sql.match(/^DELETE FROM "([^"]+)" WHERE user_id = \?/i);
+      if (deleteMatch) {
+        tables.set(
+          deleteMatch[1],
+          (tables.get(deleteMatch[1]) ?? []).filter((row) => row.user_id !== params[0]),
+        );
+        return;
+      }
       const insertMatch = sql.match(/^INSERT INTO "([^"]+)"/i);
       if (!insertMatch) {
         return;
@@ -182,11 +192,14 @@ test("BackupRepository exports all known local SQLite tables", async () => {
   const database = createFakeDatabase({
     schema_migrations: [{ version: 1, name: "phase_2_local_storage" }],
     app_settings: [{ id: "settings:user-a", user_id: "user-a" }],
-    clients: [{ id: "client-a", user_id: "user-a", name: "Acme" }],
+    clients: [
+      { id: "client-a", user_id: "user-a", name: "Acme" },
+      { id: "client-b", user_id: "user-b", name: "Other Account" },
+    ],
   });
 
   const repository = new BackupRepository(database);
-  const tables = await repository.exportTables();
+  const tables = await repository.exportTables("user-a");
 
   for (const tableName of BACKUP_TABLES) {
     assert.ok(Array.isArray(tables[tableName]), `${tableName} exported`);
@@ -201,7 +214,10 @@ test("BackupRepository overwrites local records in dependency-safe table order",
   const load = createTsLoader();
   const { BackupRepository } = load("src/backup/backupRepository.ts");
   const database = createFakeDatabase({
-    clients: [{ id: "old-client", user_id: "user-a" }],
+    clients: [
+      { id: "old-client", user_id: "user-a" },
+      { id: "other-client", user_id: "user-b", name: "Other Account" },
+    ],
     projects: [{ id: "old-project", user_id: "user-a" }],
   });
   const repository = new BackupRepository(database);
@@ -222,9 +238,10 @@ test("BackupRepository overwrites local records in dependency-safe table order",
         },
       ],
     }),
-  });
+  }, "user-a");
 
   assert.deepEqual(database.tables.get("clients"), [
+    { id: "other-client", user_id: "user-b", name: "Other Account" },
     { id: "new-client", user_id: "user-a", name: "New Client" },
   ]);
   assert.deepEqual(database.tables.get("projects"), [
@@ -238,18 +255,51 @@ test("BackupRepository overwrites local records in dependency-safe table order",
 
   const sqlCalls = database.calls.map((call) => call.sql);
   assert.ok(
-    sqlCalls.indexOf('DELETE FROM "photo_evidence"') <
-      sqlCalls.indexOf('DELETE FROM "projects"'),
+    sqlCalls.indexOf('DELETE FROM "photo_evidence" WHERE user_id = ?') <
+      sqlCalls.indexOf('DELETE FROM "projects" WHERE user_id = ?'),
   );
   assert.ok(
-    sqlCalls.indexOf('DELETE FROM "projects"') <
-      sqlCalls.indexOf('DELETE FROM "clients"'),
+    sqlCalls.indexOf('DELETE FROM "projects" WHERE user_id = ?') <
+      sqlCalls.indexOf('DELETE FROM "clients" WHERE user_id = ?'),
   );
   assert.ok(sqlCalls.includes("BEGIN IMMEDIATE TRANSACTION;"));
   assert.ok(sqlCalls.includes("PRAGMA foreign_key_check;"));
   assert.ok(sqlCalls.includes("COMMIT;"));
   assert.equal(sqlCalls.includes("PRAGMA foreign_keys = OFF;"), false);
   assert.equal(sqlCalls.includes('DELETE FROM "schema_migrations"'), false);
+});
+
+test("BackupRepository never restores another account or arbitrary local file URI", async () => {
+  const load = createTsLoader();
+  const { BackupRepository } = load("src/backup/backupRepository.ts");
+  const database = createFakeDatabase();
+  const repository = new BackupRepository(database);
+
+  await repository.applyBackup({
+    app: "dispute mobile",
+    version: 1,
+    schema: 1,
+    exportedAt: new Date().toISOString(),
+    tables: createCompleteTables({
+      generated_documents: [
+        {
+          id: "restored-report",
+          user_id: "user-a",
+          file_name: "report.pdf",
+          local_uri: "file:///app/generated-documents/user-a/report.pdf",
+        },
+      ],
+    }),
+  }, "user-b");
+
+  assert.deepEqual(database.tables.get("generated_documents"), [
+    {
+      id: "restored-report",
+      user_id: "user-b",
+      file_name: "report.pdf",
+      local_uri: null,
+    },
+  ]);
 });
 
 test("importBackupJson restores through BackupRepository and fake LocalDatabase", async () => {
@@ -291,7 +341,7 @@ test("importBackupJson restores through BackupRepository and fake LocalDatabase"
       }),
     }),
     new BackupRepository(database),
-    { mode: "overwrite" },
+    { mode: "overwrite", userId: "user-a" },
   );
 
   assert.deepEqual(database.tables.get("clients"), [
