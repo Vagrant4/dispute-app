@@ -94,52 +94,20 @@ test("subscription purchase path uses RevenueCat store adapter and product keys"
   assert.match(source, /Purchases\.isConfigured/);
 });
 
-test("subscription product matching accepts only the approved Google Play base plan", () => {
-  const { matchesConfiguredStoreProductIdentifier } = loadTsModule(
-    "src/subscription/subscriptionProduct.ts",
-  );
-  assert.equal(
-    matchesConfiguredStoreProductIdentifier(
-      "dispute_basic_monthly",
-      "dispute_basic_monthly",
+test("mobile uses the shared approved Google Play base-plan policy", () => {
+  const productPolicySource = readFileSync(
+    path.join(
+      __dirname,
+      "..",
+      "src",
+      "subscription",
+      "subscriptionProduct.ts",
     ),
-    true,
+    "utf8",
   );
-  assert.equal(
-    matchesConfiguredStoreProductIdentifier(
-      "dispute_basic_monthly:monthly-plan",
-      "dispute_basic_monthly",
-    ),
-    true,
-  );
-  assert.equal(
-    matchesConfiguredStoreProductIdentifier(
-      "dispute_basic_monthly:monthly-plan",
-      "dispute_basic_monthly:monthly-plan",
-    ),
-    true,
-  );
-  assert.equal(
-    matchesConfiguredStoreProductIdentifier(
-      "dispute_basic_monthly:legacy-plan",
-      "dispute_basic_monthly",
-    ),
-    false,
-  );
-  assert.equal(
-    matchesConfiguredStoreProductIdentifier(
-      "dispute_basic_monthly:",
-      "dispute_basic_monthly",
-    ),
-    false,
-  );
-  assert.equal(
-    matchesConfiguredStoreProductIdentifier(
-      "other:monthly-plan",
-      "dispute_basic_monthly",
-    ),
-    false,
-  );
+  assert.match(productPolicySource, /from ["']@claimproof\/shared["']/);
+  assert.match(productPolicySource, /matchesConfiguredStoreProductIdentifier/);
+  assert.match(productPolicySource, /DISPUTE_BASIC_ANDROID_BASE_PLAN_ID/);
 });
 
 test("PDF export access accepts an active trial and rejects expired access", () => {
@@ -149,6 +117,10 @@ test("PDF export access accepts an active trial and rejects expired access", () 
       "react-native": { Platform: { OS: "android" } },
       "../auth/remoteAuth": {
         getAuthApiBaseUrl: () => "https://example.invalid",
+      },
+      "@claimproof/shared": {
+        DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+        matchesConfiguredStoreProductIdentifier: () => false,
       },
     },
   );
