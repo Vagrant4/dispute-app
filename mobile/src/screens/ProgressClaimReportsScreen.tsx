@@ -16,6 +16,7 @@ import { styles } from "../styles";
 import {
   fetchSubscriptionStatus,
   formatTrialCountdown,
+  canExportProgressClaim,
   hasCurrentFullAccess,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
@@ -579,7 +580,7 @@ async function ensureCanExportWithRefresh(
   setSubscriptionStatus: (value: string) => void,
   setStatus: (value: string) => void,
 ): Promise<boolean> {
-  if (subscription?.canExportReports && hasCurrentFullAccess(subscription)) {
+  if (canExportProgressClaim(subscription)) {
     return true;
   }
 
@@ -596,10 +597,7 @@ async function ensureCanExportWithRefresh(
   setSubscriptionStatus(
     formatTrialCountdown(result.subscription) || result.subscription.message,
   );
-  if (
-    result.subscription.canExportReports &&
-    hasCurrentFullAccess(result.subscription)
-  ) {
+  if (canExportProgressClaim(result.subscription)) {
     return true;
   }
 

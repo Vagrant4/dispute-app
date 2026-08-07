@@ -106,7 +106,7 @@ describe('subscription API', () => {
       billingProvider: 'store',
       billingEnforcementActive: true,
       planName: 'DISPUTE Basic',
-      priceCents: 720,
+      priceCents: 699,
       currency: 'SGD'
     });
     expect(body.subscription.trialEndsAt).toEqual(expect.any(String));
@@ -247,7 +247,7 @@ describe('subscription API', () => {
         environment: 'SANDBOX',
         app_user_id: user.id,
         transaction_id: 'store_txn_123',
-        price_in_purchased_currency: 7.2,
+        price_in_purchased_currency: 6.99,
         currency: 'SGD',
         purchased_at_ms: Date.now(),
         expiration_at_ms: Date.now() + 1000 * 60 * 60 * 24 * 30
@@ -270,7 +270,7 @@ describe('subscription API', () => {
       status: 'ACTIVE',
       isActive: true,
       canExportReports: true,
-      priceCents: 720,
+      priceCents: 699,
       currency: 'SGD'
     });
   });
@@ -287,7 +287,7 @@ describe('subscription API', () => {
         environment: 'SANDBOX',
         app_user_id: user.id,
         transaction_id: 'store_txn_canceled',
-        price_in_purchased_currency: 7.2,
+        price_in_purchased_currency: 6.99,
         currency: 'SGD',
         purchased_at_ms: Date.now() - 1000 * 60 * 60 * 24 * 20,
         expiration_at_ms: periodEnd
@@ -445,7 +445,7 @@ describe('subscription API', () => {
         environment: 'SANDBOX',
         app_user_id: user.id,
         transaction_id: 'missing-expiration',
-        price_in_purchased_currency: 7.2,
+        price_in_purchased_currency: 6.99,
         currency: 'SGD'
       }
     });
