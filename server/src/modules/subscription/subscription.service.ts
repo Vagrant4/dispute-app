@@ -44,6 +44,7 @@ type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
 type FetchLike = typeof fetch;
 
 interface RevenueCatSyncOptions {
+  allowAppleSandboxEvents?: boolean;
   allowSandboxEvents?: boolean;
   entitlementId?: string;
   fetcher?: FetchLike;
@@ -58,17 +59,11 @@ export async function createTrialSubscriptionForUser(
   verifiedAt: Date,
   client: PrismaClientOrTx = prisma
 ): Promise<void> {
-  const existing = await client.userSubscription.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'desc' }
-  });
-  if (existing) {
-    return;
-  }
-
   const plan = await ensureBasicPlan(client);
-  await client.userSubscription.create({
-    data: {
+  await client.userSubscription.upsert({
+    where: { userId },
+    update: {},
+    create: {
       userId,
       planId: plan.id,
       status: SubscriptionStatus.TRIALING,
@@ -228,6 +223,8 @@ export async function syncSubscriptionFromRevenueCat(
 
   const payload = await readRevenueCatJson(response);
   const verified = verifyRevenueCatSubscriberPayload(payload, {
+    allowAppleSandboxEvents:
+      options.allowAppleSandboxEvents ?? env.revenueCat.allowAppleSandboxEvents,
     allowSandboxEvents: options.allowSandboxEvents ?? env.revenueCat.allowSandboxEvents,
     entitlementId,
     nodeEnv: options.nodeEnv ?? env.nodeEnv,
@@ -281,7 +278,8 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const storeContextError = validateRevenueCatStoreContext(
     event,
     env.nodeEnv,
-    env.revenueCat.allowSandboxEvents
+    env.revenueCat.allowSandboxEvents,
+    env.revenueCat.allowAppleSandboxEvents
   );
   if (storeContextError) {
     return {
@@ -375,11 +373,6 @@ async function persistVerifiedSubscription(
   currency = basicPlanCurrency
 ): Promise<void> {
   const plan = await ensureBasicPlan(prisma);
-  const existing = await prisma.userSubscription.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true }
-  });
   const data = {
     planId: plan.id,
     status: subscription.status,
@@ -397,9 +390,9 @@ async function persistVerifiedSubscription(
       subscription.status === SubscriptionStatus.CANCELED ? new Date() : null
   };
   await prisma.userSubscription.upsert({
-    where: { id: existing?.id ?? '' },
-    create: { userId, ...data },
-    update: data
+    where: { userId },
+    update: data,
+    create: { userId, ...data }
   });
 }
 

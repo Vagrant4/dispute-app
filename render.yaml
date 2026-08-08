@@ -35,11 +35,15 @@ services:
         value: disabled
       - key: REVENUECAT_WEBHOOK_SECRET
         sync: false
+      - key: REVENUECAT_SECRET_API_KEY
+        sync: false
       - key: REVENUECAT_PRODUCT_ID
         value: dispute_basic_monthly
       - key: REVENUECAT_ENTITLEMENT_ID
         value: dispute_basic
       - key: REVENUECAT_ALLOW_SANDBOX_EVENTS
+        value: "false"
+      - key: REVENUECAT_ALLOW_APPLE_SANDBOX_EVENTS
         value: "false"
     disk:
       name: dispute-data

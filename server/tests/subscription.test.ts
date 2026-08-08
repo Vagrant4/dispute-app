@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import type { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  createTrialSubscriptionForUser,
   syncSubscriptionFromRevenueCat,
   validateRevenueCatStoreContext
 } from '../src/modules/subscription/subscription.service.js';
@@ -123,7 +124,7 @@ describe('subscription API', () => {
         { store: 'PLAY_STORE', environment: 'SANDBOX' },
         'production'
       )
-    ).toMatch(/production environment/i);
+    ).toMatch(/matching store testing pilot flag/i);
     expect(
       validateRevenueCatStoreContext(
         { store: 'AMAZON', environment: 'PRODUCTION' },
@@ -159,7 +160,29 @@ describe('subscription API', () => {
         'production',
         true
       )
-    ).toMatch(/production environment/i);
+    ).toMatch(/matching store testing pilot flag/i);
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'PLAY_STORE', environment: 'SANDBOX' },
+        'development',
+        false
+      )
+    ).toMatch(/matching store testing pilot flag/i);
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'APP_STORE', environment: 'SANDBOX' },
+        'development',
+        true
+      )
+    ).toMatch(/matching store testing pilot flag/i);
+    expect(
+      validateRevenueCatStoreContext(
+        { store: 'APP_STORE', environment: 'SANDBOX' },
+        'production',
+        false,
+        true
+      )
+    ).toBeNull();
   });
 
   it('blocks export when the 3-day trial is expired', async () => {
@@ -275,6 +298,7 @@ describe('subscription API', () => {
               is_sandbox: true,
               period_type: 'normal',
               purchase_date: '2026-08-08T00:00:00.000Z',
+              refunded_at: null,
               store: 'play_store',
               store_transaction_id: 'test-store-transaction',
               unsubscribe_detected_at: null
@@ -374,6 +398,130 @@ describe('subscription API', () => {
     expect(subscription?.currentPeriodEnd?.getTime()).toBe(0);
   });
 
+  it.each([
+    ['a bare Play subscription id', { productId: 'dispute_basic_monthly' }],
+    ['a legacy Play base plan', { productId: 'dispute_basic_monthly:legacy-plan' }],
+    ['a yearly Play base plan', { productId: 'dispute_basic_monthly:yearly-plan' }],
+    ['an unknown period type', { subscriptionOverrides: { period_type: 'lifetime' } }],
+    ['a malformed billing issue date', { subscriptionOverrides: { billing_issues_detected_at: 123 } }],
+    ['a missing cancellation field', { subscriptionOverrides: { unsubscribe_detected_at: undefined } }],
+    ['an Apple sandbox receipt', { sandbox: true, store: 'app_store' }]
+  ])('fails closed for %s', async (_label, fixture) => {
+    const user = await registerUser(`subscription-strict-${crypto.randomUUID()}@example.com`);
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: { status: 'EXPIRED', trialEndsAt: new Date(0), currentPeriodEnd: new Date(0) }
+    });
+    const result = await syncSubscriptionFromRevenueCat(user.id, {
+      allowSandboxEvents: true,
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo(fixture)),
+      nodeEnv: 'production',
+      now: new Date('2026-08-08T00:00:00.000Z'),
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(result.statusCode).toBe(409);
+    const subscription = await prisma.userSubscription.findFirst({ where: { userId: user.id } });
+    expect(subscription).toMatchObject({ status: 'EXPIRED' });
+    expect(subscription?.currentPeriodEnd?.getTime()).toBe(0);
+  });
+
+  it('updates only the authenticated owner and creates a missing owner row', async () => {
+    const owner = await registerUser('subscription-owner-sync@example.com');
+    const other = await registerUser('subscription-other-user@example.com');
+    await prisma.userSubscription.deleteMany({ where: { userId: owner.id } });
+    await prisma.userSubscription.updateMany({
+      where: { userId: other.id },
+      data: { status: 'EXPIRED', trialEndsAt: new Date(0), currentPeriodEnd: new Date(0) }
+    });
+
+    const result = await syncSubscriptionFromRevenueCat(owner.id, {
+      allowSandboxEvents: true,
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({ sandbox: true })),
+      nodeEnv: 'production',
+      now: new Date('2026-08-08T00:00:00.000Z'),
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(result.statusCode).toBe(200);
+    expect(await prisma.userSubscription.count({ where: { userId: owner.id } })).toBe(1);
+    await expect(prisma.userSubscription.findFirst({ where: { userId: owner.id } }))
+      .resolves.toMatchObject({ status: 'ACTIVE' });
+    await expect(prisma.userSubscription.findFirst({ where: { userId: other.id } }))
+      .resolves.toMatchObject({ status: 'EXPIRED' });
+  });
+
+  it('keeps one owner row when concurrent verification starts without a subscription', async () => {
+    const owner = await registerUser('subscription-concurrent-owner@example.com');
+    await prisma.userSubscription.deleteMany({ where: { userId: owner.id } });
+    const sync = () => syncSubscriptionFromRevenueCat(owner.id, {
+      allowSandboxEvents: true,
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({ sandbox: true })),
+      nodeEnv: 'production',
+      now: new Date('2026-08-08T00:00:00.000Z'),
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    const results = await Promise.all([sync(), sync()]);
+
+    expect(results.map((result) => result.statusCode)).toEqual([200, 200]);
+    expect(await prisma.userSubscription.count({ where: { userId: owner.id } })).toBe(1);
+  });
+
+  it('allows App Store sandbox verification only with the separate TestFlight flag', async () => {
+    const user = await registerUser('subscription-testflight-sync@example.com');
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: { status: 'EXPIRED', trialEndsAt: new Date(0), currentPeriodEnd: new Date(0) }
+    });
+
+    const result = await syncSubscriptionFromRevenueCat(user.id, {
+      allowAppleSandboxEvents: true,
+      allowSandboxEvents: false,
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({
+        productId: 'dispute_basic_monthly',
+        sandbox: true,
+        store: 'app_store'
+      })),
+      nodeEnv: 'production',
+      now: new Date('2026-08-08T00:00:00.000Z'),
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(result.statusCode).toBe(200);
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({ status: 'ACTIVE' });
+  });
+
+  it('rate limits repeated authenticated subscription sync requests per user', async () => {
+    const user = await registerUser('subscription-sync-rate-limit@example.com');
+    const { env } = await import('../src/config/env.js');
+    const mutableRevenueCat = env.revenueCat as { secretApiKey: string };
+    const previousSecret = mutableRevenueCat.secretApiKey;
+    mutableRevenueCat.secretApiKey = '';
+    try {
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const response = await postJson('/subscription/sync', {}, user.cookie);
+        expect(response.status).toBe(503);
+      }
+      const blocked = await postJson('/subscription/sync', {}, user.cookie);
+      expect(blocked.status).toBe(429);
+      await expect(blocked.json()).resolves.toMatchObject({
+        error: 'Too many subscription verification attempts. Wait 15 minutes and try again.'
+      });
+    } finally {
+      mutableRevenueCat.secretApiKey = previousSecret;
+    }
+  });
+
   it('does not call RevenueCat when server-side verification is not configured', async () => {
     let fetchCalled = false;
     const result = await syncSubscriptionFromRevenueCat('authenticated-user', {
@@ -404,7 +552,7 @@ describe('subscription API', () => {
         product_id: 'dispute_basic_monthly:monthly-plan',
         entitlement_ids: ['dispute_basic'],
         store: 'PLAY_STORE',
-        environment: 'SANDBOX',
+        environment: 'PRODUCTION',
         app_user_id: user.id,
         transaction_id: 'store_txn_123',
         price_in_purchased_currency: 6.99,
@@ -444,7 +592,7 @@ describe('subscription API', () => {
         product_id: 'dispute_basic_monthly',
         entitlement_ids: ['dispute_basic'],
         store: 'PLAY_STORE',
-        environment: 'SANDBOX',
+        environment: 'PRODUCTION',
         app_user_id: user.id,
         transaction_id: 'store_txn_canceled',
         price_in_purchased_currency: 6.99,
@@ -497,6 +645,21 @@ describe('subscription API', () => {
     expect(response.status).toBe(200);
     expect(body.subscription).toMatchObject({ status: 'EXPIRED', isActive: false, canExportReports: false });
     expect(await prisma.userSubscription.count({ where: { userId: user.id } })).toBe(1);
+  });
+
+  it('atomically creates one trial when concurrent backfills find no subscription', async () => {
+    const user = await registerUser('subscription-concurrent-trial@example.com');
+    await prisma.userSubscription.deleteMany({ where: { userId: user.id } });
+    const verifiedAt = new Date('2026-08-08T00:00:00.000Z');
+
+    await Promise.all([
+      createTrialSubscriptionForUser(user.id, verifiedAt),
+      createTrialSubscriptionForUser(user.id, verifiedAt)
+    ]);
+
+    expect(await prisma.userSubscription.count({ where: { userId: user.id } })).toBe(1);
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({ status: 'TRIALING', provider: 'store' });
   });
 
   it('grants and expires a fulfilled referral reward access window', async () => {
@@ -660,10 +823,14 @@ async function jsonBody<T>(response: Response): Promise<T> {
 
 function revenueCatCustomerInfo({
   productId = 'dispute_basic_monthly:monthly-plan',
-  sandbox = false
+  sandbox = false,
+  store = 'play_store',
+  subscriptionOverrides = {}
 }: {
   productId?: string;
   sandbox?: boolean;
+  store?: string;
+  subscriptionOverrides?: Record<string, unknown>;
 } = {}) {
   return {
     subscriber: {
@@ -683,9 +850,11 @@ function revenueCatCustomerInfo({
           is_sandbox: sandbox,
           period_type: 'normal',
           purchase_date: '2026-08-08T00:00:00.000Z',
-          store: 'play_store',
+          refunded_at: null,
+          store,
           store_transaction_id: 'test-store-transaction',
-          unsubscribe_detected_at: null
+          unsubscribe_detected_at: null,
+          ...subscriptionOverrides
         }
       }
     }
