@@ -3,6 +3,13 @@ import { matchesConfiguredStoreProductIdentifier } from '@claimproof/shared';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { recordPaidReferralPeriod } from '../referrals/referral.service.js';
+import {
+  validateRevenueCatStoreContext,
+  verifyRevenueCatSubscriberPayload,
+  type VerifiedStoreSubscription
+} from './revenueCatVerification.js';
+
+export { validateRevenueCatStoreContext } from './revenueCatVerification.js';
 
 export interface SubscriptionEntitlement {
   userId: string;
@@ -29,12 +36,22 @@ const trialDays = 3;
 const basicPlanCode = 'dispute-basic-monthly';
 const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
 const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
-const supportedRevenueCatStores = new Set(['PLAY_STORE', 'APP_STORE']);
 const basicPlanName = 'DISPUTE Basic';
 const basicPlanPriceCents = 699;
 const basicPlanCurrency = 'SGD';
 
 type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
+type FetchLike = typeof fetch;
+
+interface RevenueCatSyncOptions {
+  allowSandboxEvents?: boolean;
+  entitlementId?: string;
+  fetcher?: FetchLike;
+  nodeEnv?: string;
+  now?: Date;
+  productId?: string;
+  secretApiKey?: string;
+}
 
 export async function createTrialSubscriptionForUser(
   userId: string,
@@ -162,6 +179,81 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
   };
 }
 
+export async function syncSubscriptionFromRevenueCat(
+  userId: string,
+  options: RevenueCatSyncOptions = {}
+) {
+  const secretApiKey = options.secretApiKey ?? env.revenueCat.secretApiKey;
+  const productId = options.productId ?? storeProductId;
+  const entitlementId = options.entitlementId ?? storeEntitlementId;
+  if (!secretApiKey || !productId || !entitlementId) {
+    return {
+      statusCode: 503,
+      body: {
+        error: 'Subscription verification is not configured on the Dispute server.'
+      }
+    } as const;
+  }
+
+  const fetcher = options.fetcher ?? fetch;
+  let response: Response;
+  try {
+    response = await fetcher(
+      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${secretApiKey}`,
+          Accept: 'application/json'
+        }
+      }
+    );
+  } catch {
+    return {
+      statusCode: 502,
+      body: {
+        error: 'RevenueCat could not be reached. The existing subscription status was not changed.'
+      }
+    } as const;
+  }
+
+  if (!response.ok) {
+    return {
+      statusCode: 502,
+      body: {
+        error: 'RevenueCat could not verify this subscription. The existing subscription status was not changed.'
+      }
+    } as const;
+  }
+
+  const payload = await readRevenueCatJson(response);
+  const verified = verifyRevenueCatSubscriberPayload(payload, {
+    allowSandboxEvents: options.allowSandboxEvents ?? env.revenueCat.allowSandboxEvents,
+    entitlementId,
+    nodeEnv: options.nodeEnv ?? env.nodeEnv,
+    now: options.now ?? new Date(),
+    productId
+  });
+  if (!verified.ok) {
+    return {
+      statusCode: verified.statusCode,
+      body: {
+        error: verified.error
+      }
+    } as const;
+  }
+
+  await persistVerifiedSubscription(userId, verified.subscription);
+  return {
+    statusCode: 200,
+    body: {
+      synced: true,
+      userId,
+      status: verified.subscription.status
+    }
+  } as const;
+}
+
 export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const event = getRevenueCatEvent(body);
   const userId = getString(event, 'app_user_id') ?? getString(event, 'original_app_user_id');
@@ -204,7 +296,6 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
       body: { error: 'RevenueCat webhook event type is not supported.' }
     } as const;
   }
-  const plan = await ensureBasicPlan(prisma);
   const purchasedAt = getDateFromMs(event, 'purchased_at_ms');
   const expirationAt = getDateFromMs(event, 'expiration_at_ms');
   if (requiresFutureExpiration(status) && (!expirationAt || expirationAt <= new Date())) {
@@ -220,43 +311,12 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
     getString(event, 'transaction_id') ?? getString(event, 'original_transaction_id');
   const paidPeriodTransactionId = getString(event, 'transaction_id');
 
-  await prisma.userSubscription.upsert({
-    where: {
-      id:
-        (
-          await prisma.userSubscription.findFirst({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            select: { id: true }
-          })
-        )?.id ?? ''
-    },
-    create: {
-      userId,
-      planId: plan.id,
-      status,
-      monthlyRecurringCents: priceCents,
-      currency,
-      provider: 'revenuecat',
-      providerSubscriptionId,
-      currentPeriodStart: purchasedAt,
-      currentPeriodEnd: expirationAt,
-      trialEndsAt: status === SubscriptionStatus.TRIALING ? expirationAt : null,
-      canceledAt: status === SubscriptionStatus.CANCELED ? new Date() : null
-    },
-    update: {
-      planId: plan.id,
-      status,
-      monthlyRecurringCents: priceCents,
-      currency,
-      provider: 'revenuecat',
-      providerSubscriptionId,
-      currentPeriodStart: purchasedAt,
-      currentPeriodEnd: expirationAt,
-      trialEndsAt: status === SubscriptionStatus.TRIALING ? expirationAt : undefined,
-      canceledAt: status === SubscriptionStatus.CANCELED ? new Date() : null
-    }
-  });
+  await persistVerifiedSubscription(userId, {
+    status,
+    purchasedAt,
+    expirationAt,
+    providerSubscriptionId
+  }, priceCents, currency);
 
   await recordPaidReferralPeriod({
     userId,
@@ -273,27 +333,6 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
     statusCode: 200,
     body: { received: true, userId, status }
   } as const;
-}
-
-export function validateRevenueCatStoreContext(
-  event: Record<string, unknown>,
-  nodeEnv: string,
-  allowSandboxEvents = false
-): string | null {
-  const store = getString(event, 'store');
-  if (!store || !supportedRevenueCatStores.has(store)) {
-    return 'RevenueCat webhook store must be Google Play or Apple App Store.';
-  }
-  const environment = getString(event, 'environment');
-  const isAllowedPlaySandbox =
-    allowSandboxEvents && store === 'PLAY_STORE' && environment === 'SANDBOX';
-  if (nodeEnv === 'production' && environment !== 'PRODUCTION' && !isAllowedPlaySandbox) {
-    return 'RevenueCat production webhook must come from the production environment.';
-  }
-  if (environment !== 'PRODUCTION' && environment !== 'SANDBOX') {
-    return 'RevenueCat webhook environment is not supported.';
-  }
-  return null;
 }
 
 export function getMobileStoreCheckoutResponse() {
@@ -327,6 +366,49 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
       status: 'active'
     }
   });
+}
+
+async function persistVerifiedSubscription(
+  userId: string,
+  subscription: VerifiedStoreSubscription,
+  priceCents = basicPlanPriceCents,
+  currency = basicPlanCurrency
+): Promise<void> {
+  const plan = await ensureBasicPlan(prisma);
+  const existing = await prisma.userSubscription.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true }
+  });
+  const data = {
+    planId: plan.id,
+    status: subscription.status,
+    monthlyRecurringCents: priceCents,
+    currency,
+    provider: 'revenuecat',
+    providerSubscriptionId: subscription.providerSubscriptionId,
+    currentPeriodStart: subscription.purchasedAt,
+    currentPeriodEnd: subscription.expirationAt,
+    trialEndsAt:
+      subscription.status === SubscriptionStatus.TRIALING
+        ? subscription.expirationAt
+        : null,
+    canceledAt:
+      subscription.status === SubscriptionStatus.CANCELED ? new Date() : null
+  };
+  await prisma.userSubscription.upsert({
+    where: { id: existing?.id ?? '' },
+    create: { userId, ...data },
+    update: data
+  });
+}
+
+async function readRevenueCatJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function getEffectiveStatus(

@@ -2,7 +2,10 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { validateRevenueCatStoreContext } from '../src/modules/subscription/subscription.service.js';
+import {
+  syncSubscriptionFromRevenueCat,
+  validateRevenueCatStoreContext
+} from '../src/modules/subscription/subscription.service.js';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
@@ -228,6 +231,163 @@ describe('subscription API', () => {
       error: 'Use the mobile Subscribe button. DISPUTE mobile subscriptions are handled by Apple App Store or Google Play.',
       billingProvider: 'store'
     });
+  });
+
+  it('requires authentication for RevenueCat subscription synchronization', async () => {
+    const response = await postJson('/subscription/sync', {});
+
+    expect(response.status).toBe(401);
+  });
+
+  it('restores backend access from an authenticated active RevenueCat subscription', async () => {
+    const user = await registerUser('subscription-restore-sync@example.com');
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: {
+        status: 'EXPIRED',
+        trialEndsAt: new Date(0),
+        currentPeriodEnd: new Date(0)
+      }
+    });
+    const now = new Date('2026-08-08T00:00:00.000Z');
+    const periodEnd = new Date('2026-09-08T00:00:00.000Z');
+    const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+      expect(String(input)).toBe(
+        `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(user.id)}`
+      );
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer test-server-key');
+      return Response.json({
+        request_date: now.toISOString(),
+        subscriber: {
+          entitlements: {
+            dispute_basic: {
+              expires_date: periodEnd.toISOString(),
+              grace_period_expires_date: null,
+              product_identifier: 'dispute_basic_monthly:monthly-plan',
+              purchase_date: '2026-08-08T00:00:00.000Z'
+            }
+          },
+          subscriptions: {
+            'dispute_basic_monthly:monthly-plan': {
+              billing_issues_detected_at: null,
+              expires_date: periodEnd.toISOString(),
+              grace_period_expires_date: null,
+              is_sandbox: true,
+              period_type: 'normal',
+              purchase_date: '2026-08-08T00:00:00.000Z',
+              store: 'play_store',
+              store_transaction_id: 'test-store-transaction',
+              unsubscribe_detected_at: null
+            }
+          }
+        }
+      });
+    };
+
+    const sync = await syncSubscriptionFromRevenueCat(user.id, {
+      allowSandboxEvents: true,
+      entitlementId: 'dispute_basic',
+      fetcher,
+      nodeEnv: 'production',
+      now,
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(sync.statusCode).toBe(200);
+    expect(sync.body).toMatchObject({ synced: true, status: 'ACTIVE' });
+    const response = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const body = await jsonBody<SubscriptionStatusResponse>(response);
+    expect(body.subscription).toMatchObject({
+      userId: user.id,
+      status: 'ACTIVE',
+      isActive: true,
+      canCreateRecords: true,
+      canExportReports: true
+    });
+  });
+
+  it('preserves backend status when RevenueCat verification is unavailable or invalid', async () => {
+    const user = await registerUser('subscription-restore-fails-closed@example.com');
+    await prisma.userSubscription.updateMany({
+      where: { userId: user.id },
+      data: {
+        status: 'EXPIRED',
+        trialEndsAt: new Date(0),
+        currentPeriodEnd: new Date(0)
+      }
+    });
+    const now = new Date('2026-08-08T00:00:00.000Z');
+    const invalidProduct = await syncSubscriptionFromRevenueCat(user.id, {
+      allowSandboxEvents: true,
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({
+        productId: 'another_product',
+        sandbox: true
+      })),
+      nodeEnv: 'production',
+      now,
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+    expect(invalidProduct.statusCode).toBe(409);
+
+    const rejectedSandbox = await syncSubscriptionFromRevenueCat(user.id, {
+      allowSandboxEvents: false,
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({ sandbox: true })),
+      nodeEnv: 'production',
+      now,
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+    expect(rejectedSandbox.statusCode).toBe(409);
+
+    const malformed = await syncSubscriptionFromRevenueCat(user.id, {
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json({ unexpected: true }),
+      nodeEnv: 'production',
+      now,
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+    expect(malformed.statusCode).toBe(502);
+
+    const unavailable = await syncSubscriptionFromRevenueCat(user.id, {
+      entitlementId: 'dispute_basic',
+      fetcher: async () => {
+        throw new Error('network unavailable');
+      },
+      nodeEnv: 'production',
+      now,
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+    expect(unavailable.statusCode).toBe(502);
+
+    const subscription = await prisma.userSubscription.findFirst({
+      where: { userId: user.id }
+    });
+    expect(subscription).toMatchObject({ status: 'EXPIRED' });
+    expect(subscription?.currentPeriodEnd?.getTime()).toBe(0);
+  });
+
+  it('does not call RevenueCat when server-side verification is not configured', async () => {
+    let fetchCalled = false;
+    const result = await syncSubscriptionFromRevenueCat('authenticated-user', {
+      entitlementId: 'dispute_basic',
+      fetcher: async () => {
+        fetchCalled = true;
+        return Response.json({});
+      },
+      productId: 'dispute_basic_monthly',
+      secretApiKey: ''
+    });
+
+    expect(result.statusCode).toBe(503);
+    expect(fetchCalled).toBe(false);
   });
 
   it('requires authentication before checkout session handling', async () => {
@@ -496,4 +656,38 @@ function sessionCookie(response: Response): string {
 
 async function jsonBody<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
+}
+
+function revenueCatCustomerInfo({
+  productId = 'dispute_basic_monthly:monthly-plan',
+  sandbox = false
+}: {
+  productId?: string;
+  sandbox?: boolean;
+} = {}) {
+  return {
+    subscriber: {
+      entitlements: {
+        dispute_basic: {
+          expires_date: '2026-09-08T00:00:00.000Z',
+          grace_period_expires_date: null,
+          product_identifier: productId,
+          purchase_date: '2026-08-08T00:00:00.000Z'
+        }
+      },
+      subscriptions: {
+        [productId]: {
+          billing_issues_detected_at: null,
+          expires_date: '2026-09-08T00:00:00.000Z',
+          grace_period_expires_date: null,
+          is_sandbox: sandbox,
+          period_type: 'normal',
+          purchase_date: '2026-08-08T00:00:00.000Z',
+          store: 'play_store',
+          store_transaction_id: 'test-store-transaction',
+          unsubscribe_detected_at: null
+        }
+      }
+    }
+  };
 }

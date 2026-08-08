@@ -110,6 +110,105 @@ test("mobile uses the shared approved Google Play base-plan policy", () => {
   assert.match(productPolicySource, /DISPUTE_BASIC_ANDROID_BASE_PLAN_ID/);
 });
 
+test("restore verifies the active store entitlement with the authenticated server", async () => {
+  const previousAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
+  const previousEntitlement = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID;
+  process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_test_public_key";
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID = "dispute_basic";
+  const syncCalls = [];
+  try {
+    const Purchases = {
+      isConfigured: async () => true,
+      logIn: async () => undefined,
+      restorePurchases: async () => ({
+        entitlements: { active: { dispute_basic: {} } },
+      }),
+    };
+    const { restoreDisputeBasicSubscription } = loadTsModule(
+      "src/subscription/subscriptionClient.ts",
+      {
+        "react-native": { Platform: { OS: "android" } },
+        "react-native-purchases": Purchases,
+        "../auth/remoteAuth": {
+          getAuthApiBaseUrl: () => "https://api.dispute.test",
+        },
+        "@claimproof/shared": {
+          DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+          matchesConfiguredStoreProductIdentifier: () => true,
+        },
+      },
+    );
+    const fetcher = async (input, init) => {
+      syncCalls.push({ input: String(input), init });
+      return Response.json({ synced: true, status: "ACTIVE" });
+    };
+
+    const restored = await restoreDisputeBasicSubscription(
+      { id: "user-a", email: "user-a@example.com" },
+      fetcher,
+    );
+
+    assert.deepEqual(restored, {
+      ok: true,
+      message: "Subscription restored and access is active.",
+    });
+    assert.equal(syncCalls.length, 1);
+    assert.equal(syncCalls[0].input, "https://api.dispute.test/subscription/sync");
+    assert.equal(syncCalls[0].init.method, "POST");
+    assert.equal(syncCalls[0].init.credentials, "include");
+  } finally {
+    restoreEnv("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY", previousAndroidKey);
+    restoreEnv("EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID", previousEntitlement);
+  }
+});
+
+test("restore does not report success when server verification fails", async () => {
+  const previousAndroidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
+  const previousEntitlement = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID;
+  process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_test_public_key";
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID = "dispute_basic";
+  try {
+    const Purchases = {
+      isConfigured: async () => true,
+      logIn: async () => undefined,
+      restorePurchases: async () => ({
+        entitlements: { active: { dispute_basic: {} } },
+      }),
+    };
+    const { restoreDisputeBasicSubscription } = loadTsModule(
+      "src/subscription/subscriptionClient.ts",
+      {
+        "react-native": { Platform: { OS: "android" } },
+        "react-native-purchases": Purchases,
+        "../auth/remoteAuth": {
+          getAuthApiBaseUrl: () => "https://api.dispute.test",
+        },
+        "@claimproof/shared": {
+          DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+          matchesConfiguredStoreProductIdentifier: () => true,
+        },
+      },
+    );
+
+    const restored = await restoreDisputeBasicSubscription(
+      { id: "user-a", email: "user-a@example.com" },
+      async () => Response.json(
+        { error: "RevenueCat could not verify this subscription." },
+        { status: 502 },
+      ),
+    );
+
+    assert.deepEqual(restored, {
+      ok: false,
+      message:
+        "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
+    });
+  } finally {
+    restoreEnv("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY", previousAndroidKey);
+    restoreEnv("EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID", previousEntitlement);
+  }
+});
+
 test("PDF export access accepts an active trial and rejects expired access", () => {
   const { canExportProgressClaim } = loadTsModule(
     "src/subscription/subscriptionClient.ts",
@@ -191,3 +290,11 @@ test("settings screen exposes subscription status and subscribe action", () => {
   assert.match(settingsSource, /No card required/);
   assert.match(settingsSource, /no charge starts automatically/i);
 });
+
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}

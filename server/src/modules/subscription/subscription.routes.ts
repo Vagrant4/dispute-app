@@ -4,6 +4,7 @@ import { requireUser } from '../../middleware/requireUser.js';
 import {
   getMobileStoreCheckoutResponse,
   getSubscriptionEntitlement,
+  syncSubscriptionFromRevenueCat,
   updateSubscriptionFromRevenueCatWebhook
 } from './subscription.service.js';
 
@@ -20,6 +21,15 @@ subscriptionRouter.get('/status', requireUser, async (req, res, next) => {
 subscriptionRouter.post('/create-checkout-session', requireUser, (_req, res) => {
   const response = getMobileStoreCheckoutResponse();
   res.status(response.statusCode).json(response.body);
+});
+
+subscriptionRouter.post('/sync', requireUser, async (req, res, next) => {
+  try {
+    const response = await syncSubscriptionFromRevenueCat(req.user!.id);
+    res.status(response.statusCode).json(response.body);
+  } catch (error) {
+    next(error);
+  }
 });
 
 subscriptionRouter.post('/webhook', async (req, res, next) => {
