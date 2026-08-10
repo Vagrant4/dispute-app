@@ -143,7 +143,8 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
   const hasSubscriptionAccess =
     effectiveStatus === SubscriptionStatus.ACTIVE ||
     effectiveStatus === SubscriptionStatus.TRIALING ||
-    effectiveStatus === SubscriptionStatus.CANCELED;
+    effectiveStatus === SubscriptionStatus.CANCELED ||
+    effectiveStatus === SubscriptionStatus.PAST_DUE;
   const hasReferralRewardAccess = Boolean(activeReward);
   const hasFullAccess = hasSubscriptionAccess || hasReferralRewardAccess;
   return {
@@ -240,13 +241,18 @@ export async function syncSubscriptionFromRevenueCat(
     } as const;
   }
 
-  await persistVerifiedSubscription(userId, verified.subscription);
+  const applied = await persistVerifiedSubscription(userId, verified.subscription);
+  const stored = await prisma.userSubscription.findUnique({
+    where: { userId },
+    select: { status: true }
+  });
   return {
     statusCode: 200,
     body: {
       synced: true,
+      applied,
       userId,
-      status: verified.subscription.status
+      status: stored?.status ?? verified.subscription.status
     }
   } as const;
 }
@@ -295,7 +301,17 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
     } as const;
   }
   const purchasedAt = getDateFromMs(event, 'purchased_at_ms');
-  const expirationAt = getDateFromMs(event, 'expiration_at_ms');
+  const expirationAt = status === SubscriptionStatus.PAST_DUE
+    ? getDateFromMs(event, 'grace_period_expiration_at_ms')
+    : getDateFromMs(event, 'expiration_at_ms');
+  if (status === SubscriptionStatus.PAST_DUE && (!expirationAt || expirationAt <= new Date())) {
+    return {
+      statusCode: 400,
+      body: {
+        error: 'RevenueCat billing issue must include a future grace_period_expiration_at_ms.'
+      }
+    } as const;
+  }
   if (requiresFutureExpiration(status) && (!expirationAt || expirationAt <= new Date())) {
     return {
       statusCode: 400,
@@ -308,12 +324,20 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const providerSubscriptionId =
     getString(event, 'transaction_id') ?? getString(event, 'original_transaction_id');
   const paidPeriodTransactionId = getString(event, 'transaction_id');
+  const providerUpdatedAt = getDateFromMs(event, 'event_timestamp_ms');
+  if (!providerUpdatedAt) {
+    return {
+      statusCode: 400,
+      body: { error: 'RevenueCat webhook is missing a valid event_timestamp_ms.' }
+    } as const;
+  }
 
-  await persistVerifiedSubscription(userId, {
+  const applied = await persistVerifiedSubscription(userId, {
     status,
     purchasedAt,
     expirationAt,
-    providerSubscriptionId
+    providerSubscriptionId,
+    providerUpdatedAt
   }, priceCents, currency);
 
   await recordPaidReferralPeriod({
@@ -329,7 +353,7 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
 
   return {
     statusCode: 200,
-    body: { received: true, userId, status }
+    body: { received: true, applied, userId, status }
   } as const;
 }
 
@@ -371,7 +395,7 @@ async function persistVerifiedSubscription(
   subscription: VerifiedStoreSubscription,
   priceCents = basicPlanPriceCents,
   currency = basicPlanCurrency
-): Promise<void> {
+): Promise<boolean> {
   const plan = await ensureBasicPlan(prisma);
   const data = {
     planId: plan.id,
@@ -380,6 +404,7 @@ async function persistVerifiedSubscription(
     currency,
     provider: 'revenuecat',
     providerSubscriptionId: subscription.providerSubscriptionId,
+    providerUpdatedAt: subscription.providerUpdatedAt,
     currentPeriodStart: subscription.purchasedAt,
     currentPeriodEnd: subscription.expirationAt,
     trialEndsAt:
@@ -389,11 +414,38 @@ async function persistVerifiedSubscription(
     canceledAt:
       subscription.status === SubscriptionStatus.CANCELED ? new Date() : null
   };
-  await prisma.userSubscription.upsert({
-    where: { userId },
-    update: data,
-    create: { userId, ...data }
+  const updateWhere: Prisma.UserSubscriptionWhereInput = {
+    userId,
+    OR: [
+      { providerUpdatedAt: null },
+      { providerUpdatedAt: { lte: subscription.providerUpdatedAt } }
+    ]
+  };
+  const updated = await prisma.userSubscription.updateMany({
+    where: updateWhere,
+    data
   });
+  if (updated.count > 0) return true;
+
+  const existing = await prisma.userSubscription.findUnique({
+    where: { userId },
+    select: { id: true }
+  });
+  if (existing) return false;
+
+  try {
+    await prisma.userSubscription.create({ data: { userId, ...data } });
+    return true;
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+      throw error;
+    }
+    const racedUpdate = await prisma.userSubscription.updateMany({
+      where: updateWhere,
+      data
+    });
+    return racedUpdate.count > 0;
+  }
 }
 
 async function readRevenueCatJson(response: Response): Promise<unknown> {
@@ -419,9 +471,9 @@ function getEffectiveStatus(
       ? SubscriptionStatus.CANCELED
       : SubscriptionStatus.EXPIRED;
   }
-  if (status === SubscriptionStatus.ACTIVE) {
+  if (status === SubscriptionStatus.ACTIVE || status === SubscriptionStatus.PAST_DUE) {
     return currentPeriodEnd && currentPeriodEnd > new Date()
-      ? SubscriptionStatus.ACTIVE
+      ? status
       : SubscriptionStatus.EXPIRED;
   }
   return status;
@@ -450,7 +502,9 @@ function buildEntitlementMessage(
     return 'Subscription active. Export is available.';
   }
   if (status === SubscriptionStatus.PAST_DUE) {
-    return 'Subscription payment is past due. Subscribe again to export reports.';
+    return currentPeriodEnd
+      ? `Subscription payment needs attention. Access remains available during the billing grace period until ${currentPeriodEnd.toISOString()}.`
+      : 'Subscription payment is past due. Subscribe again to export reports.';
   }
   if (status === SubscriptionStatus.CANCELED) {
     return currentPeriodEnd
@@ -486,7 +540,9 @@ function getStringArray(body: Record<string, unknown>, key: string): string[] {
 function getDateFromMs(body: Record<string, unknown>, key: string): Date | null {
   const value = body[key];
   const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  return Number.isFinite(numberValue) ? new Date(numberValue) : null;
+  if (!Number.isFinite(numberValue)) return null;
+  const date = new Date(numberValue);
+  return Number.isFinite(date.getTime()) ? date : null;
 }
 
 function getRevenueCents(body: Record<string, unknown>): number | null {

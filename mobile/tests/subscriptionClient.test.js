@@ -268,6 +268,18 @@ test("PDF export access accepts an active trial and rejects expired access", () 
     ),
     false,
   );
+  assert.equal(
+    canExportProgressClaim(
+      {
+        ...base,
+        status: "PAST_DUE",
+        trialEndsAt: null,
+        currentPeriodEnd: "2026-08-08T00:00:00.000Z",
+      },
+      nowMs,
+    ),
+    true,
+  );
 });
 
 test("export screen gates report actions behind canExportReports", () => {

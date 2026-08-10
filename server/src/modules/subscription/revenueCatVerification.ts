@@ -8,6 +8,7 @@ export interface VerifiedStoreSubscription {
   purchasedAt: Date | null;
   expirationAt: Date | null;
   providerSubscriptionId: string | null;
+  providerUpdatedAt: Date;
 }
 
 export function verifyRevenueCatSubscriberPayload(
@@ -24,7 +25,8 @@ export function verifyRevenueCatSubscriberPayload(
   | { ok: true; subscription: VerifiedStoreSubscription }
   | { ok: false; statusCode: 409 | 502; error: string } {
   const subscriber = getRevenueCatSubscriber(payload);
-  if (!subscriber) {
+  const providerUpdatedAt = getRevenueCatRequestDate(payload);
+  if (!subscriber || !providerUpdatedAt) {
     return {
       ok: false,
       statusCode: 502,
@@ -99,21 +101,49 @@ export function verifyRevenueCatSubscriberPayload(
   if (storeContextError) {
     return { ok: false, statusCode: 409, error: storeContextError };
   }
-  const expirationAt = getDate(entitlement, 'expires_date');
-  if (!expirationAt || expirationAt <= config.now) {
+  const entitlementExpirationAt = getDate(entitlement, 'expires_date');
+  const subscriptionExpirationAt = getDate(storeSubscription, 'expires_date');
+  const subscriptionGracePeriod = getNullableDate(
+    storeSubscription,
+    'grace_period_expires_date'
+  );
+  if (!subscriptionGracePeriod.valid) {
     return {
       ok: false,
       statusCode: 409,
-      error: 'RevenueCat did not confirm a current DISPUTE access period.'
+      error: 'RevenueCat returned incomplete grace-period details.'
     };
   }
-  const subscriptionExpirationAt = getDate(storeSubscription, 'expires_date');
-  if (!subscriptionExpirationAt || subscriptionExpirationAt.getTime() !== expirationAt.getTime()) {
-    return {
-      ok: false,
-      statusCode: 409,
-      error: 'RevenueCat returned inconsistent subscription expiration details.'
-    };
+  let expirationAt: Date;
+  if (billingIssueAt.value) {
+    const gracePeriodExpiresAt = subscriptionGracePeriod.value;
+    if (!gracePeriodExpiresAt || gracePeriodExpiresAt <= config.now) {
+      return {
+        ok: false,
+        statusCode: 409,
+        error: 'RevenueCat did not confirm a current billing grace period.'
+      };
+    }
+    expirationAt = gracePeriodExpiresAt;
+  } else {
+    if (!entitlementExpirationAt || entitlementExpirationAt <= config.now) {
+      return {
+        ok: false,
+        statusCode: 409,
+        error: 'RevenueCat did not confirm a current DISPUTE access period.'
+      };
+    }
+    if (
+      !subscriptionExpirationAt ||
+      subscriptionExpirationAt.getTime() !== entitlementExpirationAt.getTime()
+    ) {
+      return {
+        ok: false,
+        statusCode: 409,
+        error: 'RevenueCat returned inconsistent subscription expiration details.'
+      };
+    }
+    expirationAt = entitlementExpirationAt;
   }
   const status = billingIssueAt.value
     ? SubscriptionStatus.PAST_DUE
@@ -122,13 +152,6 @@ export function verifyRevenueCatSubscriberPayload(
       : periodType === 'trial'
         ? SubscriptionStatus.TRIALING
         : SubscriptionStatus.ACTIVE;
-  if (status === SubscriptionStatus.PAST_DUE) {
-    return {
-      ok: false,
-      statusCode: 409,
-      error: 'RevenueCat reports a billing issue. The existing subscription status was not changed.'
-    };
-  }
   return {
     ok: true,
     subscription: {
@@ -136,7 +159,8 @@ export function verifyRevenueCatSubscriberPayload(
       purchasedAt:
         getDate(storeSubscription, 'purchase_date') ?? getDate(entitlement, 'purchase_date'),
       expirationAt,
-      providerSubscriptionId: getString(storeSubscription, 'store_transaction_id')
+      providerSubscriptionId: getString(storeSubscription, 'store_transaction_id'),
+      providerUpdatedAt
     }
   };
 }
@@ -192,6 +216,18 @@ function getRevenueCatSubscriber(payload: unknown): Record<string, unknown> | nu
   return getRecord(value ?? root, 'subscriber');
 }
 
+function getRevenueCatRequestDate(payload: unknown): Date | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const root = payload as Record<string, unknown>;
+  const value = getRecord(root, 'value') ?? root;
+  const requestDateMs = value.request_date_ms;
+  if (typeof requestDateMs === 'number' && Number.isFinite(requestDateMs)) {
+    const requestDate = new Date(requestDateMs);
+    return Number.isFinite(requestDate.getTime()) ? requestDate : null;
+  }
+  return getDate(value, 'request_date');
+}
+
 function getRecord(
   body: Record<string, unknown>,
   key: string
@@ -229,6 +265,15 @@ function getDate(body: Record<string, unknown>, key: string): Date | null {
   if (!value) return null;
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+}
+
+function getNullableDate(
+  body: Record<string, unknown>,
+  key: string
+): { valid: boolean; value: Date | null } {
+  if (body[key] === null) return { valid: true, value: null };
+  const value = getDate(body, key);
+  return value ? { valid: true, value } : { valid: false, value: null };
 }
 
 function normalizeRevenueCatStore(store: string | null): string | null {

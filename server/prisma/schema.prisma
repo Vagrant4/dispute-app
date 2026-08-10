@@ -376,6 +376,7 @@ model UserSubscription {
   currency             String             @default("SGD")
   provider             String             @default("manual")
   providerSubscriptionId String?
+  providerUpdatedAt      DateTime?
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   trialEndsAt          DateTime?

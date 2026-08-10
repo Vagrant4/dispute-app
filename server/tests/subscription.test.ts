@@ -333,6 +333,83 @@ describe('subscription API', () => {
     });
   });
 
+  it('keeps verified access active through a current RevenueCat billing grace period', async () => {
+    const user = await registerUser('subscription-grace-period@example.com');
+    const now = new Date();
+    const expiredPeriodEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const gracePeriodEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    const result = await syncSubscriptionFromRevenueCat(user.id, {
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({
+        entitlementOverrides: {
+          expires_date: expiredPeriodEnd,
+          grace_period_expires_date: null
+        },
+        requestDate: new Date(now.getTime() + 1000).toISOString(),
+        subscriptionOverrides: {
+          billing_issues_detected_at: now.toISOString(),
+          expires_date: expiredPeriodEnd,
+          grace_period_expires_date: gracePeriodEnd
+        }
+      })),
+      now,
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(result.statusCode).toBe(200);
+    const response = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const body = await jsonBody<SubscriptionStatusResponse>(response);
+    expect(body.subscription).toMatchObject({
+      status: 'PAST_DUE',
+      isActive: true,
+      canCreateRecords: true,
+      canExportReports: true
+    });
+    expect(body.subscription.message).toMatch(/grace period/i);
+  });
+
+  it('ignores an older restore snapshot after a newer RevenueCat lifecycle event', async () => {
+    const user = await registerUser('subscription-stale-sync@example.com');
+    const webhookPeriodEnd = new Date('2027-01-01T00:00:00.000Z');
+    const webhook = await postJson('/subscription/webhook', {
+      event: {
+        type: 'CANCELLATION',
+        product_id: 'dispute_basic_monthly:monthly-plan',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'PRODUCTION',
+        app_user_id: user.id,
+        transaction_id: 'newer-webhook-transaction',
+        event_timestamp_ms: Date.parse('2026-08-10T00:00:00.000Z'),
+        purchased_at_ms: Date.parse('2026-08-01T00:00:00.000Z'),
+        expiration_at_ms: webhookPeriodEnd.getTime()
+      }
+    });
+    expect(webhook.status).toBe(200);
+
+    const sync = await syncSubscriptionFromRevenueCat(user.id, {
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({
+        requestDate: '2026-08-09T00:00:00.000Z'
+      })),
+      now: new Date('2026-08-09T00:00:00.000Z'),
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(sync.statusCode).toBe(200);
+    expect(sync.body).toMatchObject({ synced: true, applied: false, status: 'CANCELED' });
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({
+        status: 'CANCELED',
+        currentPeriodEnd: webhookPeriodEnd,
+        providerSubscriptionId: 'newer-webhook-transaction'
+      });
+  });
+
   it('preserves backend status when RevenueCat verification is unavailable or invalid', async () => {
     const user = await registerUser('subscription-restore-fails-closed@example.com');
     await prisma.userSubscription.updateMany({
@@ -426,6 +503,21 @@ describe('subscription API', () => {
     const subscription = await prisma.userSubscription.findFirst({ where: { userId: user.id } });
     expect(subscription).toMatchObject({ status: 'EXPIRED' });
     expect(subscription?.currentPeriodEnd?.getTime()).toBe(0);
+  });
+
+  it('fails closed when RevenueCat omits the authoritative snapshot timestamp', async () => {
+    const user = await registerUser('subscription-missing-snapshot-time@example.com');
+    const result = await syncSubscriptionFromRevenueCat(user.id, {
+      entitlementId: 'dispute_basic',
+      fetcher: async () => Response.json(revenueCatCustomerInfo({ requestDate: '' })),
+      now: new Date('2026-08-08T00:00:00.000Z'),
+      productId: 'dispute_basic_monthly',
+      secretApiKey: 'test-server-key'
+    });
+
+    expect(result.statusCode).toBe(502);
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({ status: 'TRIALING', providerUpdatedAt: null });
   });
 
   it('updates only the authenticated owner and creates a missing owner row', async () => {
@@ -555,6 +647,7 @@ describe('subscription API', () => {
         environment: 'PRODUCTION',
         app_user_id: user.id,
         transaction_id: 'store_txn_123',
+        event_timestamp_ms: Date.now(),
         price_in_purchased_currency: 6.99,
         currency: 'SGD',
         purchased_at_ms: Date.now(),
@@ -583,6 +676,121 @@ describe('subscription API', () => {
     });
   });
 
+  it('keeps webhook access active through the authoritative billing grace period', async () => {
+    const user = await registerUser('subscription-webhook-grace@example.com');
+    const receivedAt = Date.now();
+    const oldPeriodEnd = receivedAt - 24 * 60 * 60 * 1000;
+    const gracePeriodEnd = receivedAt + 3 * 24 * 60 * 60 * 1000;
+    const response = await postJson('/subscription/webhook', {
+      event: {
+        type: 'BILLING_ISSUE',
+        product_id: 'dispute_basic_monthly:monthly-plan',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'PRODUCTION',
+        app_user_id: user.id,
+        transaction_id: 'store_txn_grace',
+        event_timestamp_ms: receivedAt,
+        purchased_at_ms: receivedAt - 31 * 24 * 60 * 60 * 1000,
+        expiration_at_ms: oldPeriodEnd,
+        grace_period_expiration_at_ms: gracePeriodEnd
+      }
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      received: true,
+      applied: true,
+      status: 'PAST_DUE'
+    });
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({
+        status: 'PAST_DUE',
+        currentPeriodEnd: new Date(gracePeriodEnd)
+      });
+
+    const statusResponse = await fetch(`${baseUrl}/subscription/status`, {
+      headers: { Cookie: user.cookie }
+    });
+    const statusBody = await jsonBody<SubscriptionStatusResponse>(statusResponse);
+    expect(statusBody.subscription).toMatchObject({
+      status: 'PAST_DUE',
+      isActive: true,
+      canCreateRecords: true,
+      canExportReports: true
+    });
+    expect(statusBody.subscription.message).toMatch(/grace period/i);
+  });
+
+  it('rejects a billing-issue webhook without a future authoritative grace period', async () => {
+    const user = await registerUser('subscription-webhook-expired-grace@example.com');
+    const receivedAt = Date.now();
+    const response = await postJson('/subscription/webhook', {
+      event: {
+        type: 'BILLING_ISSUE',
+        product_id: 'dispute_basic_monthly:monthly-plan',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'PRODUCTION',
+        app_user_id: user.id,
+        transaction_id: 'store_txn_expired_grace',
+        event_timestamp_ms: receivedAt,
+        purchased_at_ms: receivedAt - 31 * 24 * 60 * 60 * 1000,
+        expiration_at_ms: receivedAt - 24 * 60 * 60 * 1000,
+        grace_period_expiration_at_ms: receivedAt - 1000
+      }
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringMatching(/future grace_period_expiration_at_ms/i)
+    });
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({ status: 'TRIALING', providerUpdatedAt: null });
+  });
+
+  it('does not let an event older than the migration ordering floor replace current state', async () => {
+    const user = await registerUser('subscription-migrated-order-floor@example.com');
+    const orderingFloor = new Date();
+    const currentPeriodEnd = new Date(orderingFloor.getTime() + 30 * 24 * 60 * 60 * 1000);
+    await prisma.userSubscription.update({
+      where: { userId: user.id },
+      data: {
+        status: 'ACTIVE',
+        provider: 'revenuecat',
+        providerSubscriptionId: 'current-provider-state',
+        providerUpdatedAt: orderingFloor,
+        currentPeriodEnd,
+        trialEndsAt: null
+      }
+    });
+
+    const delayedWebhook = await postJson('/subscription/webhook', {
+      event: {
+        type: 'CANCELLATION',
+        product_id: 'dispute_basic_monthly:monthly-plan',
+        entitlement_ids: ['dispute_basic'],
+        store: 'PLAY_STORE',
+        environment: 'PRODUCTION',
+        app_user_id: user.id,
+        transaction_id: 'delayed-pre-migration-event',
+        event_timestamp_ms: orderingFloor.getTime() - 1000,
+        purchased_at_ms: orderingFloor.getTime() - 31 * 24 * 60 * 60 * 1000,
+        expiration_at_ms: currentPeriodEnd.getTime() - 24 * 60 * 60 * 1000
+      }
+    });
+
+    expect(delayedWebhook.status).toBe(200);
+    await expect(delayedWebhook.json()).resolves.toMatchObject({ applied: false });
+    await expect(prisma.userSubscription.findUnique({ where: { userId: user.id } }))
+      .resolves.toMatchObject({
+        status: 'ACTIVE',
+        providerSubscriptionId: 'current-provider-state',
+        providerUpdatedAt: orderingFloor,
+        currentPeriodEnd
+      });
+  });
+
   it('keeps canceled subscription access until the paid period expires', async () => {
     const user = await registerUser('subscription-canceled@example.com');
     const periodEnd = Date.now() + 1000 * 60 * 60 * 24 * 10;
@@ -595,6 +803,7 @@ describe('subscription API', () => {
         environment: 'PRODUCTION',
         app_user_id: user.id,
         transaction_id: 'store_txn_canceled',
+        event_timestamp_ms: Date.now(),
         price_in_purchased_currency: 6.99,
         currency: 'SGD',
         purchased_at_ms: Date.now() - 1000 * 60 * 60 * 24 * 20,
@@ -822,24 +1031,30 @@ async function jsonBody<T>(response: Response): Promise<T> {
 }
 
 function revenueCatCustomerInfo({
+  entitlementOverrides = {},
   productId = 'dispute_basic_monthly:monthly-plan',
+  requestDate = '2026-08-08T00:00:01.000Z',
   sandbox = false,
   store = 'play_store',
   subscriptionOverrides = {}
 }: {
+  entitlementOverrides?: Record<string, unknown>;
   productId?: string;
+  requestDate?: string;
   sandbox?: boolean;
   store?: string;
   subscriptionOverrides?: Record<string, unknown>;
 } = {}) {
   return {
+    request_date: requestDate,
     subscriber: {
       entitlements: {
         dispute_basic: {
           expires_date: '2026-09-08T00:00:00.000Z',
           grace_period_expires_date: null,
           product_identifier: productId,
-          purchase_date: '2026-08-08T00:00:00.000Z'
+          purchase_date: '2026-08-08T00:00:00.000Z',
+          ...entitlementOverrides
         }
       },
       subscriptions: {

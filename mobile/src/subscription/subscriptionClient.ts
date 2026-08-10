@@ -43,6 +43,11 @@ const disputeBasicProductId =
 const disputeBasicEntitlementId =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || "";
 const entitlementCacheKeyPrefix = "dispute.subscription-entitlement.v1";
+const storeSyncPendingResult = {
+  ok: false as const,
+  message:
+    "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
+};
 
 export async function fetchSubscriptionStatus(
   expectedUserId?: string,
@@ -109,7 +114,11 @@ export function hasCurrentFullAccess(
   if (subscription.status === "TRIALING") {
     return subscription.canCreateRecords && isFutureTimestamp(subscription.trialEndsAt, nowMs);
   }
-  if (subscription.status === "ACTIVE" || subscription.status === "CANCELED") {
+  if (
+    subscription.status === "ACTIVE" ||
+    subscription.status === "CANCELED" ||
+    subscription.status === "PAST_DUE"
+  ) {
     return subscription.canCreateRecords && isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
   }
   return false;
@@ -260,19 +269,11 @@ async function syncStoreSubscriptionWithServer(
     });
     const body = await readJsonBody(response);
     if (!response.ok || body.synced !== true) {
-      return {
-        ok: false,
-        message:
-          "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
-      };
+      return storeSyncPendingResult;
     }
     return { ok: true, message: successMessage };
   } catch {
-    return {
-      ok: false,
-      message:
-        "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
-    };
+    return storeSyncPendingResult;
   }
 }
 
