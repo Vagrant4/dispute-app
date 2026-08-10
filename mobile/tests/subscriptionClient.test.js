@@ -47,6 +47,14 @@ const settingsSource = readFileSync(
   path.join(__dirname, "..", "src", "screens", "SettingsScreen.tsx"),
   "utf8",
 );
+const profileSettingsSource = readFileSync(
+  path.join(__dirname, "..", "src", "screens", "ProfileSettingsPanel.tsx"),
+  "utf8",
+);
+const planBillingSource = readFileSync(
+  path.join(__dirname, "..", "src", "screens", "PlanBillingPanel.tsx"),
+  "utf8",
+);
 const storePriceHookSource = readFileSync(
   path.join(
     __dirname,
@@ -201,7 +209,7 @@ test("restore does not report success when server verification fails", async () 
     assert.deepEqual(restored, {
       ok: false,
       message:
-        "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
+        "The store found your subscription, but Dispute could not verify access yet. Please wait a moment and try again, or contact support.",
     });
   } finally {
     restoreEnv("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY", previousAndroidKey);
@@ -288,19 +296,110 @@ test("export screen gates report actions behind canExportReports", () => {
   assert.match(reportsSource, /Trial ended|subscription before export|Export requires/);
 });
 
-test("settings screen exposes subscription status and subscribe action", () => {
+test("settings screen keeps profile read-only and shows only subscribe or manage", () => {
   assert.match(settingsSource, /useSubscriptionAccess/);
   assert.doesNotMatch(settingsSource, /fetchSubscriptionStatus/);
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
-  assert.match(settingsSource, /restoreDisputeBasicSubscription/);
-  assert.match(settingsSource, /Restore purchases/);
+  assert.match(settingsSource, /getSubscriptionSettingsAction/);
+  assert.match(settingsSource, /getSubscriptionManagementUrl/);
+  assert.match(settingsSource, /Plan & billing/);
+  assert.match(settingsSource, /PlanBillingPanel/);
+  assert.match(settingsSource, /ProfileSettingsPanel/);
+  assert.match(planBillingSource, /Manage subscription/);
+  assert.doesNotMatch(planBillingSource, /Cancel subscription/);
+  assert.match(profileSettingsSource, /Verified email/);
+  assert.doesNotMatch(profileSettingsSource, /Profile changes are local to this phone/);
+  assert.doesNotMatch(profileSettingsSource, /accessibilityLabel="Profile email"/);
+  assert.doesNotMatch(settingsSource, /Restore purchases/);
+  assert.doesNotMatch(settingsSource, /Refresh status/);
+  assert.doesNotMatch(settingsSource, /current plan/);
+  assert.doesNotMatch(settingsSource, /subscriptionContent\.noCheckout/);
+  assert.doesNotMatch(settingsSource, /subscriptionContent\.policyGated/);
   assert.match(settingsSource, /useDisputeBasicStorePrice/);
-  assert.match(settingsSource, /formatMonthlyStorePrice/);
+  assert.match(planBillingSource, /formatMonthlyStorePrice/);
   assert.match(storePriceHookSource, /fetchDisputeBasicStorePrice/);
   assert.match(storePriceHookSource, /S\$6\.99\/month/);
   assert.doesNotMatch(settingsSource, /SGD 4\.99\/month/);
-  assert.match(settingsSource, /No card required/);
-  assert.match(settingsSource, /no charge starts automatically/i);
+  assert.doesNotMatch(source, /Restore purchases/);
+});
+
+test("subscription settings action follows the paid period instead of referral access", () => {
+  const { getSubscriptionSettingsAction } = loadTsModule(
+    "src/subscription/subscriptionClient.ts",
+    {
+      "react-native": { Platform: { OS: "android" } },
+      "../auth/remoteAuth": {
+        getAuthApiBaseUrl: () => "https://example.invalid",
+      },
+      "@claimproof/shared": {
+        DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+        matchesConfiguredStoreProductIdentifier: () => false,
+      },
+    },
+  );
+
+  const nowMs = Date.parse("2026-08-10T00:00:00.000Z");
+  const future = "2026-08-11T00:00:00.000Z";
+  const past = "2026-08-09T00:00:00.000Z";
+  assert.equal(getSubscriptionSettingsAction(null, nowMs), "none");
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "EXPIRED", currentPeriodEnd: future }, nowMs),
+    "subscribe",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "ACTIVE", currentPeriodEnd: future }, nowMs),
+    "manage",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "ACTIVE", currentPeriodEnd: past }, nowMs),
+    "subscribe",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "PAST_DUE", currentPeriodEnd: future }, nowMs),
+    "manage",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "TRIALING", trialEndsAt: future }, nowMs),
+    "none",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "TRIALING", trialEndsAt: past }, nowMs),
+    "subscribe",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "CANCELED", currentPeriodEnd: future }, nowMs),
+    "manage",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "CANCELED", currentPeriodEnd: past }, nowMs),
+    "subscribe",
+  );
+});
+
+test("subscription management opens the correct store page", () => {
+  const { getSubscriptionManagementUrl } = loadTsModule(
+    "src/subscription/subscriptionClient.ts",
+    {
+      "react-native": { Platform: { OS: "android" } },
+      "../auth/remoteAuth": {
+        getAuthApiBaseUrl: () => "https://example.invalid",
+      },
+      "@claimproof/shared": {
+        DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+        matchesConfiguredStoreProductIdentifier: () => false,
+      },
+    },
+  );
+
+  assert.equal(
+    getSubscriptionManagementUrl("android"),
+    "https://play.google.com/store/account/subscriptions?sku=dispute_basic_monthly&package=sg.claimproof.mobile",
+  );
+  assert.equal(
+    getSubscriptionManagementUrl("ios"),
+    "https://apps.apple.com/account/subscriptions",
+  );
+  assert.equal(getSubscriptionManagementUrl("web"), null);
 });
 
 function restoreEnv(name, value) {

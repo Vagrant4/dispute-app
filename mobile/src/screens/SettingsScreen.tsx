@@ -1,24 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
-import { Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
-import { subscriptionContent } from "../screenContent";
 import { styles } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
+import { PlanBillingPanel } from "./PlanBillingPanel";
 import { PrivacyScreen } from "./PrivacyScreen";
+import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
 import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
-  formatTrialCountdown,
+  getSubscriptionManagementUrl,
+  getSubscriptionSettingsAction,
   purchaseDisputeBasicSubscription,
-  restoreDisputeBasicSubscription,
 } from "../subscription/subscriptionClient";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
-import {
-  formatMonthlyStorePrice,
-  useDisputeBasicStorePrice,
-} from "../subscription/useDisputeBasicStorePrice";
+import { useDisputeBasicStorePrice } from "../subscription/useDisputeBasicStorePrice";
 
 type SettingsScreenProps = {
   account: LocalAccount;
@@ -31,8 +29,6 @@ type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "p
 export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [panel, setPanel] = useState<SettingPanel>("profile");
-  const [name, setName] = useState(account.name);
-  const [email, setEmail] = useState(account.email);
   const [currency, setCurrency] = useState(DEFAULT_APP_SETTINGS.currency);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [rateBasis, setRateBasis] = useState<AppSettings["rateBasis"]>(
@@ -60,21 +56,15 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   const {
     subscription,
     canCreateRecords: hasFullAccess,
-    message: subscriptionMessage,
     refresh: loadSubscriptionStatus,
   } = useSubscriptionAccess(account);
   const storePrice = useDisputeBasicStorePrice(account);
-  const subscriptionStatus =
-    subscriptionActionStatus || formatTrialCountdown(subscription) || subscriptionMessage;
-  const displayedSubscriptionStatus =
-    subscription?.status === "TRIALING" && !hasFullAccess
-      ? "EXPIRED"
-      : subscription?.status ?? "Check";
+  const subscriptionAction = getSubscriptionSettingsAction(subscription);
 
-  const options: Array<{ id: SettingPanel; label: string }> = [
+  const options: { id: SettingPanel; label: string }[] = [
     { id: "profile", label: "Profile" },
-    { id: "work_hours", label: "Work hours" },
-    { id: "subscription", label: "Subscription" },
+    { id: "subscription", label: "Plan & billing" },
+    { id: "work_hours", label: "Work & rates" },
     { id: "referrals", label: "Referrals" },
     { id: "privacy_data", label: "Privacy & data" },
   ];
@@ -87,16 +77,21 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       return;
     }
 
-    setSubscriptionActionStatus(purchase.message);
+    setSubscriptionActionStatus("");
     await loadSubscriptionStatus();
   }
 
-  async function handleRestorePurchases() {
-    setSubscriptionActionStatus("Checking the store for previous purchases...");
-    const restore = await restoreDisputeBasicSubscription(account);
-    setSubscriptionActionStatus(restore.message);
-    if (restore.ok) {
-      await loadSubscriptionStatus();
+  async function handleManageSubscription() {
+    const managementUrl = getSubscriptionManagementUrl(Platform.OS);
+    if (!managementUrl) {
+      setSubscriptionActionStatus("Manage this subscription from your phone's app store.");
+      return;
+    }
+    try {
+      await Linking.openURL(managementUrl);
+      setSubscriptionActionStatus("");
+    } catch {
+      setSubscriptionActionStatus("Unable to open subscription management. Try again from Google Play.");
     }
   }
 
@@ -194,39 +189,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             </Pressable>
           ))}
         </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onLogout}
-          style={styles.clockSecondaryButton}
-        >
-          <Text style={styles.clockSecondaryButtonText}>Logout</Text>
-        </Pressable>
       </View>
 
       {panel === "profile" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Profile</Text>
-          <Text style={styles.inputLabel}>Name</Text>
-          <TextInput
-            accessibilityLabel="Profile name"
-            autoCapitalize="words"
-            onChangeText={setName}
-            style={styles.textInput}
-            value={name}
-          />
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput
-            accessibilityLabel="Profile email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            style={styles.textInput}
-            value={email}
-          />
-          <Text style={styles.statusMessage}>
-            Profile changes are local to this phone in this simplified version.
-          </Text>
-        </View>
+        <ProfileSettingsPanel account={account} onLogout={onLogout} />
       ) : null}
 
       {panel === "work_hours" ? (
@@ -407,60 +373,13 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       ) : null}
 
       {panel === "subscription" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Subscription</Text>
-          <Text style={styles.muted}>{subscriptionContent.noCheckout}</Text>
-          <View style={styles.metricGrid}>
-            <View style={styles.metricTile}>
-              <Text style={styles.metricValue}>
-                {displayedSubscriptionStatus}
-              </Text>
-              <Text style={styles.metricLabel}>current plan</Text>
-            </View>
-            <View style={styles.metricTile}>
-              <Text style={styles.metricValue}>
-                {formatMonthlyStorePrice(storePrice)}
-              </Text>
-              <Text style={styles.metricLabel}>price</Text>
-            </View>
-          </View>
-          {subscription?.status === "TRIALING" && hasFullAccess ? (
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>No card required</Text>
-              <Text style={styles.statusMessage}>
-                Use every feature during the 3-day trial. The Subscribe button becomes available after the trial ends, and no charge starts automatically.
-              </Text>
-            </View>
-          ) : null}
-          {subscription && !hasFullAccess ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void handleSubscribe()}
-              style={styles.actionButton}
-            >
-              <Text style={styles.actionButtonText}>Subscribe</Text>
-              <Text style={styles.actionButtonSubtext}>
-                DISPUTE Basic - {formatMonthlyStorePrice(storePrice)}
-              </Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleRestorePurchases()}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>Restore purchases</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void loadSubscriptionStatus()}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>Refresh status</Text>
-          </Pressable>
-          <Text style={styles.statusMessage}>{subscriptionStatus}</Text>
-          <Text style={styles.muted}>{subscriptionContent.policyGated}</Text>
-        </View>
+        <PlanBillingPanel
+          action={subscriptionAction}
+          actionStatus={subscriptionActionStatus}
+          localizedStorePrice={storePrice}
+          onManageSubscription={() => void handleManageSubscription()}
+          onSubscribe={() => void handleSubscribe()}
+        />
       ) : null}
 
       {panel === "referrals" ? <ReferralScreen /> : null}
@@ -490,7 +409,7 @@ const CURRENCY_OPTIONS = [
   { code: "USD", name: "US Dollar" },
 ] as const;
 
-const RATE_BASIS_OPTIONS: Array<{ id: AppSettings["rateBasis"]; label: string }> = [
+const RATE_BASIS_OPTIONS: { id: AppSettings["rateBasis"]; label: string }[] = [
   { id: "daily", label: "Daily" },
   { id: "monthly", label: "Monthly" },
 ];
