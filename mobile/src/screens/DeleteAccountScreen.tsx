@@ -15,6 +15,7 @@ import {
   deleteRemoteAccount,
 } from "../auth/remoteAuth";
 import { styles } from "../styles";
+import { getSubscriptionManagementUrl } from "../subscription/subscriptionClient";
 
 type DeleteAccountScreenProps = {
   account: LocalAccount;
@@ -46,9 +47,11 @@ export function DeleteAccountScreen({
   }, []);
 
   async function openSubscriptionManagement() {
-    const url = Platform.OS === "ios"
-      ? "https://apps.apple.com/account/subscriptions"
-      : "https://play.google.com/store/account/subscriptions?sku=dispute_basic_monthly&package=sg.claimproof.mobile";
+    const url = getSubscriptionManagementUrl(Platform.OS);
+    if (!url) {
+      setStatus("Open your phone store and manage subscriptions before deletion.");
+      return;
+    }
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);

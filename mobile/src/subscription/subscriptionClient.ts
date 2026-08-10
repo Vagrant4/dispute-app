@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Platform, type PlatformOSType } from "react-native";
 import type RevenueCatPurchases from "react-native-purchases";
 
 import type { LocalAccount } from "../auth/localAuth";
@@ -131,6 +131,42 @@ export function canExportProgressClaim(
   return Boolean(
     subscription?.canExportReports && hasCurrentFullAccess(subscription, nowMs),
   );
+}
+
+export type SubscriptionSettingsAction = "subscribe" | "cancel" | "none";
+
+export function getSubscriptionSettingsAction(
+  subscription: SubscriptionEntitlement | null,
+  nowMs = Date.now(),
+): SubscriptionSettingsAction {
+  if (!subscription) return "none";
+  const paidPeriodIsCurrent =
+    (subscription.status === "ACTIVE" || subscription.status === "PAST_DUE") &&
+    isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
+  if (paidPeriodIsCurrent) {
+    return "cancel";
+  }
+  const trialIsCurrent =
+    subscription.status === "TRIALING" &&
+    isFutureTimestamp(subscription.trialEndsAt, nowMs);
+  const cancelledPeriodIsCurrent =
+    subscription.status === "CANCELED" &&
+    isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
+  return trialIsCurrent || cancelledPeriodIsCurrent ? "none" : "subscribe";
+}
+
+export function getSubscriptionManagementUrl(platform: PlatformOSType): string | null {
+  if (platform === "android") {
+    const query = new URLSearchParams({
+      sku: disputeBasicProductId,
+      package: "sg.claimproof.mobile",
+    });
+    return `https://play.google.com/store/account/subscriptions?${query.toString()}`;
+  }
+  if (platform === "ios") {
+    return "https://apps.apple.com/account/subscriptions";
+  }
+  return null;
 }
 
 export async function purchaseDisputeBasicSubscription(

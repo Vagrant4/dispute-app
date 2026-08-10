@@ -288,19 +288,102 @@ test("export screen gates report actions behind canExportReports", () => {
   assert.match(reportsSource, /Trial ended|subscription before export|Export requires/);
 });
 
-test("settings screen exposes subscription status and subscribe action", () => {
+test("settings screen shows only the relevant subscribe or cancel action", () => {
   assert.match(settingsSource, /useSubscriptionAccess/);
   assert.doesNotMatch(settingsSource, /fetchSubscriptionStatus/);
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
-  assert.match(settingsSource, /restoreDisputeBasicSubscription/);
-  assert.match(settingsSource, /Restore purchases/);
+  assert.match(settingsSource, /getSubscriptionSettingsAction/);
+  assert.match(settingsSource, /getSubscriptionManagementUrl/);
+  assert.match(settingsSource, /Cancel subscription/);
+  assert.doesNotMatch(settingsSource, /Restore purchases/);
+  assert.doesNotMatch(settingsSource, /Refresh status/);
+  assert.doesNotMatch(settingsSource, /current plan/);
+  assert.doesNotMatch(settingsSource, /subscriptionContent\.noCheckout/);
+  assert.doesNotMatch(settingsSource, /subscriptionContent\.policyGated/);
   assert.match(settingsSource, /useDisputeBasicStorePrice/);
   assert.match(settingsSource, /formatMonthlyStorePrice/);
   assert.match(storePriceHookSource, /fetchDisputeBasicStorePrice/);
   assert.match(storePriceHookSource, /S\$6\.99\/month/);
   assert.doesNotMatch(settingsSource, /SGD 4\.99\/month/);
-  assert.match(settingsSource, /No card required/);
-  assert.match(settingsSource, /no charge starts automatically/i);
+});
+
+test("subscription settings action follows the paid period instead of referral access", () => {
+  const { getSubscriptionSettingsAction } = loadTsModule(
+    "src/subscription/subscriptionClient.ts",
+    {
+      "react-native": { Platform: { OS: "android" } },
+      "../auth/remoteAuth": {
+        getAuthApiBaseUrl: () => "https://example.invalid",
+      },
+      "@claimproof/shared": {
+        DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+        matchesConfiguredStoreProductIdentifier: () => false,
+      },
+    },
+  );
+
+  const nowMs = Date.parse("2026-08-10T00:00:00.000Z");
+  const future = "2026-08-11T00:00:00.000Z";
+  const past = "2026-08-09T00:00:00.000Z";
+  assert.equal(getSubscriptionSettingsAction(null, nowMs), "none");
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "EXPIRED", currentPeriodEnd: future }, nowMs),
+    "subscribe",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "ACTIVE", currentPeriodEnd: future }, nowMs),
+    "cancel",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "ACTIVE", currentPeriodEnd: past }, nowMs),
+    "subscribe",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "PAST_DUE", currentPeriodEnd: future }, nowMs),
+    "cancel",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "TRIALING", trialEndsAt: future }, nowMs),
+    "none",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "TRIALING", trialEndsAt: past }, nowMs),
+    "subscribe",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "CANCELED", currentPeriodEnd: future }, nowMs),
+    "none",
+  );
+  assert.equal(
+    getSubscriptionSettingsAction({ status: "CANCELED", currentPeriodEnd: past }, nowMs),
+    "subscribe",
+  );
+});
+
+test("subscription cancellation opens the correct store management page", () => {
+  const { getSubscriptionManagementUrl } = loadTsModule(
+    "src/subscription/subscriptionClient.ts",
+    {
+      "react-native": { Platform: { OS: "android" } },
+      "../auth/remoteAuth": {
+        getAuthApiBaseUrl: () => "https://example.invalid",
+      },
+      "@claimproof/shared": {
+        DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+        matchesConfiguredStoreProductIdentifier: () => false,
+      },
+    },
+  );
+
+  assert.equal(
+    getSubscriptionManagementUrl("android"),
+    "https://play.google.com/store/account/subscriptions?sku=dispute_basic_monthly&package=sg.claimproof.mobile",
+  );
+  assert.equal(
+    getSubscriptionManagementUrl("ios"),
+    "https://apps.apple.com/account/subscriptions",
+  );
+  assert.equal(getSubscriptionManagementUrl("web"), null);
 });
 
 function restoreEnv(name, value) {

@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
-import { subscriptionContent } from "../screenContent";
 import { styles } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
 import { PrivacyScreen } from "./PrivacyScreen";
 import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
-  formatTrialCountdown,
+  getSubscriptionManagementUrl,
+  getSubscriptionSettingsAction,
   purchaseDisputeBasicSubscription,
-  restoreDisputeBasicSubscription,
 } from "../subscription/subscriptionClient";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import {
@@ -60,16 +59,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   const {
     subscription,
     canCreateRecords: hasFullAccess,
-    message: subscriptionMessage,
     refresh: loadSubscriptionStatus,
   } = useSubscriptionAccess(account);
   const storePrice = useDisputeBasicStorePrice(account);
-  const subscriptionStatus =
-    subscriptionActionStatus || formatTrialCountdown(subscription) || subscriptionMessage;
-  const displayedSubscriptionStatus =
-    subscription?.status === "TRIALING" && !hasFullAccess
-      ? "EXPIRED"
-      : subscription?.status ?? "Check";
+  const subscriptionAction = getSubscriptionSettingsAction(subscription);
 
   const options: Array<{ id: SettingPanel; label: string }> = [
     { id: "profile", label: "Profile" },
@@ -87,16 +80,21 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       return;
     }
 
-    setSubscriptionActionStatus(purchase.message);
+    setSubscriptionActionStatus("");
     await loadSubscriptionStatus();
   }
 
-  async function handleRestorePurchases() {
-    setSubscriptionActionStatus("Checking the store for previous purchases...");
-    const restore = await restoreDisputeBasicSubscription(account);
-    setSubscriptionActionStatus(restore.message);
-    if (restore.ok) {
-      await loadSubscriptionStatus();
+  async function handleCancelSubscription() {
+    const managementUrl = getSubscriptionManagementUrl(Platform.OS);
+    if (!managementUrl) {
+      setSubscriptionActionStatus("Manage this subscription from your phone's app store.");
+      return;
+    }
+    try {
+      await Linking.openURL(managementUrl);
+      setSubscriptionActionStatus("");
+    } catch {
+      setSubscriptionActionStatus("Unable to open subscription management. Try again from Google Play.");
     }
   }
 
@@ -409,30 +407,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       {panel === "subscription" ? (
         <View style={styles.card}>
           <Text style={styles.heading}>Subscription</Text>
-          <Text style={styles.muted}>{subscriptionContent.noCheckout}</Text>
-          <View style={styles.metricGrid}>
-            <View style={styles.metricTile}>
-              <Text style={styles.metricValue}>
-                {displayedSubscriptionStatus}
-              </Text>
-              <Text style={styles.metricLabel}>current plan</Text>
-            </View>
-            <View style={styles.metricTile}>
-              <Text style={styles.metricValue}>
-                {formatMonthlyStorePrice(storePrice)}
-              </Text>
-              <Text style={styles.metricLabel}>price</Text>
-            </View>
-          </View>
-          {subscription?.status === "TRIALING" && hasFullAccess ? (
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>No card required</Text>
-              <Text style={styles.statusMessage}>
-                Use every feature during the 3-day trial. The Subscribe button becomes available after the trial ends, and no charge starts automatically.
-              </Text>
-            </View>
-          ) : null}
-          {subscription && !hasFullAccess ? (
+          {subscriptionAction === "subscribe" ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => void handleSubscribe()}
@@ -444,22 +419,18 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
               </Text>
             </Pressable>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleRestorePurchases()}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>Restore purchases</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void loadSubscriptionStatus()}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>Refresh status</Text>
-          </Pressable>
-          <Text style={styles.statusMessage}>{subscriptionStatus}</Text>
-          <Text style={styles.muted}>{subscriptionContent.policyGated}</Text>
+          {subscriptionAction === "cancel" ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void handleCancelSubscription()}
+              style={styles.actionButtonSecondary}
+            >
+              <Text style={styles.actionButtonSecondaryText}>Cancel subscription</Text>
+            </Pressable>
+          ) : null}
+          {subscriptionActionStatus ? (
+            <Text style={styles.statusMessage}>{subscriptionActionStatus}</Text>
+          ) : null}
         </View>
       ) : null}
 
