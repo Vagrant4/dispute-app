@@ -3,6 +3,13 @@ import { matchesConfiguredStoreProductIdentifier } from '@claimproof/shared';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { recordPaidReferralPeriod } from '../referrals/referral.service.js';
+import {
+  validateRevenueCatStoreContext,
+  verifyRevenueCatSubscriberPayload,
+  type VerifiedStoreSubscription
+} from './revenueCatVerification.js';
+
+export { validateRevenueCatStoreContext } from './revenueCatVerification.js';
 
 export interface SubscriptionEntitlement {
   userId: string;
@@ -29,29 +36,34 @@ const trialDays = 3;
 const basicPlanCode = 'dispute-basic-monthly';
 const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
 const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
-const supportedRevenueCatStores = new Set(['PLAY_STORE', 'APP_STORE']);
 const basicPlanName = 'DISPUTE Basic';
 const basicPlanPriceCents = 699;
 const basicPlanCurrency = 'SGD';
 
 type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
+type FetchLike = typeof fetch;
+
+interface RevenueCatSyncOptions {
+  allowAppleSandboxEvents?: boolean;
+  allowSandboxEvents?: boolean;
+  entitlementId?: string;
+  fetcher?: FetchLike;
+  nodeEnv?: string;
+  now?: Date;
+  productId?: string;
+  secretApiKey?: string;
+}
 
 export async function createTrialSubscriptionForUser(
   userId: string,
   verifiedAt: Date,
   client: PrismaClientOrTx = prisma
 ): Promise<void> {
-  const existing = await client.userSubscription.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'desc' }
-  });
-  if (existing) {
-    return;
-  }
-
   const plan = await ensureBasicPlan(client);
-  await client.userSubscription.create({
-    data: {
+  await client.userSubscription.upsert({
+    where: { userId },
+    update: {},
+    create: {
       userId,
       planId: plan.id,
       status: SubscriptionStatus.TRIALING,
@@ -131,7 +143,8 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
   const hasSubscriptionAccess =
     effectiveStatus === SubscriptionStatus.ACTIVE ||
     effectiveStatus === SubscriptionStatus.TRIALING ||
-    effectiveStatus === SubscriptionStatus.CANCELED;
+    effectiveStatus === SubscriptionStatus.CANCELED ||
+    effectiveStatus === SubscriptionStatus.PAST_DUE;
   const hasReferralRewardAccess = Boolean(activeReward);
   const hasFullAccess = hasSubscriptionAccess || hasReferralRewardAccess;
   return {
@@ -162,6 +175,88 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
   };
 }
 
+export async function syncSubscriptionFromRevenueCat(
+  userId: string,
+  options: RevenueCatSyncOptions = {}
+) {
+  const secretApiKey = options.secretApiKey ?? env.revenueCat.secretApiKey;
+  const productId = options.productId ?? storeProductId;
+  const entitlementId = options.entitlementId ?? storeEntitlementId;
+  if (!secretApiKey || !productId || !entitlementId) {
+    return {
+      statusCode: 503,
+      body: {
+        error: 'Subscription verification is not configured on the Dispute server.'
+      }
+    } as const;
+  }
+
+  const fetcher = options.fetcher ?? fetch;
+  let response: Response;
+  try {
+    response = await fetcher(
+      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${secretApiKey}`,
+          Accept: 'application/json'
+        }
+      }
+    );
+  } catch {
+    return {
+      statusCode: 502,
+      body: {
+        error: 'RevenueCat could not be reached. The existing subscription status was not changed.'
+      }
+    } as const;
+  }
+
+  if (!response.ok) {
+    return {
+      statusCode: 502,
+      body: {
+        error: 'RevenueCat could not verify this subscription. The existing subscription status was not changed.'
+      }
+    } as const;
+  }
+
+  const payload = await readRevenueCatJson(response);
+  const verified = verifyRevenueCatSubscriberPayload(payload, {
+    allowAppleSandboxEvents:
+      options.allowAppleSandboxEvents ?? env.revenueCat.allowAppleSandboxEvents,
+    allowSandboxEvents: options.allowSandboxEvents ?? env.revenueCat.allowSandboxEvents,
+    entitlementId,
+    nodeEnv: options.nodeEnv ?? env.nodeEnv,
+    now: options.now ?? new Date(),
+    productId
+  });
+  if (!verified.ok) {
+    return {
+      statusCode: verified.statusCode,
+      body: {
+        error: verified.error
+      }
+    } as const;
+  }
+
+  const applied = await persistVerifiedSubscription(userId, verified.subscription);
+  const stored = await prisma.userSubscription.findUnique({
+    where: { userId },
+    select: { status: true }
+  });
+  return {
+    statusCode: 200,
+    body: {
+      synced: true,
+      applied,
+      userId,
+      status: stored?.status ?? verified.subscription.status
+    }
+  } as const;
+}
+
 export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const event = getRevenueCatEvent(body);
   const userId = getString(event, 'app_user_id') ?? getString(event, 'original_app_user_id');
@@ -189,7 +284,8 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const storeContextError = validateRevenueCatStoreContext(
     event,
     env.nodeEnv,
-    env.revenueCat.allowSandboxEvents
+    env.revenueCat.allowSandboxEvents,
+    env.revenueCat.allowAppleSandboxEvents
   );
   if (storeContextError) {
     return {
@@ -204,9 +300,18 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
       body: { error: 'RevenueCat webhook event type is not supported.' }
     } as const;
   }
-  const plan = await ensureBasicPlan(prisma);
   const purchasedAt = getDateFromMs(event, 'purchased_at_ms');
-  const expirationAt = getDateFromMs(event, 'expiration_at_ms');
+  const expirationAt = status === SubscriptionStatus.PAST_DUE
+    ? getDateFromMs(event, 'grace_period_expiration_at_ms')
+    : getDateFromMs(event, 'expiration_at_ms');
+  if (status === SubscriptionStatus.PAST_DUE && (!expirationAt || expirationAt <= new Date())) {
+    return {
+      statusCode: 400,
+      body: {
+        error: 'RevenueCat billing issue must include a future grace_period_expiration_at_ms.'
+      }
+    } as const;
+  }
   if (requiresFutureExpiration(status) && (!expirationAt || expirationAt <= new Date())) {
     return {
       statusCode: 400,
@@ -219,44 +324,21 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
   const providerSubscriptionId =
     getString(event, 'transaction_id') ?? getString(event, 'original_transaction_id');
   const paidPeriodTransactionId = getString(event, 'transaction_id');
+  const providerUpdatedAt = getDateFromMs(event, 'event_timestamp_ms');
+  if (!providerUpdatedAt) {
+    return {
+      statusCode: 400,
+      body: { error: 'RevenueCat webhook is missing a valid event_timestamp_ms.' }
+    } as const;
+  }
 
-  await prisma.userSubscription.upsert({
-    where: {
-      id:
-        (
-          await prisma.userSubscription.findFirst({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            select: { id: true }
-          })
-        )?.id ?? ''
-    },
-    create: {
-      userId,
-      planId: plan.id,
-      status,
-      monthlyRecurringCents: priceCents,
-      currency,
-      provider: 'revenuecat',
-      providerSubscriptionId,
-      currentPeriodStart: purchasedAt,
-      currentPeriodEnd: expirationAt,
-      trialEndsAt: status === SubscriptionStatus.TRIALING ? expirationAt : null,
-      canceledAt: status === SubscriptionStatus.CANCELED ? new Date() : null
-    },
-    update: {
-      planId: plan.id,
-      status,
-      monthlyRecurringCents: priceCents,
-      currency,
-      provider: 'revenuecat',
-      providerSubscriptionId,
-      currentPeriodStart: purchasedAt,
-      currentPeriodEnd: expirationAt,
-      trialEndsAt: status === SubscriptionStatus.TRIALING ? expirationAt : undefined,
-      canceledAt: status === SubscriptionStatus.CANCELED ? new Date() : null
-    }
-  });
+  const applied = await persistVerifiedSubscription(userId, {
+    status,
+    purchasedAt,
+    expirationAt,
+    providerSubscriptionId,
+    providerUpdatedAt
+  }, priceCents, currency);
 
   await recordPaidReferralPeriod({
     userId,
@@ -271,29 +353,8 @@ export async function updateSubscriptionFromRevenueCatWebhook(body: unknown) {
 
   return {
     statusCode: 200,
-    body: { received: true, userId, status }
+    body: { received: true, applied, userId, status }
   } as const;
-}
-
-export function validateRevenueCatStoreContext(
-  event: Record<string, unknown>,
-  nodeEnv: string,
-  allowSandboxEvents = false
-): string | null {
-  const store = getString(event, 'store');
-  if (!store || !supportedRevenueCatStores.has(store)) {
-    return 'RevenueCat webhook store must be Google Play or Apple App Store.';
-  }
-  const environment = getString(event, 'environment');
-  const isAllowedPlaySandbox =
-    allowSandboxEvents && store === 'PLAY_STORE' && environment === 'SANDBOX';
-  if (nodeEnv === 'production' && environment !== 'PRODUCTION' && !isAllowedPlaySandbox) {
-    return 'RevenueCat production webhook must come from the production environment.';
-  }
-  if (environment !== 'PRODUCTION' && environment !== 'SANDBOX') {
-    return 'RevenueCat webhook environment is not supported.';
-  }
-  return null;
 }
 
 export function getMobileStoreCheckoutResponse() {
@@ -329,6 +390,72 @@ async function ensureBasicPlan(client: PrismaClientOrTx) {
   });
 }
 
+async function persistVerifiedSubscription(
+  userId: string,
+  subscription: VerifiedStoreSubscription,
+  priceCents = basicPlanPriceCents,
+  currency = basicPlanCurrency
+): Promise<boolean> {
+  const plan = await ensureBasicPlan(prisma);
+  const data = {
+    planId: plan.id,
+    status: subscription.status,
+    monthlyRecurringCents: priceCents,
+    currency,
+    provider: 'revenuecat',
+    providerSubscriptionId: subscription.providerSubscriptionId,
+    providerUpdatedAt: subscription.providerUpdatedAt,
+    currentPeriodStart: subscription.purchasedAt,
+    currentPeriodEnd: subscription.expirationAt,
+    trialEndsAt:
+      subscription.status === SubscriptionStatus.TRIALING
+        ? subscription.expirationAt
+        : null,
+    canceledAt:
+      subscription.status === SubscriptionStatus.CANCELED ? new Date() : null
+  };
+  const updateWhere: Prisma.UserSubscriptionWhereInput = {
+    userId,
+    OR: [
+      { providerUpdatedAt: null },
+      { providerUpdatedAt: { lte: subscription.providerUpdatedAt } }
+    ]
+  };
+  const updated = await prisma.userSubscription.updateMany({
+    where: updateWhere,
+    data
+  });
+  if (updated.count > 0) return true;
+
+  const existing = await prisma.userSubscription.findUnique({
+    where: { userId },
+    select: { id: true }
+  });
+  if (existing) return false;
+
+  try {
+    await prisma.userSubscription.create({ data: { userId, ...data } });
+    return true;
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+      throw error;
+    }
+    const racedUpdate = await prisma.userSubscription.updateMany({
+      where: updateWhere,
+      data
+    });
+    return racedUpdate.count > 0;
+  }
+}
+
+async function readRevenueCatJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 function getEffectiveStatus(
   status: SubscriptionStatus,
   trialEndsAt: Date | null,
@@ -344,9 +471,9 @@ function getEffectiveStatus(
       ? SubscriptionStatus.CANCELED
       : SubscriptionStatus.EXPIRED;
   }
-  if (status === SubscriptionStatus.ACTIVE) {
+  if (status === SubscriptionStatus.ACTIVE || status === SubscriptionStatus.PAST_DUE) {
     return currentPeriodEnd && currentPeriodEnd > new Date()
-      ? SubscriptionStatus.ACTIVE
+      ? status
       : SubscriptionStatus.EXPIRED;
   }
   return status;
@@ -375,7 +502,9 @@ function buildEntitlementMessage(
     return 'Subscription active. Export is available.';
   }
   if (status === SubscriptionStatus.PAST_DUE) {
-    return 'Subscription payment is past due. Subscribe again to export reports.';
+    return currentPeriodEnd
+      ? `Subscription payment needs attention. Access remains available during the billing grace period until ${currentPeriodEnd.toISOString()}.`
+      : 'Subscription payment is past due. Subscribe again to export reports.';
   }
   if (status === SubscriptionStatus.CANCELED) {
     return currentPeriodEnd
@@ -411,7 +540,9 @@ function getStringArray(body: Record<string, unknown>, key: string): string[] {
 function getDateFromMs(body: Record<string, unknown>, key: string): Date | null {
   const value = body[key];
   const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  return Number.isFinite(numberValue) ? new Date(numberValue) : null;
+  if (!Number.isFinite(numberValue)) return null;
+  const date = new Date(numberValue);
+  return Number.isFinite(date.getTime()) ? date : null;
 }
 
 function getRevenueCents(body: Record<string, unknown>): number | null {

@@ -39,14 +39,18 @@ SMTP_PASS=<your gmail app password, not normal gmail password>
 EMAIL_FROM=Dispute <your gmail address>
 STRIPE_BILLING_MODE=disabled
 REVENUECAT_WEBHOOK_SECRET=<strong RevenueCat webhook authorization secret>
+REVENUECAT_SECRET_API_KEY=<RevenueCat server-only secret API key>
 REVENUECAT_PRODUCT_ID=dispute_basic_monthly
 REVENUECAT_ENTITLEMENT_ID=dispute_basic
 REVENUECAT_ALLOW_SANDBOX_EVENTS=true
+REVENUECAT_ALLOW_APPLE_SANDBOX_EVENTS=false
 ```
 
-The mobile RevenueCat public SDK key belongs in the EAS production environment, not the server. Never put a RevenueCat secret API key, Google service-account JSON, keystore or private key in the repository.
+The mobile RevenueCat public SDK key belongs in the EAS production environment. The RevenueCat secret API key belongs only in Render's protected server environment. Never put that secret, Google service-account JSON, a keystore or a private key in the repository or mobile application.
 
 Set `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` only while Google Play license testers are validating Internal Testing purchases. RevenueCat webhooks remain protected by the webhook authorization secret and restricted to Google Play or Apple App Store events. Set the flag back to `false` before any public production rollout.
+
+Set `REVENUECAT_ALLOW_APPLE_SANDBOX_EVENTS=true` only for a separately approved iOS TestFlight test window. Keep it `false` for the Android pilot and set it back to `false` before public production rollout.
 
 ## Pre-deployment database gate
 
@@ -56,7 +60,19 @@ The deployment start command runs `prisma migrate deploy` before the API starts.
 2. Create a recoverable copy or snapshot of `/var/data/dispute.db`.
 3. Confirm `DATABASE_URL=file:/var/data/dispute.db`.
 4. Confirm the migration `20260804193000_android_pilot_referrals` is present in the deployed commit.
-5. Trigger only one deployment and watch the migration log before testing account creation.
+5. Confirm `20260808093000_unique_user_subscription_owner` is present. This migration keeps the subscription row with the latest `updatedAt`, then `createdAt`, then `id` for each user and deletes any older duplicate rows.
+6. Confirm `20260810090000_subscription_provider_ordering` is present. It adds the authoritative RevenueCat update timestamp and backfills existing RevenueCat rows from their local `updatedAt`. This deliberately treats the most recent persisted write as the deployment ordering floor, preventing delayed pre-deployment events from replacing that state. Retain the backup because this clock assumption is part of the release record.
+7. Before deployment, run this read-only duplicate check against the backed-up database and retain the result with the release record:
+
+   ```sql
+   SELECT "userId", COUNT(*) AS "rowCount"
+   FROM "UserSubscription"
+   GROUP BY "userId"
+   HAVING COUNT(*) > 1;
+   ```
+
+8. Trigger only one deployment and watch all three migrations in the deployment log before testing account creation.
+9. After migration, rerun the query above. It must return no rows, and normal login, trial access and subscription status must still work before continuing the pilot.
 
 Do not delete or replace the database if migration fails. Stop the deploy, retain the backup and inspect `prisma migrate status` before retrying.
 

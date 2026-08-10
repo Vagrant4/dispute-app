@@ -43,6 +43,11 @@ const disputeBasicProductId =
 const disputeBasicEntitlementId =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || "";
 const entitlementCacheKeyPrefix = "dispute.subscription-entitlement.v1";
+const storeSyncPendingResult = {
+  ok: false as const,
+  message:
+    "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
+};
 
 export async function fetchSubscriptionStatus(
   expectedUserId?: string,
@@ -109,7 +114,11 @@ export function hasCurrentFullAccess(
   if (subscription.status === "TRIALING") {
     return subscription.canCreateRecords && isFutureTimestamp(subscription.trialEndsAt, nowMs);
   }
-  if (subscription.status === "ACTIVE" || subscription.status === "CANCELED") {
+  if (
+    subscription.status === "ACTIVE" ||
+    subscription.status === "CANCELED" ||
+    subscription.status === "PAST_DUE"
+  ) {
     return subscription.canCreateRecords && isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
   }
   return false;
@@ -127,6 +136,7 @@ export function canExportProgressClaim(
 export async function purchaseDisputeBasicSubscription(
   account: LocalAccount,
   currentSubscription?: SubscriptionEntitlement | null,
+  fetcher: FetchLike = fetch,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
   const eligibility = currentSubscription
     ? { ok: true as const, subscription: currentSubscription }
@@ -174,10 +184,10 @@ export async function purchaseDisputeBasicSubscription(
           "The store completed the purchase but the DISPUTE entitlement is not active. Restore purchases or contact support before retrying.",
       };
     }
-    return {
-      ok: true,
-      message: "Subscription purchase completed. Refreshing access...",
-    };
+    return syncStoreSubscriptionWithServer(
+      "Subscription purchase completed and access is active.",
+      fetcher,
+    );
   } catch (error) {
     return {
       ok: false,
@@ -219,6 +229,7 @@ export async function fetchDisputeBasicStorePrice(
 
 export async function restoreDisputeBasicSubscription(
   account: LocalAccount,
+  fetcher: FetchLike = fetch,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
   try {
     const configured = await getConfiguredPurchases(account);
@@ -232,10 +243,10 @@ export async function restoreDisputeBasicSubscription(
         message: "No active DISPUTE subscription was found for this store account.",
       };
     }
-    return {
-      ok: true,
-      message: "Subscription restored. Refreshing access...",
-    };
+    return syncStoreSubscriptionWithServer(
+      "Subscription restored and access is active.",
+      fetcher,
+    );
   } catch (error) {
     return {
       ok: false,
@@ -244,6 +255,25 @@ export async function restoreDisputeBasicSubscription(
           ? error.message
           : "Subscription restoration could not be completed.",
     };
+  }
+}
+
+async function syncStoreSubscriptionWithServer(
+  successMessage: string,
+  fetcher: FetchLike,
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  try {
+    const response = await fetcher(`${getAuthApiBaseUrl()}/subscription/sync`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const body = await readJsonBody(response);
+    if (!response.ok || body.synced !== true) {
+      return storeSyncPendingResult;
+    }
+    return { ok: true, message: successMessage };
+  } catch {
+    return storeSyncPendingResult;
   }
 }
 

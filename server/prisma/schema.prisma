@@ -369,13 +369,14 @@ model SubscriptionPlan {
 
 model UserSubscription {
   id                   String             @id @default(cuid())
-  userId               String
+  userId               String             @unique
   planId               String
   status               SubscriptionStatus
   monthlyRecurringCents Int
   currency             String             @default("SGD")
   provider             String             @default("manual")
   providerSubscriptionId String?
+  providerUpdatedAt      DateTime?
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   trialEndsAt          DateTime?
@@ -386,7 +387,6 @@ model UserSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
 
-  @@index([userId])
   @@index([planId])
   @@index([status])
 }

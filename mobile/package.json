@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.3.2",
   "main": "expo/AppEntry",
   "scripts": {
     "prestart": "npm run build --workspace @claimproof/shared",
@@ -28,15 +28,15 @@
   },
   "dependencies": {
     "@claimproof/shared": "file:../packages/shared",
-    "expo": "~56.0.18",
+    "expo": "~56.0.19",
     "expo-crypto": "^56.0.4",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
-    "expo-image-picker": "~56.0.22",
-    "expo-location": "~56.0.22",
+    "expo-image-picker": "~56.0.23",
+    "expo-location": "~56.0.23",
     "expo-print": "~56.0.4",
     "expo-secure-store": "~56.0.4",
-    "expo-sharing": "~56.0.23",
+    "expo-sharing": "~56.0.24",
     "expo-splash-screen": "~56.0.14",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
