@@ -46,7 +46,7 @@ const entitlementCacheKeyPrefix = "dispute.subscription-entitlement.v1";
 const storeSyncPendingResult = {
   ok: false as const,
   message:
-    "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
+    "The store found your subscription, but Dispute could not verify access yet. Please wait a moment and try again, or contact support.",
 };
 
 export async function fetchSubscriptionStatus(
@@ -133,7 +133,7 @@ export function canExportProgressClaim(
   );
 }
 
-export type SubscriptionSettingsAction = "subscribe" | "cancel" | "none";
+export type SubscriptionSettingsAction = "subscribe" | "manage" | "none";
 
 export function getSubscriptionSettingsAction(
   subscription: SubscriptionEntitlement | null,
@@ -141,18 +141,17 @@ export function getSubscriptionSettingsAction(
 ): SubscriptionSettingsAction {
   if (!subscription) return "none";
   const paidPeriodIsCurrent =
-    (subscription.status === "ACTIVE" || subscription.status === "PAST_DUE") &&
+    (subscription.status === "ACTIVE" ||
+      subscription.status === "PAST_DUE" ||
+      subscription.status === "CANCELED") &&
     isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
   if (paidPeriodIsCurrent) {
-    return "cancel";
+    return "manage";
   }
   const trialIsCurrent =
     subscription.status === "TRIALING" &&
     isFutureTimestamp(subscription.trialEndsAt, nowMs);
-  const cancelledPeriodIsCurrent =
-    subscription.status === "CANCELED" &&
-    isFutureTimestamp(subscription.currentPeriodEnd, nowMs);
-  return trialIsCurrent || cancelledPeriodIsCurrent ? "none" : "subscribe";
+  return trialIsCurrent ? "none" : "subscribe";
 }
 
 export function getSubscriptionManagementUrl(platform: PlatformOSType): string | null {
@@ -217,7 +216,7 @@ export async function purchaseDisputeBasicSubscription(
       return {
         ok: false,
         message:
-          "The store completed the purchase but the DISPUTE entitlement is not active. Restore purchases or contact support before retrying.",
+          "The store completed the purchase but DISPUTE access is not active yet. Please wait a moment and try again, or contact support.",
       };
     }
     return syncStoreSubscriptionWithServer(

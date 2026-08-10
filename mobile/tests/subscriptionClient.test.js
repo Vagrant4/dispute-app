@@ -47,6 +47,14 @@ const settingsSource = readFileSync(
   path.join(__dirname, "..", "src", "screens", "SettingsScreen.tsx"),
   "utf8",
 );
+const profileSettingsSource = readFileSync(
+  path.join(__dirname, "..", "src", "screens", "ProfileSettingsPanel.tsx"),
+  "utf8",
+);
+const planBillingSource = readFileSync(
+  path.join(__dirname, "..", "src", "screens", "PlanBillingPanel.tsx"),
+  "utf8",
+);
 const storePriceHookSource = readFileSync(
   path.join(
     __dirname,
@@ -201,7 +209,7 @@ test("restore does not report success when server verification fails", async () 
     assert.deepEqual(restored, {
       ok: false,
       message:
-        "The store found your subscription, but Dispute could not verify access yet. Please try Restore purchases again.",
+        "The store found your subscription, but Dispute could not verify access yet. Please wait a moment and try again, or contact support.",
     });
   } finally {
     restoreEnv("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY", previousAndroidKey);
@@ -288,23 +296,31 @@ test("export screen gates report actions behind canExportReports", () => {
   assert.match(reportsSource, /Trial ended|subscription before export|Export requires/);
 });
 
-test("settings screen shows only the relevant subscribe or cancel action", () => {
+test("settings screen keeps profile read-only and shows only subscribe or manage", () => {
   assert.match(settingsSource, /useSubscriptionAccess/);
   assert.doesNotMatch(settingsSource, /fetchSubscriptionStatus/);
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
   assert.match(settingsSource, /getSubscriptionSettingsAction/);
   assert.match(settingsSource, /getSubscriptionManagementUrl/);
-  assert.match(settingsSource, /Cancel subscription/);
+  assert.match(settingsSource, /Plan & billing/);
+  assert.match(settingsSource, /PlanBillingPanel/);
+  assert.match(settingsSource, /ProfileSettingsPanel/);
+  assert.match(planBillingSource, /Manage subscription/);
+  assert.doesNotMatch(planBillingSource, /Cancel subscription/);
+  assert.match(profileSettingsSource, /Verified email/);
+  assert.doesNotMatch(profileSettingsSource, /Profile changes are local to this phone/);
+  assert.doesNotMatch(profileSettingsSource, /accessibilityLabel="Profile email"/);
   assert.doesNotMatch(settingsSource, /Restore purchases/);
   assert.doesNotMatch(settingsSource, /Refresh status/);
   assert.doesNotMatch(settingsSource, /current plan/);
   assert.doesNotMatch(settingsSource, /subscriptionContent\.noCheckout/);
   assert.doesNotMatch(settingsSource, /subscriptionContent\.policyGated/);
   assert.match(settingsSource, /useDisputeBasicStorePrice/);
-  assert.match(settingsSource, /formatMonthlyStorePrice/);
+  assert.match(planBillingSource, /formatMonthlyStorePrice/);
   assert.match(storePriceHookSource, /fetchDisputeBasicStorePrice/);
   assert.match(storePriceHookSource, /S\$6\.99\/month/);
   assert.doesNotMatch(settingsSource, /SGD 4\.99\/month/);
+  assert.doesNotMatch(source, /Restore purchases/);
 });
 
 test("subscription settings action follows the paid period instead of referral access", () => {
@@ -332,7 +348,7 @@ test("subscription settings action follows the paid period instead of referral a
   );
   assert.equal(
     getSubscriptionSettingsAction({ status: "ACTIVE", currentPeriodEnd: future }, nowMs),
-    "cancel",
+    "manage",
   );
   assert.equal(
     getSubscriptionSettingsAction({ status: "ACTIVE", currentPeriodEnd: past }, nowMs),
@@ -340,7 +356,7 @@ test("subscription settings action follows the paid period instead of referral a
   );
   assert.equal(
     getSubscriptionSettingsAction({ status: "PAST_DUE", currentPeriodEnd: future }, nowMs),
-    "cancel",
+    "manage",
   );
   assert.equal(
     getSubscriptionSettingsAction({ status: "TRIALING", trialEndsAt: future }, nowMs),
@@ -352,7 +368,7 @@ test("subscription settings action follows the paid period instead of referral a
   );
   assert.equal(
     getSubscriptionSettingsAction({ status: "CANCELED", currentPeriodEnd: future }, nowMs),
-    "none",
+    "manage",
   );
   assert.equal(
     getSubscriptionSettingsAction({ status: "CANCELED", currentPeriodEnd: past }, nowMs),
@@ -360,7 +376,7 @@ test("subscription settings action follows the paid period instead of referral a
   );
 });
 
-test("subscription cancellation opens the correct store management page", () => {
+test("subscription management opens the correct store page", () => {
   const { getSubscriptionManagementUrl } = loadTsModule(
     "src/subscription/subscriptionClient.ts",
     {

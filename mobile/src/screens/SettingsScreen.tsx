@@ -5,7 +5,9 @@ import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
 import { styles } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
+import { PlanBillingPanel } from "./PlanBillingPanel";
 import { PrivacyScreen } from "./PrivacyScreen";
+import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
 import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
@@ -14,10 +16,7 @@ import {
   purchaseDisputeBasicSubscription,
 } from "../subscription/subscriptionClient";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
-import {
-  formatMonthlyStorePrice,
-  useDisputeBasicStorePrice,
-} from "../subscription/useDisputeBasicStorePrice";
+import { useDisputeBasicStorePrice } from "../subscription/useDisputeBasicStorePrice";
 
 type SettingsScreenProps = {
   account: LocalAccount;
@@ -30,8 +29,6 @@ type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "p
 export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [panel, setPanel] = useState<SettingPanel>("profile");
-  const [name, setName] = useState(account.name);
-  const [email, setEmail] = useState(account.email);
   const [currency, setCurrency] = useState(DEFAULT_APP_SETTINGS.currency);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [rateBasis, setRateBasis] = useState<AppSettings["rateBasis"]>(
@@ -64,10 +61,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   const storePrice = useDisputeBasicStorePrice(account);
   const subscriptionAction = getSubscriptionSettingsAction(subscription);
 
-  const options: Array<{ id: SettingPanel; label: string }> = [
+  const options: { id: SettingPanel; label: string }[] = [
     { id: "profile", label: "Profile" },
-    { id: "work_hours", label: "Work hours" },
-    { id: "subscription", label: "Subscription" },
+    { id: "subscription", label: "Plan & billing" },
+    { id: "work_hours", label: "Work & rates" },
     { id: "referrals", label: "Referrals" },
     { id: "privacy_data", label: "Privacy & data" },
   ];
@@ -84,7 +81,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
     await loadSubscriptionStatus();
   }
 
-  async function handleCancelSubscription() {
+  async function handleManageSubscription() {
     const managementUrl = getSubscriptionManagementUrl(Platform.OS);
     if (!managementUrl) {
       setSubscriptionActionStatus("Manage this subscription from your phone's app store.");
@@ -192,39 +189,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             </Pressable>
           ))}
         </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onLogout}
-          style={styles.clockSecondaryButton}
-        >
-          <Text style={styles.clockSecondaryButtonText}>Logout</Text>
-        </Pressable>
       </View>
 
       {panel === "profile" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Profile</Text>
-          <Text style={styles.inputLabel}>Name</Text>
-          <TextInput
-            accessibilityLabel="Profile name"
-            autoCapitalize="words"
-            onChangeText={setName}
-            style={styles.textInput}
-            value={name}
-          />
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput
-            accessibilityLabel="Profile email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            style={styles.textInput}
-            value={email}
-          />
-          <Text style={styles.statusMessage}>
-            Profile changes are local to this phone in this simplified version.
-          </Text>
-        </View>
+        <ProfileSettingsPanel account={account} onLogout={onLogout} />
       ) : null}
 
       {panel === "work_hours" ? (
@@ -405,33 +373,13 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       ) : null}
 
       {panel === "subscription" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Subscription</Text>
-          {subscriptionAction === "subscribe" ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void handleSubscribe()}
-              style={styles.actionButton}
-            >
-              <Text style={styles.actionButtonText}>Subscribe</Text>
-              <Text style={styles.actionButtonSubtext}>
-                DISPUTE Basic - {formatMonthlyStorePrice(storePrice)}
-              </Text>
-            </Pressable>
-          ) : null}
-          {subscriptionAction === "cancel" ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void handleCancelSubscription()}
-              style={styles.actionButtonSecondary}
-            >
-              <Text style={styles.actionButtonSecondaryText}>Cancel subscription</Text>
-            </Pressable>
-          ) : null}
-          {subscriptionActionStatus ? (
-            <Text style={styles.statusMessage}>{subscriptionActionStatus}</Text>
-          ) : null}
-        </View>
+        <PlanBillingPanel
+          action={subscriptionAction}
+          actionStatus={subscriptionActionStatus}
+          localizedStorePrice={storePrice}
+          onManageSubscription={() => void handleManageSubscription()}
+          onSubscribe={() => void handleSubscribe()}
+        />
       ) : null}
 
       {panel === "referrals" ? <ReferralScreen /> : null}
@@ -461,7 +409,7 @@ const CURRENCY_OPTIONS = [
   { code: "USD", name: "US Dollar" },
 ] as const;
 
-const RATE_BASIS_OPTIONS: Array<{ id: AppSettings["rateBasis"]; label: string }> = [
+const RATE_BASIS_OPTIONS: { id: AppSettings["rateBasis"]; label: string }[] = [
   { id: "daily", label: "Daily" },
   { id: "monthly", label: "Monthly" },
 ];
