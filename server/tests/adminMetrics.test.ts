@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
+process.env.ADMIN_EMAILS = 'admin-metrics@example.com';
 
 interface AuthUserResponse {
   devVerificationCode: string;
@@ -16,10 +17,14 @@ interface AuthUserResponse {
 
 interface AdminMetricsResponse {
   metrics: {
-    registeredActiveUsers: number;
+    totalUsers: number;
+    activeUsers: number;
+    pendingUsers: number;
+    suspendedUsers: number;
     monthlyActiveUsers: number;
     activeSubscriptions: number;
     trialingSubscriptions: number;
+    defaultTrialDays: number;
     mrrByCurrency: Record<string, number>;
   };
 }
@@ -43,10 +48,12 @@ describe('admin metrics API', () => {
 
   beforeEach(async () => {
     await prisma.$transaction([
+      prisma.adminAuditLog.deleteMany(),
       prisma.emailVerificationToken.deleteMany(),
       prisma.userSubscription.deleteMany(),
       prisma.subscriptionPlan.deleteMany(),
       prisma.appSetting.deleteMany(),
+      prisma.workerProfile.deleteMany(),
       prisma.user.deleteMany()
     ]);
   });
@@ -58,21 +65,31 @@ describe('admin metrics API', () => {
     await prisma.$disconnect();
   });
 
-  it('requires authentication before exposing developer metrics', async () => {
+  it('requires authentication before exposing admin metrics', async () => {
     const response = await fetch(`${baseUrl}/admin/metrics`);
-
     expect(response.status).toBe(401);
   });
 
-  it('tracks active users, monthly active users, subscriptions, and MRR', async () => {
+  it('rejects an authenticated non-admin user', async () => {
+    const worker = await registerAndVerify('worker-metrics@example.com');
+    const response = await fetch(`${baseUrl}/admin/metrics`, {
+      headers: { Cookie: worker.cookie }
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it('tracks account, trial, subscription, activity and MRR metrics for admins', async () => {
     const admin = await registerAndVerify('admin-metrics@example.com');
+    const now = new Date();
+    const future = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 20);
+
     const activeRecent = await prisma.user.create({
       data: {
         email: 'active-recent@example.com',
         passwordHash: 'hash',
         status: 'ACTIVE',
-        emailVerifiedAt: new Date(),
-        lastSeenAt: new Date()
+        emailVerifiedAt: now,
+        lastSeenAt: now
       }
     });
     const activeDormant = await prisma.user.create({
@@ -80,7 +97,7 @@ describe('admin metrics API', () => {
         email: 'active-dormant@example.com',
         passwordHash: 'hash',
         status: 'ACTIVE',
-        emailVerifiedAt: new Date(),
+        emailVerifiedAt: now,
         lastSeenAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45)
       }
     });
@@ -91,16 +108,19 @@ describe('admin metrics API', () => {
         status: 'PENDING_EMAIL_VERIFICATION'
       }
     });
-    const plan = await prisma.subscriptionPlan.create({
+    await prisma.user.create({
       data: {
-        name: 'Solo Monthly',
-        price: '19.00',
-        currency: 'SGD',
-        billingInterval: 'month',
-        limitsJson: '{}',
-        status: 'ACTIVE'
+        email: 'suspended@example.com',
+        passwordHash: 'hash',
+        status: 'SUSPENDED',
+        emailVerifiedAt: now
       }
     });
+
+    const plan = await prisma.subscriptionPlan.findFirstOrThrow({
+      where: { subscriptions: { some: { userId: admin.id } } }
+    });
+
     await prisma.userSubscription.createMany({
       data: [
         {
@@ -108,14 +128,19 @@ describe('admin metrics API', () => {
           planId: plan.id,
           status: 'ACTIVE',
           monthlyRecurringCents: 1900,
-          currency: 'SGD'
+          currency: 'SGD',
+          currentPeriodStart: now,
+          currentPeriodEnd: future
         },
         {
           userId: activeDormant.id,
           planId: plan.id,
           status: 'TRIALING',
-          monthlyRecurringCents: 1900,
-          currency: 'SGD'
+          monthlyRecurringCents: 699,
+          currency: 'SGD',
+          currentPeriodStart: now,
+          currentPeriodEnd: future,
+          trialEndsAt: future
         }
       ]
     });
@@ -127,10 +152,14 @@ describe('admin metrics API', () => {
     expect(response.status).toBe(200);
     const body = await jsonBody<AdminMetricsResponse>(response);
     expect(body.metrics).toMatchObject({
-      registeredActiveUsers: 3,
+      totalUsers: 5,
+      activeUsers: 3,
+      pendingUsers: 1,
+      suspendedUsers: 1,
       monthlyActiveUsers: 2,
       activeSubscriptions: 1,
       trialingSubscriptions: 2,
+      defaultTrialDays: 30,
       mrrByCurrency: { SGD: 1900 }
     });
   });
