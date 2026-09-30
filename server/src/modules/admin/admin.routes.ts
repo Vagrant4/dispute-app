@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { SubscriptionStatus, UserStatus } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
@@ -505,7 +505,7 @@ async function getUserAuditSnapshot(userId: string) {
 }
 
 async function writeAudit(
-  req: Express.Request,
+  req: Request,
   input: {
     targetUserId?: string;
     action: string;
