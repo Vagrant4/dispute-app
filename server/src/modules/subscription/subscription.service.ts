@@ -99,6 +99,28 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     }
   }
 
+  // Upgrade legacy 3-day trials to the current 30-day policy from verified email.
+  if (subscription?.status === SubscriptionStatus.TRIALING) {
+    const verifiedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { emailVerifiedAt: true }
+    });
+    if (verifiedUser?.emailVerifiedAt) {
+      const policyTrialEnd = addDays(verifiedUser.emailVerifiedAt, trialDays);
+      if (!subscription.trialEndsAt || subscription.trialEndsAt < policyTrialEnd) {
+        subscription = await prisma.userSubscription.update({
+          where: { userId },
+          data: {
+            trialEndsAt: policyTrialEnd,
+            currentPeriodStart: subscription.currentPeriodStart ?? verifiedUser.emailVerifiedAt,
+            currentPeriodEnd: policyTrialEnd
+          },
+          include: { plan: true }
+        });
+      }
+    }
+  }
+
   const activeReward = await prisma.referralReward.findFirst({
     where: {
       userId,
