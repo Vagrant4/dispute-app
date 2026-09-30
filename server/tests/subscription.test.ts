@@ -114,7 +114,10 @@ describe('subscription API', () => {
       currency: 'SGD'
     });
     expect(body.subscription.trialEndsAt).toEqual(expect.any(String));
-    expect(Date.parse(body.subscription.trialEndsAt!)).toBeGreaterThan(Date.now());
+    const trialEnd = Date.parse(body.subscription.trialEndsAt!);
+    expect(trialEnd).toBeGreaterThan(Date.now());
+    expect(trialEnd - Date.now()).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
+    expect(trialEnd - Date.now()).toBeLessThanOrEqual(30 * 24 * 60 * 60 * 1000 + 60_000);
     expect(body.subscription.message).toMatch(/Trial active/i);
   });
 
@@ -185,11 +188,20 @@ describe('subscription API', () => {
     ).toBeNull();
   });
 
-  it('blocks export when the 3-day trial is expired', async () => {
+  it('blocks export when the 30-day verified-email trial is expired', async () => {
     const user = await registerUser('subscription-expired@example.com');
+    const verifiedLongAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: verifiedLongAgo }
+    });
     await prisma.userSubscription.updateMany({
       where: { userId: user.id },
-      data: { trialEndsAt: new Date(Date.now() - 1000), currentPeriodEnd: new Date(Date.now() - 1000) }
+      data: {
+        trialEndsAt: new Date(Date.now() - 1000),
+        currentPeriodStart: verifiedLongAgo,
+        currentPeriodEnd: new Date(Date.now() - 1000)
+      }
     });
 
     const response = await fetch(`${baseUrl}/subscription/status`, {
