@@ -1,0 +1,25 @@
+name: Verify server admin changes
+
+on:
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'render.yaml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/server-admin-verify.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @claimproof/shared
+      - run: npm run prisma:generate --workspace server
+      - run: npm run build --workspace server
+      - run: npm run test --workspace server

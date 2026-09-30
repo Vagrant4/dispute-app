@@ -14,7 +14,7 @@ services:
       - key: UPLOAD_ROOT
         value: /var/data/uploads
       - key: CLIENT_ORIGIN
-        value: https://dispute.app
+        value: https://disputewho.com
       - key: SERVER_PUBLIC_URL
         sync: false
       - key: JWT_SECRET
@@ -30,6 +30,8 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: EMAIL_FROM
+        sync: false
+      - key: ADMIN_EMAILS
         sync: false
       - key: STRIPE_BILLING_MODE
         value: disabled

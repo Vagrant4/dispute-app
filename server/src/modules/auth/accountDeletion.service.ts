@@ -31,6 +31,18 @@ export async function deleteAccountForAuthenticatedUser(input: {
   return permanentlyDeleteUser(user.id, requestId);
 }
 
+export async function deleteAccountByAdmin(input: {
+  userId: string;
+  requestId?: string;
+}): Promise<AccountDeletionResult> {
+  const requestId = normalizeRequestId(input.requestId);
+  const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { id: true } });
+  if (!user) {
+    throw new AuthServiceError('User not found', 404);
+  }
+  return permanentlyDeleteUser(user.id, requestId);
+}
+
 export async function deleteAccountWithCredentials(input: {
   email: string;
   password: string;
