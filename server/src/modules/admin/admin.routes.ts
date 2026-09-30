@@ -327,10 +327,14 @@ adminRouter.post('/users/:userId/trial', async (req, res, next) => {
       });
     }
 
+    const paidStatuses: SubscriptionStatus[] = [
+      SubscriptionStatus.ACTIVE,
+      SubscriptionStatus.PAST_DUE,
+      SubscriptionStatus.CANCELED
+    ];
     const paidAndCurrent =
-      [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE, SubscriptionStatus.CANCELED].includes(
-        subscription.status
-      ) && Boolean(subscription.currentPeriodEnd && subscription.currentPeriodEnd > now);
+      paidStatuses.includes(subscription.status) &&
+      Boolean(subscription.currentPeriodEnd && subscription.currentPeriodEnd > now);
     if (paidAndCurrent) {
       res.status(409).json({
         error: 'Current paid or grace-period access cannot be replaced by admin trial access'
@@ -340,7 +344,7 @@ adminRouter.post('/users/:userId/trial', async (req, res, next) => {
 
     const before = serialize(subscription);
     let expiresAt: Date;
-    let status = SubscriptionStatus.TRIALING;
+    let status: SubscriptionStatus = SubscriptionStatus.TRIALING;
 
     if (action === 'reset30') {
       expiresAt = addDays(now, trialDays);
