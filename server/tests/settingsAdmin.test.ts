@@ -292,20 +292,17 @@ describe('settings and admin APIs', () => {
     });
   });
 
-  it('returns a harmless admin placeholder without management data', async () => {
+  it('does not expose admin controls to an ordinary authenticated user', async () => {
     const user = await registerUser('admin-placeholder@example.com');
 
     const response = await fetch(`${baseUrl}/admin`, {
       headers: { Cookie: user.cookie }
     });
 
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toEqual({
-      message: 'Admin features are reserved for future ClaimProof SG versions.'
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Admin access required'
     });
-    expect(JSON.stringify(body).toLowerCase()).not.toContain('user');
-    expect(JSON.stringify(body).toLowerCase()).not.toContain('management');
   });
 
   async function registerUser(email: string): Promise<{ id: string; cookie: string }> {
