@@ -1066,7 +1066,7 @@ function revenueCatCustomerInfo({
           expires_date: '2026-09-08T00:00:00.000Z',
           grace_period_expires_date: null,
           product_identifier: productId,
-          purchase_date: now.toISOString(),
+          purchase_date: '2026-08-08T00:00:00.000Z',
           ...entitlementOverrides
         }
       },
@@ -1077,7 +1077,7 @@ function revenueCatCustomerInfo({
           grace_period_expires_date: null,
           is_sandbox: sandbox,
           period_type: 'normal',
-          purchase_date: now.toISOString(),
+          purchase_date: '2026-08-08T00:00:00.000Z',
           refunded_at: null,
           store,
           store_transaction_id: 'test-store-transaction',
