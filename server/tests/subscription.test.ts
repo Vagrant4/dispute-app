@@ -284,8 +284,8 @@ describe('subscription API', () => {
         currentPeriodEnd: new Date(0)
       }
     });
-    const now = new Date('2026-08-08T00:00:00.000Z');
-    const periodEnd = new Date('2026-09-08T00:00:00.000Z');
+    const now = new Date();
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
       expect(String(input)).toBe(
         `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(user.id)}`
@@ -299,7 +299,7 @@ describe('subscription API', () => {
               expires_date: periodEnd.toISOString(),
               grace_period_expires_date: null,
               product_identifier: 'dispute_basic_monthly:monthly-plan',
-              purchase_date: '2026-08-08T00:00:00.000Z'
+              purchase_date: now.toISOString()
             }
           },
           subscriptions: {
@@ -309,7 +309,7 @@ describe('subscription API', () => {
               grace_period_expires_date: null,
               is_sandbox: true,
               period_type: 'normal',
-              purchase_date: '2026-08-08T00:00:00.000Z',
+              purchase_date: now.toISOString(),
               refunded_at: null,
               store: 'play_store',
               store_transaction_id: 'test-store-transaction',
@@ -852,7 +852,7 @@ describe('subscription API', () => {
     });
   });
 
-  it('backfills a 3-day trial for a verified user missing a subscription row', async () => {
+  it('backfills the 30-day trial for a verified user missing a subscription row', async () => {
     const user = await registerUser('subscription-backfill@example.com');
     await prisma.userSubscription.deleteMany({ where: { userId: user.id } });
     const verifiedAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
@@ -864,7 +864,8 @@ describe('subscription API', () => {
     const body = await jsonBody<SubscriptionStatusResponse>(response);
 
     expect(response.status).toBe(200);
-    expect(body.subscription).toMatchObject({ status: 'EXPIRED', isActive: false, canExportReports: false });
+    expect(body.subscription).toMatchObject({ status: 'TRIALING', isActive: true, canExportReports: true });
+    expect(Date.parse(body.subscription.trialEndsAt!)).toBeGreaterThan(Date.now() + 25 * 24 * 60 * 60 * 1000);
     expect(await prisma.userSubscription.count({ where: { userId: user.id } })).toBe(1);
   });
 
@@ -1065,7 +1066,7 @@ function revenueCatCustomerInfo({
           expires_date: '2026-09-08T00:00:00.000Z',
           grace_period_expires_date: null,
           product_identifier: productId,
-          purchase_date: '2026-08-08T00:00:00.000Z',
+          purchase_date: now.toISOString(),
           ...entitlementOverrides
         }
       },
@@ -1076,7 +1077,7 @@ function revenueCatCustomerInfo({
           grace_period_expires_date: null,
           is_sandbox: sandbox,
           period_type: 'normal',
-          purchase_date: '2026-08-08T00:00:00.000Z',
+          purchase_date: now.toISOString(),
           refunded_at: null,
           store,
           store_transaction_id: 'test-store-transaction',
