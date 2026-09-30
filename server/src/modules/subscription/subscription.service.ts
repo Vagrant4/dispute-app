@@ -32,7 +32,7 @@ export interface SubscriptionEntitlement {
   message: string;
 }
 
-const trialDays = 3;
+export const trialDays = 30;
 const basicPlanCode = 'dispute-basic-monthly';
 const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
 const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
