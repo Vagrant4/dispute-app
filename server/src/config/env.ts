@@ -29,7 +29,6 @@ type EnvSource = Partial<
     | 'SUPPORT_EMAIL'
     | 'ADMIN_EMAILS'
     | 'TRIAL_DAYS'
-    | 'ADMIN_EMAILS'
     | 'REVENUECAT_WEBHOOK_SECRET'
     | 'REVENUECAT_SECRET_API_KEY'
     | 'REVENUECAT_PRODUCT_ID'
@@ -85,7 +84,6 @@ export function createEnv(source: EnvSource = process.env) {
     supportEmail: source.SUPPORT_EMAIL?.trim() || '',
     adminEmails: parseCsv(source.ADMIN_EMAILS),
     trialDays: parseTrialDays(source.TRIAL_DAYS),
-    adminEmails: (source.ADMIN_EMAILS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean),
     revenueCat: {
       webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? '',
       secretApiKey: source.REVENUECAT_SECRET_API_KEY ?? '',
