@@ -28,6 +28,8 @@ type EnvSource = Partial<
     | 'EMAIL_FROM'
     | 'SUPPORT_EMAIL'
     | 'ADMIN_EMAILS'
+    | 'TRIAL_DAYS'
+    | 'ADMIN_EMAILS'
     | 'REVENUECAT_WEBHOOK_SECRET'
     | 'REVENUECAT_SECRET_API_KEY'
     | 'REVENUECAT_PRODUCT_ID'
@@ -81,6 +83,8 @@ export function createEnv(source: EnvSource = process.env) {
       from: source.EMAIL_FROM ?? source.SMTP_USER ?? ''
     },
     supportEmail: source.SUPPORT_EMAIL?.trim() || '',
+    adminEmails: parseCsv(source.ADMIN_EMAILS),
+    trialDays: parseTrialDays(source.TRIAL_DAYS),
     adminEmails: (source.ADMIN_EMAILS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean),
     revenueCat: {
       webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? '',
@@ -111,6 +115,21 @@ function parseStripeBillingMode(value: string | undefined): StripeBillingMode {
   }
 
   throw new Error('STRIPE_BILLING_MODE must be one of disabled, test, live');
+}
+
+function parseCsv(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function parseTrialDays(value: string | undefined): number {
+  const parsed = Number.parseInt(value?.trim() || '30', 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 365) {
+    throw new Error('TRIAL_DAYS must be an integer between 1 and 365');
+  }
+  return parsed;
 }
 
 function normalizeServerPublicUrl(value: string | undefined): string {
