@@ -79,7 +79,17 @@ describe('admin metrics API', () => {
   });
 
   it('tracks account, trial, subscription, activity and MRR metrics for admins', async () => {
-    const admin = await registerAndVerify('admin-metrics@example.com');
+    const registeredAdmin = await registerAndVerify('admin-metrics-test@example.com');
+    await prisma.user.update({
+      where: { id: registeredAdmin.id },
+      data: { email: 'admin-metrics@example.com' }
+    });
+    const adminLogin = await postJson('/admin/login', {
+      email: 'admin-metrics@example.com',
+      password: 'Password123!'
+    });
+    expect(adminLogin.status).toBe(200);
+    const admin = { id: registeredAdmin.id, cookie: sessionCookie(adminLogin) };
     const now = new Date();
     const future = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 20);
 
