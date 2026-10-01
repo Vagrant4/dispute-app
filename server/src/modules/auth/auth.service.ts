@@ -61,6 +61,11 @@ export async function registerUser(input: {
     );
   }
 
+
+  if (env.adminEmails.includes(email)) {
+    throw new AuthServiceError('Administrator accounts cannot be created through public sign-up', 403);
+  }
+
   const existingPhone = requestedReferralCode
     ? await prisma.workerProfile.findFirst({
         where: {
@@ -286,6 +291,38 @@ export async function loginUser(input: { email: string; password: string }): Pro
   });
 
   return toSafeUser(user);
+}
+
+
+export async function loginAdminUser(input: { email: string; password: string }): Promise<SafeUser> {
+  const email = normalizeEmail(input.email);
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new AuthServiceError('Invalid email or password', 401);
+  }
+
+  const isAuthorizedAdmin =
+    user.role === 'ADMIN' ||
+    user.role === 'ADMIN_PLACEHOLDER' ||
+    env.adminEmails.includes(email);
+  const isValidPassword = await bcrypt.compare(input.password, user.passwordHash);
+  if (!isAuthorizedAdmin || !isValidPassword) {
+    throw new AuthServiceError('Invalid email or password', 401);
+  }
+
+  if (user.status === UserStatus.SUSPENDED) {
+    throw new AuthServiceError('Invalid email or password', 401);
+  }
+
+  const now = new Date();
+  return toSafeUser(await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      status: UserStatus.ACTIVE,
+      emailVerifiedAt: user.emailVerifiedAt ?? now,
+      lastSeenAt: now
+    }
+  }));
 }
 
 export async function requestPasswordReset(input: { email: string }): Promise<PasswordResetRequestResult> {

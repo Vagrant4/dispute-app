@@ -229,6 +229,56 @@ describe('auth API', () => {
     expect(response.status).toBe(403);
   });
 
+  it('allows a pending admin role to sign in with email and password without an email code', async () => {
+    const registered = await postJson('/auth/register', {
+      email: 'admin@example.com',
+      password: 'Password123!',
+      fullName: 'Admin User',
+      phone: '+65 9000 0002'
+    });
+    const registration = await jsonBody<AuthUserResponse>(registered);
+    await prisma.user.update({
+      where: { id: registration.user.id },
+      data: { role: 'ADMIN' }
+    });
+
+    const response = await postJson('/admin/login', {
+      email: 'admin@example.com',
+      password: 'Password123!'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toContain('claimproof_session=');
+    const storedUser = await prisma.user.findUnique({ where: { id: registration.user.id } });
+    expect(storedUser?.status).toBe('ACTIVE');
+    expect(storedUser?.emailVerifiedAt).not.toBeNull();
+
+    const metrics = await fetch(`${baseUrl}/admin/metrics`, {
+      headers: { Cookie: sessionCookie(response) }
+    });
+    expect(metrics.status).toBe(200);
+    expect(await prisma.userSubscription.count({ where: { userId: registration.user.id } })).toBe(0);
+  });
+
+  it('does not let a non-admin bypass email verification through admin login', async () => {
+    const registered = await postJson('/auth/register', {
+      email: 'not-allowed@example.com',
+      password: 'Password123!',
+      fullName: 'Worker User',
+      phone: '+65 9000 0003'
+    });
+    const registration = await jsonBody<AuthUserResponse>(registered);
+
+    const response = await postJson('/admin/login', {
+      email: 'not-allowed@example.com',
+      password: 'Password123!'
+    });
+
+    expect(response.status).toBe(401);
+    expect((await prisma.user.findUnique({ where: { id: registration.user.id } }))?.status)
+      .toBe('PENDING_EMAIL_VERIFICATION');
+  });
+
   it('verifies email and then logs in with valid credentials', async () => {
     const registered = await postJson('/auth/register', {
       email: 'worker@example.com',
