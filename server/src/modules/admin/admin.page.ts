@@ -10,8 +10,23 @@ export function renderAdminLoginPage(): string {
           <label>Email<input id="email" type="email" autocomplete="email" required /></label>
           <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
           <button type="submit">Sign in</button>
+          <button id="forgot-toggle" class="secondary" type="button">Forgot password?</button>
           <div id="status" class="status"></div>
         </form>
+
+        <section id="reset-panel" class="reset-box hidden">
+          <h2>Reset password</h2>
+          <p>Enter the same admin email. We will send the standard DISPUTE 6-digit reset code if the account exists.</p>
+          <label>Email<input id="reset-email" type="email" autocomplete="email" /></label>
+          <button id="send-reset" type="button">Send reset code</button>
+          <div id="reset-step-two" class="hidden">
+            <label>6-digit code<input id="reset-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" /></label>
+            <label>New password<input id="new-password" type="password" minlength="8" autocomplete="new-password" /></label>
+            <label>Confirm new password<input id="confirm-new-password" type="password" minlength="8" autocomplete="new-password" /></label>
+            <button id="complete-reset" type="button">Reset password</button>
+          </div>
+          <div id="reset-status" class="status"></div>
+        </section>
       </section>
       <script>
         document.getElementById('login-form').addEventListener('submit', async (event) => {
@@ -39,6 +54,76 @@ export function renderAdminLoginPage(): string {
             return;
           }
           location.href = '/admin';
+        });
+
+        document.getElementById('forgot-toggle').addEventListener('click', () => {
+          const panel = document.getElementById('reset-panel');
+          panel.classList.toggle('hidden');
+          const loginEmail = document.getElementById('email').value.trim();
+          if (loginEmail && !document.getElementById('reset-email').value) {
+            document.getElementById('reset-email').value = loginEmail;
+          }
+        });
+
+        document.getElementById('send-reset').addEventListener('click', async () => {
+          const resetStatus = document.getElementById('reset-status');
+          const email = document.getElementById('reset-email').value.trim();
+          if (!email) {
+            resetStatus.textContent = 'Enter your email address.';
+            return;
+          }
+          resetStatus.textContent = 'Sending reset code...';
+          const response = await fetch('/auth/forgot-password', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({ email })
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            resetStatus.textContent = body.error || 'Unable to send reset code.';
+            return;
+          }
+          document.getElementById('reset-step-two').classList.remove('hidden');
+          resetStatus.textContent = body.message || 'If this email is registered, a reset code has been sent.';
+        });
+
+        document.getElementById('complete-reset').addEventListener('click', async () => {
+          const resetStatus = document.getElementById('reset-status');
+          const email = document.getElementById('reset-email').value.trim();
+          const code = document.getElementById('reset-code').value.trim();
+          const password = document.getElementById('new-password').value;
+          const confirmPassword = document.getElementById('confirm-new-password').value;
+
+          if (!/^\d{6}$/.test(code)) {
+            resetStatus.textContent = 'Enter the 6-digit reset code.';
+            return;
+          }
+          if (password.length < 8) {
+            resetStatus.textContent = 'Password must be at least 8 characters.';
+            return;
+          }
+          if (password !== confirmPassword) {
+            resetStatus.textContent = 'Passwords do not match.';
+            return;
+          }
+
+          resetStatus.textContent = 'Resetting password...';
+          const response = await fetch('/auth/reset-password', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({ email, code, password })
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            resetStatus.textContent = body.error || 'Password reset failed.';
+            return;
+          }
+
+          document.getElementById('email').value = email;
+          document.getElementById('password').value = '';
+          document.getElementById('reset-panel').classList.add('hidden');
+          resetStatus.textContent = '';
+          document.getElementById('status').textContent = 'Password reset successful. Sign in with your new password.';
         });
       </script>
     `
@@ -298,7 +383,7 @@ function pageShell(title: string, body: string): string {
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5fff0;font-family:Inter,Arial,sans-serif}
     main{max-width:1240px;margin:auto;padding:34px 20px 80px}.eyebrow{color:var(--lime);font-weight:900;letter-spacing:.12em;font-size:12px}
     h1{font-size:42px;margin:8px 0 12px}h2{font-size:26px;margin:0 0 12px}p,small{color:var(--muted);line-height:1.5}
-    .panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;margin:22px 0}.auth-panel{max-width:520px;margin:80px auto}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;margin:22px 0}.auth-panel{max-width:520px;margin:80px auto}.reset-box{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}
     label{display:grid;gap:7px;margin:14px 0;font-weight:700}input,select{background:#070b08;color:#fff;border:1px solid #3a493d;border-radius:10px;padding:12px;font:inherit}
     button{background:var(--lime);border:0;border-radius:10px;padding:11px 14px;font-weight:900;cursor:pointer}.secondary{background:#182019;color:#fff;border:1px solid #3a493d}.danger{background:#5a1717;color:#ffd8d8}
     .topbar,.detail-header,.search-row{display:flex;justify-content:space-between;gap:20px;align-items:center}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
