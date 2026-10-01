@@ -7,7 +7,7 @@ export const authCookieName = 'claimproof_session';
 export interface AuthUser {
   id: string;
   email: string;
-  role: 'WORKER' | 'ADMIN_PLACEHOLDER';
+  role: 'WORKER' | 'ADMIN_PLACEHOLDER' | 'ADMIN';
 }
 
 interface AuthTokenPayload extends jwt.JwtPayload {
