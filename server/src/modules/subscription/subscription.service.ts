@@ -121,6 +121,23 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     }
   }
 
+  if (
+    subscription?.status === SubscriptionStatus.TRIALING &&
+    subscription.currentPeriodStart
+  ) {
+    const configuredTrialEnd = addDays(subscription.currentPeriodStart, trialDays);
+    if (!subscription.trialEndsAt || subscription.trialEndsAt < configuredTrialEnd) {
+      subscription = await prisma.userSubscription.update({
+        where: { id: subscription.id },
+        data: {
+          trialEndsAt: configuredTrialEnd,
+          currentPeriodEnd: configuredTrialEnd
+        },
+        include: { plan: true }
+      });
+    }
+  }
+
   const activeReward = await prisma.referralReward.findFirst({
     where: {
       userId,
