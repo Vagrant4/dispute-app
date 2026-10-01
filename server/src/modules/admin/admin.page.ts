@@ -94,7 +94,7 @@ export function renderAdminLoginPage(): string {
           const password = document.getElementById('new-password').value;
           const confirmPassword = document.getElementById('confirm-new-password').value;
 
-          if (!/^\d{6}$/.test(code)) {
+          if (code.length !== 6 || [...code].some((character) => character < '0' || character > '9')) {
             resetStatus.textContent = 'Enter the 6-digit reset code.';
             return;
           }
