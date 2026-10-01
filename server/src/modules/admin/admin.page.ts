@@ -11,8 +11,21 @@ export function renderAdminLoginPage(): string {
           <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
           <button type="submit">Sign in</button>
           <button id="forgot-toggle" class="secondary" type="button">Forgot password?</button>
+          <button id="verify-toggle" class="secondary" type="button">Verify email</button>
           <div id="status" class="status"></div>
         </form>
+
+        <section id="verify-panel" class="reset-box hidden">
+          <h2>Verify admin email</h2>
+          <p>Send a fresh 6-digit verification code to the admin email, then enter it below.</p>
+          <label>Email<input id="verify-email" type="email" autocomplete="email" /></label>
+          <button id="send-verification" type="button">Send verification code</button>
+          <div id="verification-step-two" class="hidden">
+            <label>6-digit code<input id="verification-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" /></label>
+            <button id="complete-verification" type="button">Verify email</button>
+          </div>
+          <div id="verification-status" class="status"></div>
+        </section>
 
         <section id="reset-panel" class="reset-box hidden">
           <h2>Reset password</h2>
@@ -54,6 +67,63 @@ export function renderAdminLoginPage(): string {
             return;
           }
           location.href = '/admin';
+        });
+
+        document.getElementById('verify-toggle').addEventListener('click', () => {
+          const panel = document.getElementById('verify-panel');
+          panel.classList.toggle('hidden');
+          const loginEmail = document.getElementById('email').value.trim();
+          if (loginEmail && !document.getElementById('verify-email').value) {
+            document.getElementById('verify-email').value = loginEmail;
+          }
+        });
+
+        document.getElementById('send-verification').addEventListener('click', async () => {
+          const verificationStatus = document.getElementById('verification-status');
+          const email = document.getElementById('verify-email').value.trim();
+          if (!email) {
+            verificationStatus.textContent = 'Enter your email address.';
+            return;
+          }
+          verificationStatus.textContent = 'Sending verification code...';
+          const response = await fetch('/auth/resend-verification', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({ email })
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            verificationStatus.textContent = body.error || 'Unable to send verification code.';
+            return;
+          }
+          document.getElementById('verification-step-two').classList.remove('hidden');
+          verificationStatus.textContent = body.message || 'If this email is registered and still unverified, a verification code has been sent.';
+        });
+
+        document.getElementById('complete-verification').addEventListener('click', async () => {
+          const verificationStatus = document.getElementById('verification-status');
+          const email = document.getElementById('verify-email').value.trim();
+          const code = document.getElementById('verification-code').value.trim();
+          if (code.length !== 6 || [...code].some((character) => character < '0' || character > '9')) {
+            verificationStatus.textContent = 'Enter the 6-digit verification code.';
+            return;
+          }
+          verificationStatus.textContent = 'Verifying email...';
+          const response = await fetch('/auth/verify-email', {
+            method: 'POST',
+            headers: {'content-type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify({ email, code })
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            verificationStatus.textContent = body.error || 'Email verification failed.';
+            return;
+          }
+          document.getElementById('email').value = email;
+          document.getElementById('verify-panel').classList.add('hidden');
+          verificationStatus.textContent = '';
+          document.getElementById('status').textContent = 'Email verified. Sign in with your password.';
         });
 
         document.getElementById('forgot-toggle').addEventListener('click', () => {
