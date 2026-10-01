@@ -9,7 +9,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   }
 
   const email = user.email.trim().toLowerCase();
-  const roleAllowed = user.role === 'ADMIN_PLACEHOLDER';
+  const roleAllowed = user.role === 'ADMIN' || user.role === 'ADMIN_PLACEHOLDER';
   const emailAllowed = env.adminEmails.includes(email);
 
   if (!roleAllowed && !emailAllowed) {
