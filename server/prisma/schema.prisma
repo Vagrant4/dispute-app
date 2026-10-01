@@ -462,23 +462,6 @@ model AdminAuditLog {
   targetUserId String?
   action       String
   reason       String
-  beforeJson   String
-  afterJson    String
-  ipAddress    String?
-  createdAt    DateTime @default(now())
-
-  @@index([adminUserId])
-  @@index([targetUserId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-model AdminAuditLog {
-  id           String   @id @default(cuid())
-  adminUserId  String
-  targetUserId String?
-  action       String
-  reason       String
   beforeJson   String?
   afterJson    String?
   ipAddress    String?
