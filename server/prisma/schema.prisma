@@ -462,8 +462,8 @@ model AdminAuditLog {
   targetUserId String?
   action       String
   reason       String
-  beforeJson   String?
-  afterJson    String?
+  beforeJson   String
+  afterJson    String
   ipAddress    String?
   createdAt    DateTime @default(now())
 
