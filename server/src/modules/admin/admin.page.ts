@@ -186,17 +186,17 @@ export function renderAdminDashboardPage(): string {
           document.getElementById('detail-panel').classList.remove('hidden');
           document.getElementById('detail-title').textContent = user.profile?.fullName || user.email;
           const s = user.subscription;
-          document.getElementById('detail').innerHTML = `
-            <div class="detail-grid">
-              <div><span>Email</span><b>${escapeHtml(user.email)}</b></div>
-              <div><span>User ID</span><b><code>${escapeHtml(user.id)}</code></b></div>
-              <div><span>Status</span><b>${user.status}</b></div>
-              <div><span>Role</span><b>${user.role}</b></div>
-              <div><span>Verified</span><b>${fmt(user.emailVerifiedAt)}</b></div>
-              <div><span>Last seen</span><b>${fmt(user.lastSeenAt)}</b></div>
-              <div><span>Trial ends</span><b>${fmt(s?.trialEndsAt)}</b></div>
-              <div><span>Subscription</span><b>${s?.status || 'NONE'}</b></div>
-            </div>`;
+          document.getElementById('detail').innerHTML =
+            '<div class="detail-grid">' +
+              '<div><span>Email</span><b>' + escapeHtml(user.email) + '</b></div>' +
+              '<div><span>User ID</span><b><code>' + escapeHtml(user.id) + '</code></b></div>' +
+              '<div><span>Status</span><b>' + escapeHtml(user.status) + '</b></div>' +
+              '<div><span>Role</span><b>' + escapeHtml(user.role) + '</b></div>' +
+              '<div><span>Verified</span><b>' + fmt(user.emailVerifiedAt) + '</b></div>' +
+              '<div><span>Last seen</span><b>' + fmt(user.lastSeenAt) + '</b></div>' +
+              '<div><span>Trial ends</span><b>' + fmt(s?.trialEndsAt) + '</b></div>' +
+              '<div><span>Subscription</span><b>' + escapeHtml(s?.status || 'NONE') + '</b></div>' +
+            '</div>';
         }
 
         async function loadAudit() {
