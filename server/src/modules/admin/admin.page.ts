@@ -30,7 +30,7 @@ export function renderAdminLoginPage(): string {
       </section>
       <script>
         const apiPrefix = location.pathname.startsWith('/api/dispute/') ? '/api/dispute' : '';
-        function apiPath(path) { return apiPrefix + path; }
+        function apiPath(path) { return apiPrefix + path; } // Keep admin requests on the website origin when proxied.
 
         document.getElementById('login-form').addEventListener('submit', async (event) => {
           event.preventDefault();
