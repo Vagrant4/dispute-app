@@ -5,27 +5,20 @@ import { requireUser } from '../../middleware/requireUser.js';
 import { requireAdmin } from '../../middleware/requireAdmin.js';
 import { deleteAccountByAdmin } from '../auth/accountDeletion.service.js';
 import { createTrialSubscriptionForUser, trialDays } from '../subscription/subscription.service.js';
+import { renderAdminDashboardPage, renderAdminLoginPage } from './admin.page.js';
 
 export const adminRouter = Router();
 
+adminRouter.get('/login', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(renderAdminLoginPage());
+});
+
 adminRouter.use(requireUser, requireAdmin);
 
-adminRouter.get('/', (req, res) => {
-  res.json({
-    admin: {
-      id: req.user!.id,
-      email: req.user!.email
-    },
-    capabilities: [
-      'metrics',
-      'user_search',
-      'suspend',
-      'unsuspend',
-      'trial_management',
-      'account_deletion',
-      'audit_log'
-    ]
-  });
+adminRouter.get('/', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(renderAdminDashboardPage());
 });
 
 adminRouter.get('/metrics', async (_req, res, next) => {
