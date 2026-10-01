@@ -2,7 +2,7 @@
 
 ## Approved commercial flow
 
-- A verified account receives a three-day DISPUTE trial without entering payment details.
+- A verified account receives a 30-day DISPUTE trial without entering payment details. No payment method is required, and no charge starts automatically. Google Play billing is offered only after the trial if the user chooses to subscribe.
 - During the trial, the user can create work records, capture evidence and export premium PDF/CSV reports.
 - The app must not initiate a store purchase or charge during the trial.
 - After the trial, the user may subscribe to DISPUTE Basic through Google Play for the store-localized equivalent of S$6.99 per month.

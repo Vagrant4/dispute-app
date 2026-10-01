@@ -26,7 +26,7 @@ test("mobile production navigation declares simplified field-work destinations",
 
 test("mobile scaffold declares real user trial readiness copy", () => {
   for (const requiredCopy of [
-    "New users verify their email, receive a 3-day trial",
+    "New users verify their email to start a 30-day no-card trial",
     "Export a backup before uninstalling, changing phone, clearing app data",
     "Account registration and subscription status are stored securely by the Dispute server",
     "Do not enter real FIN/NRIC unless comfortable",
@@ -50,7 +50,7 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
   }
 });
 
-test("mobile subscription screen copy declares 3-day trial and store billing", () => {
+test("mobile subscription screen copy declares the 30-day no-card trial and store billing", () => {
   for (const requiredCopy of [
     "no-card trial",
     "No charge starts automatically",

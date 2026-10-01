@@ -2,7 +2,7 @@
 
 ## Trial Target
 
-DISPUTE gives each newly verified account a 3-day trial. Testers can use the full field workflow during the trial; after it ends, Apple App Store or Google Play subscription is required to export reports.
+DISPUTE gives each newly verified account a 30-day no-card trial starting when email is verified. Testers can use the full field workflow during the trial; after it ends, Apple App Store or Google Play subscription is required to export reports.
 
 Tester mix:
 
@@ -128,7 +128,7 @@ Proceed toward wider paid rollout only if:
 
 Go:
 
-- Evidence and report workflows are usable in the 3-day account trial.
+- Evidence and report workflows are usable in the 30-day account trial.
 - Backup/export warnings are understood before testers risk important records.
 - Remaining gaps are copy tweaks, small UI improvements, or known post-V1 placeholders.
 

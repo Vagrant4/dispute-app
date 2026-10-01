@@ -189,7 +189,7 @@ export async function purchaseDisputeBasicSubscription(
   ) {
     return {
       ok: false,
-      message: "No card is required during the 3-day trial. Subscribe after the trial ends.",
+      message: "No payment method is required during the 30-day trial. Choose a subscription after the trial ends.",
     };
   }
   if (hasCurrentFullAccess(checkedSubscription)) {

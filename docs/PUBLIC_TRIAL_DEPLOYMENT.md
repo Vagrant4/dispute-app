@@ -8,7 +8,7 @@ Use this when testers are outside your local Wi-Fi or outside Singapore.
 - Database: SQLite on Render persistent disk for the first external trial
 - Email verification: Gmail SMTP app password
 - Mobile APK: rebuilt with `EXPO_PUBLIC_API_BASE_URL=<public backend URL>`
-- Billing: three-day no-card server trial, followed by Google Play billing through RevenueCat for the Android pilot
+- Billing: a 30-day no-card server trial starts at email verification. Google Play billing through RevenueCat begins only if the user chooses a subscription after the trial; there is no extra store free-trial phase.
 - RevenueCat product ID: `dispute_basic_monthly`
 - RevenueCat entitlement ID: `dispute_basic`
 
@@ -94,7 +94,7 @@ Then verify, in order:
 
 1. Existing user login still works.
 2. A new disposable account receives and verifies its email code.
-3. `/subscription/status` returns a three-day trial based on the verification time.
+3. `/subscription/status` returns a 30-day trial based on the email-verification time.
 4. Existing expired data remains readable while new mutations are rejected.
 5. RevenueCat webhook authentication rejects requests without the configured secret.
 6. Referral codes appear only for authenticated users and an unverified referral is not counted.

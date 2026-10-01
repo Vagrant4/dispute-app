@@ -24,10 +24,10 @@ export const privacyContent = {
 };
 
 export const subscriptionContent = {
-  heading: "3-day trial",
+  heading: "30-day trial",
   billingPath: "DISPUTE Basic",
   noCheckout:
-    "New verified users receive a 3-day no-card trial. No charge starts automatically. After the trial, subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
+    "New users receive a 30-day no-card trial starting when they verify their email. No payment method is required and no charge starts automatically. After the trial, choose whether to subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
   policyGated:
     "Google Play displays the localized subscription price for Android. Mobile store billing is policy-gated, and Stripe checkout is not used inside the app. App Store billing will be configured before the separate iOS release.",
   expiredExport:
@@ -37,9 +37,9 @@ export const subscriptionContent = {
 };
 
 export const trialReadinessContent = {
-  heading: "3-day verified account trial",
+  heading: "30-day verified account trial",
   warning:
-    "New users verify their email, receive a 3-day trial, and then subscribe through Google Play to keep creating records and exporting premium reports on Android.",
+    "New users verify their email to start a 30-day no-card trial. After it ends, they may choose a Google Play subscription to keep creating records and exporting premium reports on Android.",
   backupReminder:
     "Export a backup before uninstalling, changing phone, clearing app data, or relying on important records.",
   localOnly:
