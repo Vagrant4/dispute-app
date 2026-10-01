@@ -90,6 +90,13 @@ describe('admin metrics API', () => {
     });
     expect(adminLogin.status).toBe(200);
     const admin = { id: registeredAdmin.id, cookie: sessionCookie(adminLogin) };
+    const consoleResponse = await fetch(`${baseUrl}/admin`, {
+      headers: { Cookie: admin.cookie }
+    });
+    expect(consoleResponse.status).toBe(200);
+    const consoleHtml = await consoleResponse.text();
+    expect(consoleHtml).toContain("location.pathname.startsWith('/api/dispute/')");
+    expect(consoleHtml).toContain("fetch(apiPath('/auth/logout')");
     const now = new Date();
     const future = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 20);
 
