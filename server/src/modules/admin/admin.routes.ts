@@ -1,9 +1,12 @@
 import { Router, type Request } from 'express';
+import rateLimit from 'express-rate-limit';
 import { SubscriptionStatus, UserStatus } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
+import { setAuthCookie } from '../../middleware/auth.js';
 import { requireAdmin } from '../../middleware/requireAdmin.js';
 import { deleteAccountByAdmin } from '../auth/accountDeletion.service.js';
+import { loginAdminUser } from '../auth/auth.service.js';
 import { createTrialSubscriptionForUser, trialDays } from '../subscription/subscription.service.js';
 import { renderAdminDashboardPage, renderAdminLoginPage } from './admin.page.js';
 
@@ -12,6 +15,27 @@ export const adminRouter = Router();
 adminRouter.get('/login', (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('html').send(renderAdminLoginPage());
+});
+
+
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false
+});
+
+adminRouter.post('/login', adminLoginLimiter, async (req, res, next) => {
+  try {
+    const user = await loginAdminUser({
+      email: String(req.body?.email ?? ''),
+      password: String(req.body?.password ?? '')
+    });
+    setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
 });
 
 adminRouter.use(requireUser, requireAdmin);
