@@ -29,11 +29,14 @@ export function renderAdminLoginPage(): string {
         </section>
       </section>
       <script>
+        const apiPrefix = location.pathname.startsWith('/api/dispute/') ? '/api/dispute' : '';
+        function apiPath(path) { return apiPrefix + path; } // Keep admin requests on the website origin when proxied.
+
         document.getElementById('login-form').addEventListener('submit', async (event) => {
           event.preventDefault();
           const status = document.getElementById('status');
           status.textContent = 'Signing in...';
-          const response = await fetch('/admin/login', {
+          const response = await fetch(apiPath('/admin/login'), {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             credentials: 'include',
@@ -47,13 +50,13 @@ export function renderAdminLoginPage(): string {
             status.textContent = body.error || 'Sign in failed.';
             return;
           }
-          const adminCheck = await fetch('/admin/metrics', { credentials: 'include' });
+          const adminCheck = await fetch(apiPath('/admin/metrics'), { credentials: 'include' });
           if (!adminCheck.ok) {
-            await fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+            await fetch(apiPath('/auth/logout'), { method: 'POST', credentials: 'include' }).catch(() => {});
             status.textContent = 'This account is not authorized for admin access.';
             return;
           }
-          location.href = '/admin';
+          location.href = apiPath('/admin');
         });
 
         document.getElementById('forgot-toggle').addEventListener('click', () => {
@@ -73,7 +76,7 @@ export function renderAdminLoginPage(): string {
             return;
           }
           resetStatus.textContent = 'Sending reset code...';
-          const response = await fetch('/auth/forgot-password', {
+          const response = await fetch(apiPath('/auth/forgot-password'), {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             body: JSON.stringify({ email })
@@ -108,7 +111,7 @@ export function renderAdminLoginPage(): string {
           }
 
           resetStatus.textContent = 'Resetting password...';
-          const response = await fetch('/auth/reset-password', {
+          const response = await fetch(apiPath('/auth/reset-password'), {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             body: JSON.stringify({ email, code, password })
@@ -203,6 +206,9 @@ export function renderAdminDashboardPage(): string {
       </section>
 
       <script>
+        const apiPrefix = location.pathname.startsWith('/api/dispute/') ? '/api/dispute' : '';
+        function apiPath(path) { return apiPrefix + path; }
+
         const state = { selectedUserId: null };
 
         function fmt(value) {
@@ -212,13 +218,13 @@ export function renderAdminDashboardPage(): string {
         }
 
         async function api(path, init = {}) {
-          const response = await fetch(path, {
+          const response = await fetch(apiPath(path), {
             ...init,
             credentials: 'include',
             headers: { 'content-type': 'application/json', ...(init.headers || {}) }
           });
           if (response.status === 401 || response.status === 403) {
-            location.href = '/admin/login';
+            location.href = apiPath('/admin/login');
             throw new Error('Admin authentication required');
           }
           const body = await response.json().catch(() => ({}));
@@ -326,7 +332,7 @@ export function renderAdminDashboardPage(): string {
           document.getElementById('detail-panel').classList.add('hidden');
         };
         document.getElementById('logout').onclick = async () => {
-          await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+          await fetch(apiPath('/auth/logout'), { method: 'POST', credentials: 'include' });
           location.href = '/admin/login';
         };
         document.getElementById('suspend').onclick = () => {
