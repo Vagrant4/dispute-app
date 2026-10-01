@@ -36,7 +36,7 @@ export function renderAdminLoginPage(): string {
           event.preventDefault();
           const status = document.getElementById('status');
           status.textContent = 'Signing in...';
-          const response = await fetch(apiPath('/admin/login', {
+          const response = await fetch(apiPath('/admin/login'), {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             credentials: 'include',
@@ -50,9 +50,9 @@ export function renderAdminLoginPage(): string {
             status.textContent = body.error || 'Sign in failed.';
             return;
           }
-          const adminCheck = await fetch(apiPath('/admin/metrics', { credentials: 'include' });
+          const adminCheck = await fetch(apiPath('/admin/metrics'), { credentials: 'include' });
           if (!adminCheck.ok) {
-            await fetch(apiPath('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+            await fetch(apiPath('/auth/logout'), { method: 'POST', credentials: 'include' }).catch(() => {});
             status.textContent = 'This account is not authorized for admin access.';
             return;
           }
@@ -76,7 +76,7 @@ export function renderAdminLoginPage(): string {
             return;
           }
           resetStatus.textContent = 'Sending reset code...';
-          const response = await fetch(apiPath('/auth/forgot-password', {
+          const response = await fetch(apiPath('/auth/forgot-password'), {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             body: JSON.stringify({ email })
@@ -111,7 +111,7 @@ export function renderAdminLoginPage(): string {
           }
 
           resetStatus.textContent = 'Resetting password...';
-          const response = await fetch(apiPath('/auth/reset-password', {
+          const response = await fetch(apiPath('/auth/reset-password'), {
             method: 'POST',
             headers: {'content-type': 'application/json'},
             body: JSON.stringify({ email, code, password })
@@ -332,7 +332,7 @@ export function renderAdminDashboardPage(): string {
           document.getElementById('detail-panel').classList.add('hidden');
         };
         document.getElementById('logout').onclick = async () => {
-          await fetch(apiPath('/auth/logout', { method: 'POST', credentials: 'include' });
+          await fetch(apiPath('/auth/logout'), { method: 'POST', credentials: 'include' });
           location.href = '/admin/login';
         };
         document.getElementById('suspend').onclick = () => {
