@@ -32,7 +32,7 @@ export interface SubscriptionEntitlement {
   message: string;
 }
 
-export const trialDays = 30;
+export const trialDays = env.trialDays;
 const basicPlanCode = 'dispute-basic-monthly';
 const storeProductId = env.revenueCat.productId || 'dispute_basic_monthly';
 const storeEntitlementId = env.revenueCat.entitlementId || 'dispute_basic';
@@ -121,22 +121,6 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
     }
   }
 
-  if (
-    subscription?.status === SubscriptionStatus.TRIALING &&
-    subscription.currentPeriodStart
-  ) {
-    const configuredTrialEnd = addDays(subscription.currentPeriodStart, trialDays);
-    if (!subscription.trialEndsAt || subscription.trialEndsAt < configuredTrialEnd) {
-      subscription = await prisma.userSubscription.update({
-        where: { id: subscription.id },
-        data: {
-          trialEndsAt: configuredTrialEnd,
-          currentPeriodEnd: configuredTrialEnd
-        },
-        include: { plan: true }
-      });
-    }
-  }
 
   const activeReward = await prisma.referralReward.findFirst({
     where: {
