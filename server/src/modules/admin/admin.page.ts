@@ -169,7 +169,7 @@ export function renderAdminDashboardPage(): string {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>User</th><th>Status</th><th>Created</th><th>Last seen</th><th>Trial / subscription</th></tr></thead>
+            <thead><tr><th>User / quick actions</th><th>Status</th><th>Created</th><th>Last seen</th><th>Trial / subscription</th></tr></thead>
             <tbody id="users"></tbody>
           </table>
         </div>
@@ -264,10 +264,29 @@ export function renderAdminDashboardPage(): string {
               ? sub.status + (sub.trialEndsAt ? ' · trial ends ' + fmt(sub.trialEndsAt) : '')
               : 'NONE';
             const name = user.profile?.fullName || user.email;
-            return '<tr data-user-id="' + user.id + '"><td><b>' + escapeHtml(name) + '</b><br><small>' + escapeHtml(user.email) + '</small></td><td>' + user.status + '</td><td>' + fmt(user.createdAt) + '</td><td>' + fmt(user.lastSeenAt) + '</td><td>' + escapeHtml(access) + '</td></tr>';
+            return '<tr data-user-id="' + user.id + '"><td><b>' + escapeHtml(name) + '</b><br><small>' + escapeHtml(user.email) + '</small>' +
+              '<div class="row-actions"><select aria-label="Choose account action">' +
+                '<option value="">Choose action</option>' +
+                (user.status === 'SUSPENDED'
+                  ? '<option value="unsuspend">Restore account</option>'
+                  : '<option value="suspend">Suspend account</option>') +
+                '<option value="delete">Delete account</option>' +
+                '<option value="extend7">Extend trial by 7 days</option>' +
+                '<option value="extend30">Extend trial by 30 days</option>' +
+              '</select><button type="button">Apply</button></div></td><td>' + user.status + '</td><td>' + fmt(user.createdAt) + '</td><td>' + fmt(user.lastSeenAt) + '</td><td>' + escapeHtml(access) + '</td></tr>';
           }).join('');
-          document.querySelectorAll('#users tr').forEach((row) => {
+          document.querySelectorAll('#users tr').forEach((row, index) => {
+            const user = users[index];
             row.addEventListener('click', () => openUser(row.dataset.userId));
+            const quickActions = row.querySelector('.row-actions');
+            quickActions.addEventListener('click', (event) => event.stopPropagation());
+            quickActions.querySelector('button').addEventListener('click', (event) => {
+              event.stopPropagation();
+              const select = quickActions.querySelector('select');
+              const selectedAction = select.value;
+              select.value = '';
+              runQuickAction(user, selectedAction);
+            });
           });
         }
 
@@ -321,6 +340,42 @@ export function renderAdminDashboardPage(): string {
           } catch (error) {
             alert(error.message);
           }
+        }
+
+        async function runQuickAction(user, selectedAction) {
+          if (!selectedAction) {
+            alert('Choose an account action first.');
+            return;
+          }
+          const name = user.profile?.fullName || user.email;
+          state.selectedUserId = user.id;
+
+          if (selectedAction === 'delete') {
+            if (!confirm('Permanently delete the account for ' + user.email + '? This cannot be undone.')) return;
+            const reason = prompt('Reason for permanent deletion:');
+            if (!reason || reason.trim().length < 3) return;
+            const confirmation = prompt('Type DELETE to permanently delete this account:');
+            if (confirmation === 'DELETE') {
+              await action('', 'DELETE', { confirmation, reason }, user.id);
+            }
+            return;
+          }
+
+          if (selectedAction === 'suspend' || selectedAction === 'unsuspend') {
+            const verb = selectedAction === 'suspend' ? 'suspend' : 'restore';
+            if (!confirm('Are you sure you want to ' + verb + ' access for ' + name + '?')) return;
+            const reason = prompt('Reason for this account access change:');
+            if (!reason || reason.trim().length < 3) return;
+            const endpoint = selectedAction === 'suspend' ? '/suspend' : '/unsuspend';
+            await action(endpoint, 'POST', { reason }, user.id);
+            return;
+          }
+
+          const days = selectedAction === 'extend7' ? 7 : 30;
+          if (!confirm('Add ' + days + ' days to ' + name + '\'s trial?')) return;
+          const reason = prompt('Reason for the ' + days + '-day trial extension:');
+          if (!reason || reason.trim().length < 3) return;
+          await action('/trial', 'POST', { action: 'extend', days, reason }, user.id);
         }
 
         document.getElementById('search-button').onclick = loadUsers;
@@ -396,7 +451,7 @@ function pageShell(title: string, body: string): string {
     .metric{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}.metric span{display:block;color:var(--muted);font-size:13px}.metric b{font-size:26px}
     .search-controls{display:flex;gap:8px;flex-wrap:wrap}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #243027;white-space:nowrap}tbody tr{cursor:pointer}tbody tr:hover{background:#111812}
     .detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.detail-grid>div{border:1px solid #2c382f;border-radius:12px;padding:12px}.detail-grid span{display:block;color:var(--muted);font-size:12px}.detail-grid b{display:block;margin-top:4px;word-break:break-word}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}.hidden{display:none}.status{min-height:22px;color:#ffb0b0;margin-top:10px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}.row-actions{display:flex;gap:6px;align-items:center;margin-top:9px}.row-actions select{min-width:0;width:150px;max-width:48vw;padding:8px;font-size:12px}.row-actions button{padding:8px 10px;font-size:12px;white-space:nowrap}#users td:first-child{white-space:normal;min-width:220px}.hidden{display:none}.status{min-height:22px;color:#ffb0b0;margin-top:10px}
     code{font-size:12px;color:#d9e3d5}@media(max-width:900px){.metrics{grid-template-columns:repeat(2,1fr)}.detail-grid{grid-template-columns:repeat(2,1fr)}.topbar,.search-row{align-items:flex-start;flex-direction:column}}@media(max-width:520px){.metrics,.detail-grid{grid-template-columns:1fr}}
   </style>
 </head>
