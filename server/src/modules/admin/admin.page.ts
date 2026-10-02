@@ -372,7 +372,7 @@ export function renderAdminDashboardPage(): string {
           }
 
           const days = selectedAction === 'extend7' ? 7 : 30;
-          if (!confirm('Add ' + days + ' days to ' + name + '\'s trial?')) return;
+          if (!confirm('Add ' + days + ' days to the trial for ' + name + '?')) return;
           const reason = prompt('Reason for the ' + days + '-day trial extension:');
           if (!reason || reason.trim().length < 3) return;
           await action('/trial', 'POST', { action: 'extend', days, reason }, user.id);
