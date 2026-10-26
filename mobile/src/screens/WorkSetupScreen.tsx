@@ -4,6 +4,7 @@ import { Platform, Pressable, Text, TextInput, View } from "react-native";
 import { styles } from "../styles";
 import type { WorkClient, WorkDayType, WorkProject } from "../work/workRepository";
 import { getOptionalWorkLocationAddress } from "../work/workLocation";
+import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
 
 export function WorkSetupScreen() {
   const [clients, setClients] = useState<WorkClient[]>([]);
@@ -83,7 +84,7 @@ export function WorkSetupScreen() {
         clientId: client.id,
         name: projectName,
         description: projectDescription,
-        hourlyRateCents: parseHourlyRateCents(hourlyRate),
+        hourlyRateCents: parseSgdHourlyRateCents(hourlyRate),
         currency: "SGD",
       });
       setStatus(`Project saved locally: ${project.name}`);
@@ -352,7 +353,7 @@ export function WorkSetupScreen() {
                   <Text style={styles.rowLabel}>{project.name}</Text>
                   <Text style={styles.muted}>
                     {project.clientName} · {project.currency}{" "}
-                    {formatMoney(project.hourlyRateCents)}/hr
+                    {formatSgdHourlyRate(project.hourlyRateCents)}/hr
                   </Text>
                   {project.description ? (
                     <Text style={styles.body}>{project.description}</Text>
@@ -385,18 +386,6 @@ async function getWorkStore() {
   const { getLocalRepositories } = await import("../db/repositories");
   const repositories = await getLocalRepositories();
   return repositories.work;
-}
-
-function parseHourlyRateCents(value: string): number {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-  return Math.round(parsed * 100);
-}
-
-function formatMoney(cents: number): string {
-  return (cents / 100).toFixed(2);
 }
 
 function getErrorMessage(error: unknown): string {

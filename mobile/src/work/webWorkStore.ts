@@ -14,6 +14,11 @@ import type {
   DeleteEntryParams,
 } from "./workRepository";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
+import {
+  PAY_REPORT_HOURLY_RATE_ERROR,
+  PAY_REPORT_PROJECT_REQUIRED_ERROR,
+  requirePositiveProjectHourlyRateCents,
+} from "./projectRates";
 
 const STORAGE_KEY = "claimproof-sg-web-work-state";
 
@@ -63,6 +68,9 @@ export const webWorkStore = {
     if (!client) {
       throw new Error("Create a client before adding a project.");
     }
+    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+      params.hourlyRateCents,
+    );
 
     const project: WorkProject = {
       id: createLocalId("web-project"),
@@ -70,7 +78,7 @@ export const webWorkStore = {
       name: requireText(params.name, "Project name"),
       clientName: client.name,
       description: normalizeOptionalText(params.description),
-      hourlyRateCents: Math.max(0, Math.floor(params.hourlyRateCents ?? 0)),
+      hourlyRateCents,
       currency: normalizeCurrency(params.currency),
       status: "active",
     };
@@ -92,11 +100,15 @@ export const webWorkStore = {
     if (!existingProject) {
       throw new Error("Selected project was not found in browser preview storage.");
     }
+    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+      params.hourlyRateCents,
+    );
 
     const savedProject: WorkProject = {
       ...existingProject,
       name: requireText(params.name, "Project name"),
       description: normalizeOptionalText(params.description),
+      hourlyRateCents,
     };
     const projects = state.projects.map((project) =>
       project.id === params.projectId ? savedProject : project,
@@ -251,30 +263,12 @@ export function buildWebWorkProgressClaimSnapshot(params: {
       ? state.projects.find((project) => project.id === params.projectId)
       : state.project) ?? null;
   if (!selectedProject) {
-    return buildProgressClaimSnapshot({
-      generatedAt: new Date().toISOString(),
-      worker: {
-        name: "Local worker",
-      },
-      client: {
-        name: "Client not selected",
-      },
-      project: {
-        name: "Project not selected",
-        hourlyRateCents: 0,
-        currency: "SGD",
-      },
-      pay: {
-        currency: "SGD",
-        dailyNormalMinutes: 480,
-        normalWorkStartTime: "08:00",
-        normalWorkEndTime: "17:00",
-        overtimeMultiplier: 1.5,
-        offDayMultiplier: 2,
-        holidayMultiplier: 2,
-      },
-    });
+    throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
   }
+  const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+    selectedProject.hourlyRateCents,
+    PAY_REPORT_HOURLY_RATE_ERROR,
+  );
   return buildProgressClaimSnapshot({
     generatedAt: new Date().toISOString(),
     worker: {
@@ -289,7 +283,7 @@ export function buildWebWorkProgressClaimSnapshot(params: {
       id: selectedProject.id,
       name: selectedProject.name,
       description: selectedProject.description,
-      hourlyRateCents: selectedProject.hourlyRateCents,
+      hourlyRateCents,
       currency: selectedProject.currency,
     },
     timeEntries: state.entries
@@ -310,7 +304,7 @@ export function buildWebWorkProgressClaimSnapshot(params: {
       })),
     pay: {
       currency: selectedProject.currency,
-      hourlyRateCents: selectedProject.hourlyRateCents,
+      hourlyRateCents,
       dailyNormalMinutes: 480,
       normalWorkStartTime: "08:00",
       normalWorkEndTime: "17:00",

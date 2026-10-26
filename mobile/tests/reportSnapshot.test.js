@@ -201,3 +201,147 @@ test("buildProgressClaimSnapshot applies off day and holiday multipliers to mark
   assert.deepEqual(snapshot.dailyWorkLog[0].dayTypes, ["off_day"]);
   assert.deepEqual(snapshot.dailyWorkLog[1].dayTypes, ["holiday"]);
 });
+
+test("buildProgressClaimSnapshot calculates short normal time and overtime from configured rates", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()(
+    "src/reports/progressClaimSnapshot.ts",
+  );
+
+  const shortTimeSnapshot = buildProgressClaimSnapshot({
+    generatedAt: "2026-10-08T12:00:00.000Z",
+    project: {
+      name: "Six minute task",
+      hourlyRateCents: 2500,
+      currency: "SGD",
+    },
+    timeEntries: [
+      {
+        id: "time-short",
+        workDate: "2026-10-08",
+        startTime: "2026-10-08T08:00:00",
+        endTime: "2026-10-08T08:06:00",
+        durationMinutes: 6,
+        activity: "Short task",
+      },
+    ],
+    pay: {
+      hourlyRateCents: 2500,
+      normalWorkStartTime: "08:00",
+      normalWorkEndTime: "16:00",
+      overtimeMultiplier: 1.5,
+    },
+  });
+
+  assert.equal(shortTimeSnapshot.totals.totalNormalHours, 0.1);
+  assert.equal(shortTimeSnapshot.totals.basicPayCents, 250);
+  assert.equal(shortTimeSnapshot.totals.totalClaimAmountCents, 250);
+
+  const overtimeSnapshot = buildProgressClaimSnapshot({
+    generatedAt: "2026-10-08T12:00:00.000Z",
+    project: {
+      name: "Overtime task",
+      hourlyRateCents: 2500,
+      currency: "SGD",
+    },
+    timeEntries: [
+      {
+        id: "time-overtime",
+        workDate: "2026-10-08",
+        startTime: "2026-10-08T08:00:00",
+        endTime: "2026-10-08T17:30:00",
+        durationMinutes: 570,
+        activity: "Overtime task",
+      },
+    ],
+    pay: {
+      hourlyRateCents: 2500,
+      normalWorkStartTime: "08:00",
+      normalWorkEndTime: "16:00",
+      overtimeMultiplier: 1.5,
+    },
+  });
+
+  assert.equal(overtimeSnapshot.totals.totalNormalHours, 8);
+  assert.equal(overtimeSnapshot.totals.totalOvertimeHours, 1.5);
+  assert.equal(overtimeSnapshot.totals.basicPayCents, 20000);
+  assert.equal(overtimeSnapshot.totals.overtimePayCents, 5625);
+  assert.equal(overtimeSnapshot.totals.totalClaimAmountCents, 25625);
+});
+
+test("ProgressClaimSourceRepository rejects zero-rate projects before building a pay report", async () => {
+  const { ProgressClaimSourceRepository } = createTsLoader()(
+    "src/reports/progressClaimSourceRepository.ts",
+  );
+  const repository = new ProgressClaimSourceRepository(
+    new FakeProgressClaimSourceDatabase(),
+  );
+
+  await assert.rejects(
+    () =>
+      repository.buildLatestProgressClaimSnapshot({
+        userId: "rate-user",
+        projectId: "project-zero",
+        generatedAt: "2026-10-08T12:00:00.000Z",
+      }),
+    /hourly rate/i,
+  );
+});
+
+class FakeProgressClaimSourceDatabase {
+  async getFirstAsync(sql) {
+    if (/FROM app_settings/i.test(sql)) {
+      return {
+        currency: "SGD",
+        daily_hours: 8,
+        normal_work_start_time: "08:00",
+        normal_work_end_time: "16:00",
+        overtime_multiplier: 1.5,
+        off_day_multiplier: 2,
+        holiday_multiplier: 2,
+      };
+    }
+
+    if (/FROM projects/i.test(sql)) {
+      return {
+        id: "project-zero",
+        name: "Zero Rate Project",
+        description: null,
+        hourly_rate_cents: 0,
+        currency: "SGD",
+        client_id: "client-zero",
+      };
+    }
+
+    if (/FROM clients/i.test(sql)) {
+      return {
+        name: "Demo Client",
+        contact_name: null,
+        contact_email: null,
+      };
+    }
+
+    return null;
+  }
+
+  async getAllAsync(sql) {
+    if (/FROM time_entries/i.test(sql)) {
+      return [
+        {
+          id: "time-zero",
+          work_date: "2026-10-08",
+          start_time: "2026-10-08T08:00:00",
+          end_time: "2026-10-08T08:06:00",
+          duration_minutes: 6,
+          activity: "Short task",
+          day_type: "normal",
+          location_text: null,
+          clock_in_gps_latitude: null,
+          clock_in_gps_longitude: null,
+          clock_out_gps_latitude: null,
+          clock_out_gps_longitude: null,
+        },
+      ];
+    }
+    return [];
+  }
+}

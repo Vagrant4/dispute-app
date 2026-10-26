@@ -7,32 +7,47 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <meta charset="utf-8" />
   <title>${escapeHtml(snapshot.title)}</title>
   <style>
-    body { color: #10201d; font-family: Arial, sans-serif; line-height: 1.4; margin: 32px; }
-    h1 { color: #115e59; font-size: 28px; margin: 0 0 8px; }
-    h2 { border-bottom: 1px solid #d5e2de; color: #10201d; font-size: 18px; margin-top: 28px; padding-bottom: 6px; }
+    @page { margin: 18mm 14mm; size: A4; }
+    * { box-sizing: border-box; }
+    body { color: #17233b; font-family: Arial, sans-serif; line-height: 1.4; margin: 0; }
+    h1 { color: #ffffff; font-size: 28px; letter-spacing: .3px; margin: 0 0 8px; }
+    h2 { border-bottom: 2px solid #2f6fed; color: #102447; font-size: 18px; margin-top: 28px; padding-bottom: 6px; page-break-after: avoid; }
     table { border-collapse: collapse; margin-top: 10px; width: 100%; }
-    th, td { border: 1px solid #d5e2de; font-size: 12px; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #eef6f4; color: #10201d; }
-    .muted { color: #5a6b67; font-size: 12px; }
-    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .box { border: 1px solid #d5e2de; padding: 10px; }
+    th, td { border: 1px solid #d5e2de; font-size: 12px; overflow-wrap: anywhere; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #edf4ff; color: #102447; }
+    tr, .report-section { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .muted { color: #62708a; font-size: 12px; }
+    .report-header { background: #102447; border-bottom: 6px solid #f2a900; margin: -18mm -14mm 24px; padding: 20mm 14mm 16px; }
+    .report-header .muted { color: #dce7fb; margin: 0; }
+    .claim-highlight { background: #edf4ff; border-left: 6px solid #f2a900; display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin: 0 0 20px; padding: 14px; page-break-inside: avoid; }
+    .claim-highlight strong { color: #102447; display: block; font-size: 18px; }
+    .claim-highlight span { color: #62708a; font-size: 11px; text-transform: uppercase; }
     .location-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 10px; }
-    .location-card { border: 1px solid #b9d8d2; border-radius: 12px; overflow: hidden; }
+    .location-card { border: 1px solid #b9d8d2; border-radius: 12px; overflow: hidden; page-break-inside: avoid; }
     .location-map { background: linear-gradient(135deg, #dff3ef 0%, #f6fbfa 45%, #cde9e4 100%); border-bottom: 1px solid #b9d8d2; min-height: 92px; position: relative; }
     .location-map::before { background: repeating-linear-gradient(90deg, rgba(17, 94, 89, 0.13) 0 1px, transparent 1px 28px), repeating-linear-gradient(0deg, rgba(17, 94, 89, 0.10) 0 1px, transparent 1px 24px); content: ""; inset: 0; position: absolute; }
     .location-pin { background: #dc2626; border: 3px solid #fff; border-radius: 999px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22); height: 18px; left: 50%; position: absolute; top: 46%; transform: translate(-50%, -50%); width: 18px; }
     .location-pin::after { background: #dc2626; bottom: -8px; content: ""; height: 10px; left: 4px; position: absolute; transform: rotate(45deg); width: 10px; }
     .location-body { padding: 10px; }
     .photo-card { border: 1px solid #d5e2de; border-radius: 12px; margin-top: 10px; overflow: hidden; page-break-inside: avoid; }
-    .photo-card-header { background: #eef6f4; font-size: 12px; font-weight: 700; padding: 8px 10px; }
+    .photo-card-header { background: #edf4ff; border-left: 5px solid #f2a900; color: #102447; font-size: 12px; font-weight: 700; padding: 8px 10px; }
     .photo-card-body { display: grid; gap: 10px; grid-template-columns: 150px 1fr; padding: 10px; }
     .photo-thumb { border: 1px solid #d5e2de; border-radius: 8px; max-height: 120px; max-width: 150px; object-fit: cover; }
     .photo-placeholder { align-items: center; background: #f6fbfa; border: 1px dashed #b9d8d2; border-radius: 8px; color: #5a6b67; display: flex; font-size: 11px; justify-content: center; min-height: 90px; padding: 8px; text-align: center; }
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(snapshot.title)}</h1>
-  <p class="muted">Generated ${escapeHtml(snapshot.generatedAt)}</p>
+  <header class="report-header">
+    <h1>${escapeHtml(snapshot.title)}</h1>
+    <p class="muted">Generated ${escapeHtml(snapshot.generatedAt)}</p>
+  </header>
+
+  <section class="claim-highlight" aria-label="Claim overview">
+    <div><span>Total claim amount</span><strong>${escapeHtml(formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency))}</strong></div>
+    <div><span>Days worked</span><strong>${snapshot.totals.totalDaysWorked}</strong></div>
+    <div><span>Claim period</span><strong>${escapeHtml(snapshot.claimPeriod.start)} &ndash; ${escapeHtml(snapshot.claimPeriod.end)}</strong></div>
+  </section>
 
   <h2>Worker Profile</h2>
   ${detailsTable([
@@ -113,7 +128,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
       ${snapshot.photoEvidence
         .map(
           (photo) =>
-            `<tr><td>${escapeHtml(photo.id)}</td><td>${escapeHtml(photo.timeEntryId ?? "")}</td><td>${escapeHtml(photo.evidenceType ?? "")}</td><td>${escapeHtml(photo.caption ?? "")}</td><td>${escapeHtml(photo.capturedAt ?? "")}</td><td>${escapeHtml(photo.localUri)}</td></tr>`,
+            `<tr><td>${escapeHtml(photo.id)}</td><td>${escapeHtml(photo.timeEntryId ?? "")}</td><td>${escapeHtml(photo.evidenceType ?? "")}</td><td>${escapeHtml(photo.caption ?? "")}</td><td>${escapeHtml(photo.capturedAt ?? "")}</td><td>${escapeHtml(photoReferenceLabel(photo.localUri))}</td></tr>`,
         )
         .join("")}
     </tbody>
@@ -147,10 +162,14 @@ function buildPhotoEvidenceCards(snapshot: ProgressClaimSnapshot): string {
         ["Type", photo.evidenceType],
         ["Caption", photo.caption],
         ["Captured at", photo.capturedAt],
-        ["Local reference", photo.localUri],
+        ["Local reference", photoReferenceLabel(photo.localUri)],
       ])}</div></div></div>`;
     })
     .join("");
+}
+
+function photoReferenceLabel(uri: string): string {
+  return uri.startsWith("data:image/") ? "Embedded image data" : uri;
 }
 
 function detailsTable(rows: Array<[string, string | number | null | undefined]>): string {

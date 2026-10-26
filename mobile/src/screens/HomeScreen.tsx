@@ -12,6 +12,7 @@ import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { getOptionalWorkLocationAddress } from "../work/workLocation";
 import { getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
+import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
 import type { LocalAccount } from "../auth/localAuth";
 
 export function HomeScreen({ account }: { account: LocalAccount }) {
@@ -31,6 +32,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   }>({ latitude: null, longitude: null });
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectHourlyRate, setProjectHourlyRate] = useState("");
   const [activityText, setActivityText] = useState("");
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [dayType, setDayType] = useState<WorkDayType>("normal");
@@ -60,13 +62,27 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
     : null;
+  const activeProjectDescription = activeProject?.description ?? "";
+  const activeProjectHourlyRateCents = activeProject?.hourlyRateCents;
+  const activeProjectId = activeProject?.id;
+  const activeProjectName = activeProject?.name ?? "";
 
   useEffect(() => {
     // Intentional local-database hydration of the editable project draft.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProjectName(activeProject?.name ?? "");
-    setProjectDescription(activeProject?.description ?? "");
-  }, [activeProject?.description, activeProject?.id, activeProject?.name]);
+    setProjectName(activeProjectName);
+    setProjectDescription(activeProjectDescription);
+    setProjectHourlyRate(
+      activeProjectHourlyRateCents == null
+        ? ""
+        : formatSgdHourlyRate(activeProjectHourlyRateCents),
+    );
+  }, [
+    activeProjectDescription,
+    activeProjectHourlyRateCents,
+    activeProjectId,
+    activeProjectName,
+  ]);
 
   async function refreshWorkState() {
     try {
@@ -99,7 +115,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       setWorkStatus(
         nextProjects.length
           ? "Local work records are ready on this device."
-          : "No project yet. Enter your project detail below, then tap Create Project.",
+          : "No project yet. Enter your project detail and hourly rate below, then tap Create Project.",
       );
       if (Platform.OS === "web" && nextProjects.length === 0) {
         const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
@@ -153,6 +169,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     }
     try {
       const store = await getWorkStore(userId);
+      const hourlyRateCents = parseSgdHourlyRateCents(projectHourlyRate);
       if (getProjectSaveMode(activeProject?.id) === "update" && activeProject) {
         if (!("updateProject" in store) || typeof store.updateProject !== "function") {
           throw new Error("Project editing is unavailable in this runtime.");
@@ -162,6 +179,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
           projectId: activeProject.id,
           name: projectName,
           description: projectDescription,
+          hourlyRateCents,
         });
         setSelectedProjectId(updated.id);
         setWorkStatus("Project details saved.");
@@ -186,7 +204,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         clientId: client.id,
         name: projectName,
         description: projectDescription,
-        hourlyRateCents: 0,
+        hourlyRateCents,
         currency: "SGD",
       });
       setSelectedProjectId(created.id);
@@ -209,6 +227,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     setSelectedProjectId(result.selectedProjectId);
     setProjectName(result.projectName);
     setProjectDescription(result.projectDescription);
+    setProjectHourlyRate("");
     setWorkStatus(result.message);
   }
 
@@ -410,6 +429,16 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
             placeholder="Site address, work scope, or reference"
             style={[styles.textInput, styles.textAreaSmall]}
             value={projectDescription}
+          />
+          <TextInput
+            accessibilityLabel="Project hourly rate"
+            editable={access.canCreateRecords}
+            inputMode="decimal"
+            keyboardType="decimal-pad"
+            onChangeText={setProjectHourlyRate}
+            placeholder="25.00"
+            style={styles.textInput}
+            value={projectHourlyRate}
           />
           <Pressable
             accessibilityRole="button"

@@ -158,6 +158,53 @@ test("buildProgressClaimHtml includes clean report sections without signature or
   assert.doesNotMatch(html, /Deductions/);
 });
 
+test("buildProgressClaimHtml renders the revised palette, dynamic overview, and print-safe page rules", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const snapshot = createSnapshot();
+  snapshot.totals.totalClaimAmountCents = 98765;
+  snapshot.totals.totalDaysWorked = 7;
+  snapshot.claimPeriod = { start: "2026-07-01", end: "2026-07-31" };
+
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.match(html, /#102447/);
+  assert.match(html, /#2f6fed/);
+  assert.match(html, /#f2a900/);
+  assert.match(html, /SGD 987\.65/);
+  assert.match(html, />7<\/strong>/);
+  assert.match(html, /2026-07-01 &ndash; 2026-07-31/);
+  assert.match(html, /@page \{ margin: 18mm 14mm; size: A4; \}/);
+  assert.match(html, /thead \{ display: table-header-group; \}/);
+  assert.match(html, /page-break-inside: avoid/);
+  assert.match(html, /overflow-wrap: anywhere/);
+  assert.match(html, /\.location-card \{[^}]*page-break-inside: avoid/);
+});
+
+test("buildProgressClaimHtml embeds printable photos and keeps unsupported references as placeholders", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const snapshot = createSnapshot();
+  snapshot.photoEvidence.push({
+    id: "photo-2",
+    localUri: "https://example.invalid/photo.jpg",
+    caption: "Remote reference",
+  });
+  snapshot.photoEvidence[0].printUri = "data:image/jpeg;base64,aW1hZ2U=";
+  snapshot.photoEvidence[0].localUri = "data:image/jpeg;base64,aW1hZ2U=";
+
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.match(html, /src="data:image\/jpeg;base64,aW1hZ2U="/);
+  assert.match(html, /alt="Photo evidence photo-1"/);
+  assert.match(html, /Embedded image data/);
+  assert.doesNotMatch(html, />data:image\/jpeg;base64,aW1hZ2U=<\/td>/);
+  assert.match(html, /Photo file reference only/);
+  assert.match(html, /\.photo-card \{[^}]*page-break-inside: avoid/s);
+});
+
 test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   const { buildProgressClaimCsv } = createTsLoader()(
     "src/reports/progressClaimCsv.ts",

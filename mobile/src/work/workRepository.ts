@@ -2,6 +2,7 @@ import { calculateTotalHours } from "@claimproof/shared";
 
 import type { LocalDatabase } from "../db/localDatabase";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
+import { requirePositiveProjectHourlyRateCents } from "./projectRates";
 
 export type WorkProject = {
   id: string;
@@ -83,7 +84,7 @@ export type CreateProjectParams = {
   clientId: string;
   name: string;
   description?: string;
-  hourlyRateCents?: number;
+  hourlyRateCents: number;
   currency?: string;
 };
 
@@ -92,6 +93,7 @@ export type UpdateProjectParams = {
   projectId: string;
   name: string;
   description?: string | null;
+  hourlyRateCents: number;
 };
 
 export type CreateManualEntryParams = {
@@ -421,6 +423,9 @@ INSERT INTO clients (
     const name = requireText(params.name, "Project name");
     const id = createLocalId("project");
     const currency = normalizeCurrency(params.currency);
+    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+      params.hourlyRateCents,
+    );
 
     await this.database.runAsync(
       `
@@ -441,7 +446,7 @@ INSERT INTO projects (
         params.clientId,
         name,
         normalizeOptionalText(params.description),
-        Math.max(0, Math.floor(params.hourlyRateCents ?? 0)),
+        hourlyRateCents,
         currency,
       ],
     );
@@ -474,18 +479,23 @@ LIMIT 1
   async updateProject(params: UpdateProjectParams): Promise<WorkProject> {
     const userId = params.userId ?? DEFAULT_USER_ID;
     const name = requireText(params.name, "Project name");
+    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+      params.hourlyRateCents,
+    );
 
     await this.database.runAsync(
       `
 UPDATE projects
 SET name = ?,
     description = ?,
+    hourly_rate_cents = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND user_id = ?
 `,
       [
         name,
         normalizeOptionalText(params.description),
+        hourlyRateCents,
         params.projectId,
         userId,
       ],

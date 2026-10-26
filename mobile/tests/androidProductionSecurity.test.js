@@ -40,8 +40,10 @@ test("mobile authentication fails safely to HTTPS outside development", () => {
 test("release Gradle configuration has no debug signing and enables R8 plus resource shrinking", () => {
   const buildGradle = read(mobileRoot, "android", "app", "build.gradle");
   const properties = read(mobileRoot, "android", "gradle.properties");
+  const releaseBlock = buildGradle.match(/release\s*\{([\s\S]*?)\n\s{8}\}/)?.[1] ?? "";
 
-  assert.doesNotMatch(buildGradle, /signingConfig\s+signingConfigs\.debug/);
+  assert.doesNotMatch(releaseBlock, /signingConfig\s+signingConfigs\.debug/);
+  assert.match(buildGradle, /internal\s*\{[\s\S]*signingConfig\s+signingConfigs\.debug/);
   assert.match(buildGradle, /applicationIdSuffix "\.test"/);
   assert.match(buildGradle, /versionNameSuffix "-test"/);
   assert.match(buildGradle, /resValue "string", "app_name", "DISPUTE Test"/);

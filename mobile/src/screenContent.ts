@@ -27,7 +27,7 @@ export const subscriptionContent = {
   heading: "30-day trial",
   billingPath: "DISPUTE Basic",
   noCheckout:
-    "New users receive a 30-day no-card trial starting when they verify their email. No payment method is required and no charge starts automatically. After the trial, choose whether to subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
+    "New users receive a 30-day no-card trial starting when they verify their email. No payment method is required. No charge starts automatically. After the trial, choose whether to subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
   policyGated:
     "Google Play displays the localized subscription price for Android. Mobile store billing is policy-gated, and Stripe checkout is not used inside the app. App Store billing will be configured before the separate iOS release.",
   expiredExport:

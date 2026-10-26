@@ -1,4 +1,9 @@
 import type { LocalDatabase } from "../db/localDatabase";
+import {
+  PAY_REPORT_HOURLY_RATE_ERROR,
+  PAY_REPORT_PROJECT_REQUIRED_ERROR,
+  requirePositiveProjectHourlyRateCents,
+} from "../work/projectRates";
 import { buildProgressClaimSnapshot } from "./progressClaimSnapshot";
 import type {
   PhotoEvidenceSnapshotInput,
@@ -96,26 +101,12 @@ export class ProgressClaimSourceRepository {
         );
 
     if (!project) {
-      return {
-        generatedAt: params.generatedAt,
-        worker: { name: "Local worker" },
-        client: { name: "Client not selected" },
-        project: {
-          name: "Project not selected",
-          currency: settings?.currency ?? "SGD",
-          hourlyRateCents: 0,
-        },
-        pay: {
-          currency: settings?.currency ?? "SGD",
-          dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
-          normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
-          normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",
-          overtimeMultiplier: settings?.overtime_multiplier ?? 1.5,
-          offDayMultiplier: settings?.off_day_multiplier ?? 2,
-          holidayMultiplier: settings?.holiday_multiplier ?? 2,
-        },
-      };
+      throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
     }
+    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+      project.hourly_rate_cents,
+      PAY_REPORT_HOURLY_RATE_ERROR,
+    );
 
     const [client, timeEntries, photoEvidence] = await Promise.all([
       this.database.getFirstAsync<ClientRow>(
@@ -153,14 +144,14 @@ export class ProgressClaimSourceRepository {
         id: project.id,
         name: project.name,
         description: project.description,
-        hourlyRateCents: project.hourly_rate_cents,
+        hourlyRateCents,
         currency: project.currency,
       },
       timeEntries: mapTimeEntries(timeEntries),
       photoEvidence: mapPhotoEvidence(photoEvidence),
       pay: {
         currency: settings?.currency ?? project.currency,
-        hourlyRateCents: project.hourly_rate_cents,
+        hourlyRateCents,
         dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
         normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
         normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",

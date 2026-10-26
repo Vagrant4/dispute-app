@@ -115,6 +115,7 @@ test("WorkRepository persists clock in/out for a user-created project", async ()
   const project = await repository.createProject({
     clientId: client.id,
     name: "Phone Test Project",
+    hourlyRateCents: 2500,
   });
 
   const clockIn = await repository.clockIn({
@@ -179,6 +180,40 @@ test("WorkRepository creates local clients and projects for work setup", async (
   assert.equal(homeState.project.hourlyRateCents, 3200);
 });
 
+test("WorkRepository requires and updates a positive project hourly rate", async () => {
+  const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
+  const database = new FakeWorkDatabase();
+  const repository = new WorkRepository(database);
+
+  const client = await repository.createClient({ name: "Rate Client" });
+  await assert.rejects(
+    () =>
+      repository.createProject({
+        clientId: client.id,
+        name: "Missing Rate Project",
+        hourlyRateCents: 0,
+      }),
+    /hourly rate/i,
+  );
+
+  const project = await repository.createProject({
+    clientId: client.id,
+    name: "Rate Project",
+    hourlyRateCents: 2500,
+  });
+  assert.equal(project.hourlyRateCents, 2500);
+
+  const updated = await repository.updateProject({
+    projectId: project.id,
+    name: "Updated Rate Project",
+    description: "Updated scope.",
+    hourlyRateCents: 3750,
+  });
+  assert.equal(updated.name, "Updated Rate Project");
+  assert.equal(updated.description, "Updated scope.");
+  assert.equal(updated.hourlyRateCents, 3750);
+});
+
 test("WorkRepository creates a manual entry for the selected project with inclusive break", async () => {
   const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
   const database = new FakeWorkDatabase();
@@ -216,6 +251,7 @@ test("WorkRepository deletes a recent time entry", async () => {
   const project = await repository.createProject({
     clientId: client.id,
     name: "Delete Entry Project",
+    hourlyRateCents: 2500,
   });
 
   const entry = await repository.createManualEntry({
@@ -245,6 +281,7 @@ test("WorkRepository prevents one user from deleting another user's time entry",
     userId: "user-a",
     clientId: client.id,
     name: "User A Project",
+    hourlyRateCents: 2500,
   });
   const entry = await repository.createManualEntry({
     userId: "user-a",
@@ -270,6 +307,7 @@ test("WorkRepository unlinks photo evidence before deleting a time entry", async
   const project = await repository.createProject({
     clientId: client.id,
     name: "Evidence Project",
+    hourlyRateCents: 2500,
   });
   const entry = await repository.createManualEntry({
     projectId: project.id,
@@ -356,6 +394,16 @@ class FakeWorkDatabase {
         status: "active",
         updated_at: new Date().toISOString(),
       });
+      return;
+    }
+
+    if (/UPDATE projects/i.test(sql)) {
+      const project = this.projects.find(
+        (row) => row.id === params[3] && row.user_id === params[4],
+      );
+      project.name = params[0];
+      project.description = params[1];
+      project.hourly_rate_cents = params[2];
       return;
     }
 
