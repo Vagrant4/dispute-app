@@ -4,7 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const ts = require("typescript");
 
-const src = (rel) => readFileSync(path.join(__dirname, "..", rel), "utf8");
+const src = (rel) => readFileSync(path.join(__dirname, "..", rel), "utf8").replace(/\r\n/g, "\n");
 function load(rel, stubs = {}) {
   const compiled = ts.transpileModule(src(rel), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
