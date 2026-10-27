@@ -1,6 +1,7 @@
 import type { ProgressClaimSnapshot } from "./progressClaimTypes";
 
 export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
+  const payValue = (value: number) => snapshot.rateCalculation.hourlyRateCents > 0 ? String(value) : "Rate not set";
   const rows: string[][] = [
     ["Section", "Field", "Value"],
     ["Report", "Title", snapshot.title],
@@ -16,7 +17,7 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
     ["Claim Period", "Start", snapshot.claimPeriod.start],
     ["Claim Period", "End", snapshot.claimPeriod.end],
     ["Rate", "Currency", snapshot.rateCalculation.currency],
-    ["Rate", "Hourly Rate Cents", String(snapshot.rateCalculation.hourlyRateCents)],
+    ["Rate", "Hourly Rate Cents", snapshot.rateCalculation.hourlyRateCents > 0 ? String(snapshot.rateCalculation.hourlyRateCents) : "Rate not set"],
     ["Rate", "Normal Work Start", snapshot.rateCalculation.normalWorkStartTime],
     ["Rate", "Normal Work End", snapshot.rateCalculation.normalWorkEndTime],
     ["Rate", "Daily Normal Minutes", String(snapshot.rateCalculation.dailyNormalMinutes)],
@@ -25,14 +26,14 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
     ["Rate", "Holiday Multiplier", String(snapshot.rateCalculation.holidayMultiplier)],
     ["Rate", "OT Rule", `OT starts after ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Rate", "Special Day Rule", "Off day and holiday entries apply their multiplier to all recorded hours."],
-    ["Pay Summary", "Basic Pay Cents", String(snapshot.totals.basicPayCents)],
-    ["Pay Summary", "OT Pay Cents", String(snapshot.totals.overtimePayCents)],
-    ["Pay Summary", "Off Day Pay Cents", String(snapshot.totals.offDayPayCents)],
-    ["Pay Summary", "Holiday Pay Cents", String(snapshot.totals.holidayPayCents)],
+    ["Pay Summary", "Basic Pay Cents", payValue(snapshot.totals.basicPayCents)],
+    ["Pay Summary", "OT Pay Cents", payValue(snapshot.totals.overtimePayCents)],
+    ["Pay Summary", "Off Day Pay Cents", payValue(snapshot.totals.offDayPayCents)],
+    ["Pay Summary", "Holiday Pay Cents", payValue(snapshot.totals.holidayPayCents)],
     ["Pay Summary", "Allowances Cents", String(snapshot.totals.allowancesCents)],
-    ["Pay Summary", "Gross Pay Cents", String(snapshot.totals.grossPayCents)],
-    ["Pay Summary", "Net Pay Cents", String(snapshot.totals.netPayCents)],
-    ["Pay Summary", "Total Claim Amount Cents", String(snapshot.totals.totalClaimAmountCents)],
+    ["Pay Summary", "Gross Pay Cents", payValue(snapshot.totals.grossPayCents)],
+    ["Pay Summary", "Net Pay Cents", payValue(snapshot.totals.netPayCents)],
+    ["Pay Summary", "Total Claim Amount Cents", payValue(snapshot.totals.totalClaimAmountCents)],
     [],
     ["Work Log", "Date", "Day Type", "Activity", "Location", "Normal Hours", "OT Hours", "Off Day Hours", "Holiday Hours", "Photo Evidence IDs"],
     ...snapshot.dailyWorkLog.map((item) => [

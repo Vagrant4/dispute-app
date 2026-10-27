@@ -268,7 +268,7 @@ test("buildProgressClaimSnapshot calculates short normal time and overtime from 
   assert.equal(overtimeSnapshot.totals.totalClaimAmountCents, 25625);
 });
 
-test("ProgressClaimSourceRepository rejects zero-rate projects before building a pay report", async () => {
+test("ProgressClaimSourceRepository builds hours with a zero-rate project", async () => {
   const { ProgressClaimSourceRepository } = createTsLoader()(
     "src/reports/progressClaimSourceRepository.ts",
   );
@@ -276,15 +276,13 @@ test("ProgressClaimSourceRepository rejects zero-rate projects before building a
     new FakeProgressClaimSourceDatabase(),
   );
 
-  await assert.rejects(
-    () =>
-      repository.buildLatestProgressClaimSnapshot({
-        userId: "rate-user",
-        projectId: "project-zero",
-        generatedAt: "2026-10-08T12:00:00.000Z",
-      }),
-    /hourly rate/i,
-  );
+  const snapshot = await repository.buildLatestProgressClaimSnapshot({
+    userId: "rate-user",
+    projectId: "project-zero",
+    generatedAt: "2026-10-08T12:00:00.000Z",
+  });
+  assert.equal(snapshot.rateCalculation.hourlyRateCents, 0);
+  assert.ok(snapshot.totals.totalNormalHours >= 0);
 });
 
 class FakeProgressClaimSourceDatabase {

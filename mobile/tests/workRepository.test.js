@@ -180,21 +180,18 @@ test("WorkRepository creates local clients and projects for work setup", async (
   assert.equal(homeState.project.hourlyRateCents, 3200);
 });
 
-test("WorkRepository requires and updates a positive project hourly rate", async () => {
+test("WorkRepository accepts an unset rate and updates a positive project hourly rate", async () => {
   const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
   const database = new FakeWorkDatabase();
   const repository = new WorkRepository(database);
 
   const client = await repository.createClient({ name: "Rate Client" });
-  await assert.rejects(
-    () =>
-      repository.createProject({
-        clientId: client.id,
-        name: "Missing Rate Project",
-        hourlyRateCents: 0,
-      }),
-    /hourly rate/i,
-  );
+  const unsetRateProject = await repository.createProject({
+    clientId: client.id,
+    name: "Missing Rate Project",
+    hourlyRateCents: 0,
+  });
+  assert.equal(unsetRateProject.hourlyRateCents, 0);
 
   const project = await repository.createProject({
     clientId: client.id,
@@ -457,14 +454,15 @@ class FakeWorkDatabase {
 
     if (/UPDATE time_entries/i.test(sql)) {
       const entry = this.timeEntries.find(
-        (row) => row.id === params[6] && row.user_id === params[7],
+        (row) => row.id === params[7] && row.user_id === params[8],
       );
       entry.end_time = params[0];
       entry.break_minutes = params[1];
-      entry.clock_out_gps_latitude = params[2];
-      entry.clock_out_gps_longitude = params[3];
-      entry.duration_minutes = params[4];
-      entry.activity = params[5];
+      entry.location_text = params[2] ?? entry.location_text;
+      entry.clock_out_gps_latitude = params[3];
+      entry.clock_out_gps_longitude = params[4];
+      entry.duration_minutes = params[5];
+      entry.activity = params[6];
       return;
     }
 

@@ -5,11 +5,13 @@ import { styles } from "../styles";
 type LogoScreenProps = {
   onShowCreateAccount: () => void;
   onShowLogin: () => void;
+  onStartTracking: () => void;
 };
 
 export function LogoScreen({
   onShowCreateAccount,
   onShowLogin,
+  onStartTracking,
 }: LogoScreenProps) {
   return (
     <View style={styles.logoPage}>
@@ -29,12 +31,16 @@ export function LogoScreen({
       </View>
 
       <View style={styles.logoActionPanel}>
+        <Pressable accessibilityRole="button" onPress={onStartTracking} style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>Start tracking</Text>
+        </Pressable>
+        <Text style={styles.muted}>No account needed for 30 days. Records stay on this phone.</Text>
         <Pressable
           accessibilityRole="button"
           onPress={onShowLogin}
-          style={styles.actionButton}
+          style={styles.actionButtonSecondary}
         >
-          <Text style={styles.actionButtonText}>Login</Text>
+          <Text style={styles.actionButtonSecondaryText}>Login</Text>
         </Pressable>
 
         <Pressable

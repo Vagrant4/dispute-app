@@ -20,6 +20,7 @@ import {
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
 import type { WorkProject } from "../work/workRepository";
+import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import {
   deleteWebGeneratedDocumentFile,
   getLastWebExportPreview,
@@ -31,9 +32,11 @@ import {
 
 type ProgressClaimReportsScreenProps = {
   account: LocalAccount;
+  onCreateAccount: () => void;
 };
 
-export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScreenProps) {
+export function ProgressClaimReportsScreen({ account, onCreateAccount }: ProgressClaimReportsScreenProps) {
+  const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
   const [subscription, setSubscription] = useState<SubscriptionEntitlement | null>(
@@ -66,7 +69,19 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     void refreshSubscriptionStatus();
   }, []);
 
+  useEffect(() => {
+    if (account.isGuest && access.subscription) {
+      setSubscription(access.subscription);
+      setSubscriptionStatus(access.message);
+    }
+  }, [account.isGuest, access.message, access.subscription]);
+
   async function refreshSubscriptionStatus() {
+    if (account.isGuest) {
+      setSubscription(access.subscription);
+      setSubscriptionStatus(access.message);
+      return;
+    }
     const result = await fetchSubscriptionStatus(account.id);
     if (!result.ok) {
       setSubscription(null);
@@ -83,6 +98,12 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   }
 
   async function ensureCanExport(): Promise<boolean> {
+    if (account.isGuest) {
+      if (access.subscription?.canExportReports) return true;
+      setSubscription(access.subscription);
+      setStatus(access.message);
+      return false;
+    }
     return ensureCanExportWithRefresh(
       subscription,
       account.id,
@@ -95,19 +116,20 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
   async function refreshArchive() {
     try {
       const repositories = await getReportRepositories(userId);
-      const [rows, projectRows] = await Promise.all([
+      const [rows, projectRows, home] = await Promise.all([
         repositories.generatedDocuments.listRecentGeneratedDocuments({
           userId,
           limit: 10,
         }),
         repositories.work.listProjects(userId),
+        repositories.work.getHomeState(userId),
       ]);
       setDocuments(rows);
       setProjects(projectRows);
       setSelectedProjectId((current) =>
         projectRows.some((project) => project.id === current)
           ? current
-          : projectRows[0]?.id ?? null,
+          : home.recentEntries[0]?.projectId ?? projectRows[0]?.id ?? null,
       );
       if (Platform.OS === "web" && rows.length === 0 && projectRows.length === 0) {
         const { hasLegacyWebGeneratedDocuments } = await import(
@@ -179,6 +201,24 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
+  }
+
+  async function handleShareDisputePack() {
+    if (!(await ensureCanExport()) || !selectedProjectId) return;
+    try {
+      const repositories = await getReportRepositories(userId);
+      const result = await generateAndArchiveProgressClaim({
+        type: "progress_claim_pdf", userId, projectId: selectedProjectId, repositories,
+        savePdf: Platform.OS === "web" ? saveProgressClaimPdfForWeb : undefined,
+      });
+      await refreshArchive();
+      if (Platform.OS === "web") {
+        setStatus("Dispute pack created and archived. Use the Files list to download or share it.");
+        return;
+      }
+      const shared = await shareGeneratedDocument({ filePath: result.filePath, mimeType: "application/pdf", sharing: expoSharingAdapter });
+      setStatus(shared.message);
+    } catch (error) { setStatus(getErrorMessage(error)); }
   }
 
   async function handleViewReport(params: {
@@ -331,11 +371,17 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Export</Text>
         <Text style={styles.heading}>Create claim report</Text>
+        <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handleShareDisputePack()} style={[styles.actionButton, !selectedProjectId && styles.disabledButton]}>
+          <Text style={styles.actionButtonText}>Share dispute pack</Text>
+        </Pressable>
         <Text style={styles.muted}>{subscriptionStatus}</Text>
-        {!subscription?.canExportReports ? (
-          <Text style={styles.statusMessage}>
-            Export requires an active trial or subscription for {account.email}.
-          </Text>
+        {subscription && !subscription.canExportReports ? (
+          <View style={[styles.statusCard, styles.warningCard]}>
+            <Text style={styles.statusMessage}>{account.isGuest
+              ? "Your 30-day free trial has ended. Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
+              : "Export needs an active trial or subscription. Subscribe in Settings > Plan & billing. All your records and earlier files stay viewable."}</Text>
+            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}><Text style={styles.actionButtonText}>Create account</Text></Pressable> : null}
+          </View>
         ) : null}
         <Text style={styles.muted}>
           Choose one project. PDF and CSV exports only include that project&apos;s
@@ -446,36 +492,6 @@ export function ProgressClaimReportsScreen({ account }: ProgressClaimReportsScre
               Spreadsheet-ready project data
             </Text>
           </Pressable>
-          {lastExportedReport?.type === "progress_claim_pdf" ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                void handleDownloadPdf({
-                  filePath: lastExportedReport.filePath,
-                  fileName: lastExportedReport.fileName,
-                  documentType: lastExportedReport.type,
-                })
-              }
-              style={styles.actionButtonSecondary}
-            >
-              <Text style={styles.actionButtonSecondaryText}>Download PDF</Text>
-              <Text style={styles.actionButtonSecondarySubtext}>
-                Save to a phone folder
-              </Text>
-            </Pressable>
-          ) : null}
-          {lastExportedReport ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void handleViewReport(lastExportedReport)}
-              style={styles.actionButtonSecondary}
-            >
-              <Text style={styles.actionButtonSecondaryText}>View Report</Text>
-              <Text style={styles.actionButtonSecondarySubtext}>
-                Open the latest generated file
-              </Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
 

@@ -17,6 +17,7 @@ import {
 } from "../subscription/subscriptionClient";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import { useDisputeBasicStorePrice } from "../subscription/useDisputeBasicStorePrice";
+import { isTrialDebugOverrideEnabled, rewriteGuestTrial } from "../subscription/guestTrial";
 
 type SettingsScreenProps = {
   account: LocalAccount;
@@ -167,6 +168,16 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Settings</Text>
         <Text style={styles.heading}>Account</Text>
+        {isTrialDebugOverrideEnabled() && account.isGuest ? (
+          <View style={[styles.card, styles.warningCard]}>
+            <Text style={styles.heading}>Debug: trial clock</Text>
+            {[["Set trial start to 31 days ago", 31], ["Set trial start to 25 days ago", 25], ["Reset to now", 0]].map(([label, days]) => (
+              <Pressable key={String(label)} accessibilityRole="button" onPress={() => void rewriteGuestTrial(Date.now() - Number(days) * 86400000).then(loadSubscriptionStatus)} style={styles.actionButtonSecondary}>
+                <Text style={styles.actionButtonSecondaryText}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <View style={styles.actionRow}>
           {options.map((item) => (
             <Pressable

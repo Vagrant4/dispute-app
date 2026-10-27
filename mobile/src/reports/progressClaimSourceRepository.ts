@@ -2,7 +2,7 @@ import type { LocalDatabase } from "../db/localDatabase";
 import {
   PAY_REPORT_HOURLY_RATE_ERROR,
   PAY_REPORT_PROJECT_REQUIRED_ERROR,
-  requirePositiveProjectHourlyRateCents,
+  normalizeProjectHourlyRateCents,
 } from "../work/projectRates";
 import { buildProgressClaimSnapshot } from "./progressClaimSnapshot";
 import type {
@@ -103,10 +103,7 @@ export class ProgressClaimSourceRepository {
     if (!project) {
       throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
     }
-    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
-      project.hourly_rate_cents,
-      PAY_REPORT_HOURLY_RATE_ERROR,
-    );
+    const hourlyRateCents = normalizeProjectHourlyRateCents(project.hourly_rate_cents);
 
     const [client, timeEntries, photoEvidence] = await Promise.all([
       this.database.getFirstAsync<ClientRow>(

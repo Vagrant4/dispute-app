@@ -18,6 +18,10 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
 import { clearCachedSubscriptionEntitlement } from "./src/subscription/subscriptionClient";
+import { DEFAULT_USER_ID } from "./src/db/settingsValidation";
+import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSession";
+import { loadGuestTrial, saveGuestTrial, startGuestTrial } from "./src/subscription/guestTrial";
+import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
 function renderScreen(
   activeTab: TabId,
@@ -25,12 +29,13 @@ function renderScreen(
   account: LocalAccount,
   onLogout: () => void,
   onAccountDeleted: (message: string) => void,
+  onCreateAccount: () => void,
 ) {
   switch (activeTab) {
     case "evidence":
       return <PhotoEvidenceScreen account={account} />;
     case "reports":
-      return <ProgressClaimReportsScreen account={account} />;
+      return <ProgressClaimReportsScreen account={account} onCreateAccount={onCreateAccount} />;
     case "settings":
       return (
         <SettingsScreen
@@ -41,7 +46,7 @@ function renderScreen(
       );
     case "home":
     default:
-      return <HomeScreen account={account} />;
+      return <HomeScreen account={account} onCreateAccount={onCreateAccount} />;
   }
 }
 
@@ -59,6 +64,9 @@ export default function App() {
   const showHeader = account || authMode !== "logo";
 
   useEffect(() => {
+    void isGuestSessionActive().then((active) => {
+      if (active) setAccount({ id: DEFAULT_USER_ID, email: "", name: "Guest", phone: "", emailVerified: false, isGuest: true });
+    });
     void reconcilePendingAccountDeletion().then((cleaned) => {
       if (cleaned) {
         setAuthNotice("Account deletion completed. Local app data was cleared.");
@@ -77,7 +85,7 @@ export default function App() {
               <View>
                 <Text style={styles.appName}>DISPUTE</Text>
                 {account ? (
-                  <Text style={styles.headerMeta}>Signed in as {account.name}</Text>
+                  <Text style={styles.headerMeta}>{account.isGuest ? "On this phone · no account yet" : `Signed in as ${account.name}`}</Text>
                 ) : null}
               </View>
               {account?.emailVerified ? (
@@ -101,12 +109,7 @@ export default function App() {
         ) : null}
 
         {account ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabScroller}
-            contentContainerStyle={styles.tabRow}
-          >
+          <View style={styles.tabRow}>
             {tabs.map((tab) => {
               const selected = tab.id === activeTab;
               return (
@@ -128,7 +131,7 @@ export default function App() {
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
         ) : null}
 
         <ScrollView
@@ -143,6 +146,7 @@ export default function App() {
               account,
               () => {
                 void clearCachedSubscriptionEntitlement(account.id);
+                void setGuestSessionActive(false);
                 setAccount(null);
                 setActiveTab("home");
                 setAuthMode("logo");
@@ -154,9 +158,19 @@ export default function App() {
                 setAuthNotice(message);
                 setAuthMode("login");
               },
+              () => { setAccount(null); setAuthMode("create"); },
             )
           ) : authMode === "logo" ? (
             <LogoScreen
+              onStartTracking={() => {
+                const guest = { id: DEFAULT_USER_ID, email: "", name: "Guest", phone: "", emailVerified: false, isGuest: true } satisfies LocalAccount;
+                void (async () => {
+                  const now = Date.now();
+                  await saveGuestTrial(startGuestTrial(now, await loadGuestTrial()));
+                  await setGuestSessionActive(true);
+                  setAccount(guest);
+                })();
+              }}
               onShowCreateAccount={() => setAuthMode("create")}
               onShowLogin={() => setAuthMode("login")}
             />
@@ -174,7 +188,12 @@ export default function App() {
               onBackToCreate={() => setAuthMode("create")}
               onShowLogin={() => setAuthMode("login")}
               onVerified={(verifiedAccount) => {
-                setAccount(verifiedAccount);
+                void (async () => {
+                  const moved = await claimLegacyLocalRepositoriesForUser(verifiedAccount.id ?? verifiedAccount.email);
+                  await setGuestSessionActive(false);
+                  setAuthNotice(moved ? "Moved your records to your account" : "");
+                  setAccount(verifiedAccount);
+                })();
                 setPendingVerification(null);
                 setActiveTab("home");
               }}
@@ -191,8 +210,12 @@ export default function App() {
               ) : null}
               <LoginScreen
                 onLogin={(loggedInAccount) => {
-                  setAuthNotice("");
-                  setAccount(loggedInAccount);
+                  void (async () => {
+                    const moved = await claimLegacyLocalRepositoriesForUser(loggedInAccount.id ?? loggedInAccount.email);
+                    await setGuestSessionActive(false);
+                    setAuthNotice(moved ? "Moved your records to your account" : "");
+                    setAccount(loggedInAccount);
+                  })();
                 }}
                 onVerificationRequired={(pending) => {
                   setPendingVerification(pending);

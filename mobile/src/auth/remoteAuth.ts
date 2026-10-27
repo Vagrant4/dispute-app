@@ -65,7 +65,7 @@ export async function registerRemoteAccount(
     name: string;
     phone: string;
     password: string;
-    confirmPassword: string;
+    firstUseAt?: string;
     referralCode?: string;
   },
   fetcher: FetchLike = fetch,
@@ -85,6 +85,7 @@ export async function registerRemoteAccount(
         password: input.password,
         fullName: input.name.trim(),
         phone: input.phone.trim(),
+        ...(input.firstUseAt ? { firstUseAt: input.firstUseAt } : {}),
         ...(input.referralCode?.trim()
           ? { referralCode: input.referralCode.trim().toUpperCase() }
           : {}),
@@ -464,12 +465,12 @@ async function readJsonBody(response: Response): Promise<Record<string, unknown>
   }
 }
 
-function validateRegistrationInput(input: {
+export function validateRegistrationInput(input: {
   email: string;
   name: string;
   phone: string;
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
 }): RemoteRegistrationResult {
   if (!input.name.trim()) {
     return { ok: false, message: "Enter your full name." };
@@ -482,9 +483,6 @@ function validateRegistrationInput(input: {
   }
   if (input.password.length < 8) {
     return { ok: false, message: "Use at least 8 characters for the password." };
-  }
-  if (input.password !== input.confirmPassword) {
-    return { ok: false, message: "Passwords do not match." };
   }
   return { ok: true, pending: {} as PendingEmailVerification };
 }

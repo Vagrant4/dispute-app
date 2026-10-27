@@ -35,3 +35,7 @@ export function getProjectSaveMode(
 ): "create" | "update" {
   return selectedExistingProjectId ? "update" : "create";
 }
+
+export function buildAutomaticProjectName(now: Date): string {
+  return `Job 1 · ${now.toLocaleDateString("en-SG", { day: "numeric", month: "short" })}`;
+}

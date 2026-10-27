@@ -18,6 +18,7 @@ import {
   PAY_REPORT_HOURLY_RATE_ERROR,
   PAY_REPORT_PROJECT_REQUIRED_ERROR,
   requirePositiveProjectHourlyRateCents,
+  normalizeProjectHourlyRateCents,
 } from "./projectRates";
 
 const STORAGE_KEY = "claimproof-sg-web-work-state";
@@ -68,7 +69,7 @@ export const webWorkStore = {
     if (!client) {
       throw new Error("Create a client before adding a project.");
     }
-    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+    const hourlyRateCents = normalizeProjectHourlyRateCents(
       params.hourlyRateCents,
     );
 
@@ -100,7 +101,7 @@ export const webWorkStore = {
     if (!existingProject) {
       throw new Error("Selected project was not found in browser preview storage.");
     }
-    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+    const hourlyRateCents = normalizeProjectHourlyRateCents(
       params.hourlyRateCents,
     );
 
@@ -265,10 +266,7 @@ export function buildWebWorkProgressClaimSnapshot(params: {
   if (!selectedProject) {
     throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
   }
-  const hourlyRateCents = requirePositiveProjectHourlyRateCents(
-    selectedProject.hourlyRateCents,
-    PAY_REPORT_HOURLY_RATE_ERROR,
-  );
+  const hourlyRateCents = normalizeProjectHourlyRateCents(selectedProject.hourlyRateCents);
   return buildProgressClaimSnapshot({
     generatedAt: new Date().toISOString(),
     worker: {

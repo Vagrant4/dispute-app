@@ -59,6 +59,8 @@ export async function createTrialSubscriptionForUser(
   verifiedAt: Date,
   client: PrismaClientOrTx = prisma
 ): Promise<void> {
+  const user = await client.user.findUnique({ where: { id: userId }, select: { appFirstUseAt: true } });
+  const anchor = trialAnchor(user?.appFirstUseAt ?? null, verifiedAt);
   const plan = await ensureBasicPlan(client);
   await client.userSubscription.upsert({
     where: { userId },
@@ -70,9 +72,9 @@ export async function createTrialSubscriptionForUser(
       monthlyRecurringCents: basicPlanPriceCents,
       currency: basicPlanCurrency,
       provider: 'store',
-      trialEndsAt: addDays(verifiedAt, trialDays),
-      currentPeriodStart: verifiedAt,
-      currentPeriodEnd: addDays(verifiedAt, trialDays)
+      trialEndsAt: addDays(anchor, trialDays),
+      currentPeriodStart: anchor,
+      currentPeriodEnd: addDays(anchor, trialDays)
     }
   });
 }
@@ -87,7 +89,7 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
   if (!subscription) {
     const verifiedUser = await prisma.user.findFirst({
       where: { id: userId, status: 'ACTIVE', emailVerifiedAt: { not: null } },
-      select: { emailVerifiedAt: true }
+      select: { emailVerifiedAt: true, appFirstUseAt: true }
     });
     if (verifiedUser?.emailVerifiedAt) {
       await createTrialSubscriptionForUser(userId, verifiedUser.emailVerifiedAt);
@@ -103,16 +105,17 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
   if (subscription?.status === SubscriptionStatus.TRIALING) {
     const verifiedUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { emailVerifiedAt: true }
+      select: { emailVerifiedAt: true, appFirstUseAt: true }
     });
     if (verifiedUser?.emailVerifiedAt) {
-      const policyTrialEnd = addDays(verifiedUser.emailVerifiedAt, trialDays);
+      const anchor = trialAnchor(verifiedUser.appFirstUseAt, verifiedUser.emailVerifiedAt);
+      const policyTrialEnd = addDays(anchor, trialDays);
       if (!subscription.trialEndsAt || subscription.trialEndsAt < policyTrialEnd) {
         subscription = await prisma.userSubscription.update({
           where: { userId },
           data: {
             trialEndsAt: policyTrialEnd,
-            currentPeriodStart: subscription.currentPeriodStart ?? verifiedUser.emailVerifiedAt,
+            currentPeriodStart: subscription.currentPeriodStart ?? anchor,
             currentPeriodEnd: policyTrialEnd
           },
           include: { plan: true }
@@ -539,6 +542,10 @@ function buildEntitlementMessage(
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+export function trialAnchor(appFirstUseAt: Date | null, verifiedAt: Date): Date {
+  return appFirstUseAt && appFirstUseAt < verifiedAt ? appFirstUseAt : verifiedAt;
 }
 
 function getRevenueCatEvent(body: unknown): Record<string, unknown> {

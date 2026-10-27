@@ -81,6 +81,7 @@ export const styles = StyleSheet.create({
     maxHeight: 58,
   },
   tabRow: {
+    flexDirection: "row",
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
@@ -93,8 +94,9 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 38,
-    minWidth: 78,
-    paddingHorizontal: theme.spacing.md,
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: theme.spacing.xs,
   },
   tabButtonActive: {
     backgroundColor: theme.colors.primary,
@@ -102,7 +104,7 @@ export const styles = StyleSheet.create({
   },
   tabButtonText: {
     color: theme.colors.textMuted,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0,
   },

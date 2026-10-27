@@ -2,7 +2,7 @@ import { calculateTotalHours } from "@claimproof/shared";
 
 import type { LocalDatabase } from "../db/localDatabase";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
-import { requirePositiveProjectHourlyRateCents } from "./projectRates";
+import { normalizeProjectHourlyRateCents } from "./projectRates";
 
 export type WorkProject = {
   id: string;
@@ -68,6 +68,7 @@ export type ClockOutParams = {
   clockOutAt?: Date;
   breakMinutes?: number;
   activity?: string;
+  locationText?: string;
   gpsLatitude?: number | null;
   gpsLongitude?: number | null;
 };
@@ -259,6 +260,7 @@ INSERT INTO time_entries (
 UPDATE time_entries
 SET end_time = ?,
     break_minutes = ?,
+    location_text = COALESCE(NULLIF(location_text, ''), ?),
     clock_out_gps_latitude = ?,
     clock_out_gps_longitude = ?,
     duration_minutes = ?,
@@ -269,6 +271,7 @@ WHERE id = ? AND user_id = ? AND end_time IS NULL
       [
         clockOutAt.toISOString(),
         breakMinutes,
+        normalizeOptionalText(params.locationText),
         params.gpsLatitude ?? null,
         params.gpsLongitude ?? null,
         durationMinutes,
@@ -423,7 +426,7 @@ INSERT INTO clients (
     const name = requireText(params.name, "Project name");
     const id = createLocalId("project");
     const currency = normalizeCurrency(params.currency);
-    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+    const hourlyRateCents = normalizeProjectHourlyRateCents(
       params.hourlyRateCents,
     );
 
@@ -479,7 +482,7 @@ LIMIT 1
   async updateProject(params: UpdateProjectParams): Promise<WorkProject> {
     const userId = params.userId ?? DEFAULT_USER_ID;
     const name = requireText(params.name, "Project name");
-    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
+    const hourlyRateCents = normalizeProjectHourlyRateCents(
       params.hourlyRateCents,
     );
 

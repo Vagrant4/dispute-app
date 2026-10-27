@@ -85,6 +85,7 @@ model User {
   role            UserRole    @default(WORKER)
   status          UserStatus  @default(PENDING_EMAIL_VERIFICATION)
   emailVerifiedAt DateTime?
+  appFirstUseAt   DateTime?
   lastSeenAt      DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

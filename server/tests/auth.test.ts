@@ -8,6 +8,16 @@ import { prisma } from '../src/db/prisma.js';
 import { env } from '../src/config/env.js';
 import { requireUser } from '../src/middleware/requireUser.js';
 import { deleteRevenueCatCustomer } from '../src/modules/auth/accountDeletion.service.js';
+import { normalizeAppFirstUseAt } from '../src/modules/auth/auth.service.js';
+
+describe('guest trial registration anchor', () => {
+  it('clamps a future first use and ignores an implausibly old value', () => {
+    const now = new Date('2026-10-27T00:00:00.000Z');
+    expect(normalizeAppFirstUseAt('2026-10-28T00:00:00.000Z', now)).toEqual(now);
+    expect(normalizeAppFirstUseAt('2020-01-01T00:00:00.000Z', now)).toBeNull();
+    expect(normalizeAppFirstUseAt(undefined, now)).toBeNull();
+  });
+});
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';

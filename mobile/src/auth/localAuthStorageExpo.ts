@@ -138,6 +138,7 @@ function sanitizeAccounts(value: unknown): LocalAccount[] {
       name: account.name,
       phone: typeof account.phone === "string" ? account.phone : "",
       emailVerified: account.emailVerified === true,
+      ...(account.isGuest === true ? { isGuest: true } : {}),
     }];
   });
 }

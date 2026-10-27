@@ -15,7 +15,7 @@ const SGD_RATE_PATTERN = /^\d+(?:\.\d{1,2})?$/;
 export function parseSgdHourlyRateCents(value: string): number {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(PROJECT_HOURLY_RATE_ERROR);
+    return 0;
   }
   if (!SGD_RATE_PATTERN.test(trimmed)) {
     throw new Error(PROJECT_HOURLY_RATE_FORMAT_ERROR);
@@ -25,6 +25,11 @@ export function parseSgdHourlyRateCents(value: string): number {
   const dollars = Number.parseInt(dollarsText, 10);
   const cents = Number.parseInt(centsText.padEnd(2, "0") || "0", 10);
   return requirePositiveProjectHourlyRateCents((dollars * 100) + cents);
+}
+
+export function normalizeProjectHourlyRateCents(value: number | null | undefined): number {
+  if (value == null || value === 0) return 0;
+  return requirePositiveProjectHourlyRateCents(value);
 }
 
 export function requirePositiveProjectHourlyRateCents(

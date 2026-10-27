@@ -44,7 +44,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   </header>
 
   <section class="claim-highlight" aria-label="Claim overview">
-    <div><span>Total claim amount</span><strong>${escapeHtml(formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency))}</strong></div>
+    <div><span>Total claim amount</span><strong>${escapeHtml(snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency) : "Rate not set")}</strong></div>
     <div><span>Days worked</span><strong>${snapshot.totals.totalDaysWorked}</strong></div>
     <div><span>Claim period</span><strong>${escapeHtml(snapshot.claimPeriod.start)} &ndash; ${escapeHtml(snapshot.claimPeriod.end)}</strong></div>
   </section>
@@ -78,7 +78,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
 
   <h2>Rate Calculation</h2>
   ${detailsTable([
-    ["Hourly rate", formatMoney(snapshot.rateCalculation.hourlyRateCents, snapshot.rateCalculation.currency)],
+    ["Hourly rate", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.rateCalculation.hourlyRateCents, snapshot.rateCalculation.currency) : "Rate not set"],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Normal hours from range", String(snapshot.rateCalculation.dailyNormalMinutes / 60)],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
@@ -95,14 +95,14 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Overtime hours", String(snapshot.totals.totalOvertimeHours)],
     ["Off day hours", String(snapshot.totals.totalOffDayHours)],
     ["Holiday hours", String(snapshot.totals.totalHolidayHours)],
-    ["Basic pay", formatMoney(snapshot.totals.basicPayCents, snapshot.rateCalculation.currency)],
-    ["OT pay", formatMoney(snapshot.totals.overtimePayCents, snapshot.rateCalculation.currency)],
-    ["Off day pay", formatMoney(snapshot.totals.offDayPayCents, snapshot.rateCalculation.currency)],
-    ["Holiday pay", formatMoney(snapshot.totals.holidayPayCents, snapshot.rateCalculation.currency)],
+    ["Basic pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.basicPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
+    ["OT pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.overtimePayCents, snapshot.rateCalculation.currency) : "Rate not set"],
+    ["Off day pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.offDayPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
+    ["Holiday pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.holidayPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
     ["Allowances", formatMoney(snapshot.totals.allowancesCents, snapshot.rateCalculation.currency)],
-    ["Gross pay", formatMoney(snapshot.totals.grossPayCents, snapshot.rateCalculation.currency)],
-    ["Net pay", formatMoney(snapshot.totals.netPayCents, snapshot.rateCalculation.currency)],
-    ["Total claim amount", formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency)],
+    ["Gross pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.grossPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
+    ["Net pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.netPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
+    ["Total claim amount", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency) : "Rate not set"],
   ])}
 
   <h2>Daily Work Log</h2>

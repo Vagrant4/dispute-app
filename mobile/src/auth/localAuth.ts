@@ -4,6 +4,7 @@ export type LocalAccount = {
   name: string;
   phone: string;
   emailVerified?: boolean;
+  isGuest?: boolean;
 };
 
 export type AuthResult =

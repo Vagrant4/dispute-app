@@ -6,6 +6,7 @@ import {
   type PendingEmailVerification,
 } from "../auth/remoteAuth";
 import { styles } from "../styles";
+import { loadGuestTrial } from "../subscription/guestTrial";
 
 type CreateAccountScreenProps = {
   onVerificationRequired: (pending: PendingEmailVerification) => void;
@@ -23,9 +24,7 @@ export function CreateAccountScreen({
   const [phone, setPhone] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -36,12 +35,13 @@ export function CreateAccountScreen({
 
     setIsSubmitting(true);
     try {
+      const guestTrial = await loadGuestTrial();
       const result = await registerRemoteAccount({
         name,
         email,
         phone: formatPhoneNumber(countryCode, phone),
         password,
-        confirmPassword,
+        firstUseAt: guestTrial ? new Date(guestTrial.firstUseAt).toISOString() : undefined,
         referralCode,
       });
       if (result.ok) {
@@ -183,31 +183,6 @@ export function CreateAccountScreen({
           >
             <Text style={styles.passwordToggleSymbol}>
               {showPassword ? "HIDE" : "EYE"}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.inputLabel}>Confirm password</Text>
-        <View style={styles.passwordInputRow}>
-          <TextInput
-            accessibilityLabel="Confirm account password"
-            onChangeText={setConfirmPassword}
-            placeholder="Re-type password"
-            placeholderTextColor="#677064"
-            secureTextEntry={!showConfirmPassword}
-            style={[styles.textInput, styles.passwordTextInput]}
-            value={confirmPassword}
-          />
-          <Pressable
-            accessibilityLabel={
-              showConfirmPassword ? "Hide confirm password" : "Show confirm password"
-            }
-            accessibilityRole="button"
-            onPress={() => setShowConfirmPassword((current) => !current)}
-            style={styles.passwordToggleButton}
-          >
-            <Text style={styles.passwordToggleSymbol}>
-              {showConfirmPassword ? "HIDE" : "EYE"}
             </Text>
           </Pressable>
         </View>

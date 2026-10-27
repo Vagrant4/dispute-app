@@ -11,11 +11,12 @@ import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { getOptionalWorkLocationAddress } from "../work/workLocation";
-import { getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
+import { buildAutomaticProjectName, getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
 import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
 import type { LocalAccount } from "../auth/localAuth";
+import { formatTrialCountdown } from "../subscription/subscriptionClient";
 
-export function HomeScreen({ account }: { account: LocalAccount }) {
+export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount; onCreateAccount: () => void }) {
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [clockInAt, setClockInAt] = useState<Date | null>(null);
@@ -38,6 +39,8 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const [dayType, setDayType] = useState<WorkDayType>("normal");
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
   const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [noGpsWarning, setNoGpsWarning] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -73,7 +76,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     setProjectName(activeProjectName);
     setProjectDescription(activeProjectDescription);
     setProjectHourlyRate(
-      activeProjectHourlyRateCents == null
+      activeProjectHourlyRateCents == null || activeProjectHourlyRateCents <= 0
         ? ""
         : formatSgdHourlyRate(activeProjectHourlyRateCents),
     );
@@ -136,21 +139,33 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       setWorkStatus("An active trial or subscription is required to create new time records.");
       return;
     }
-    if (!selectedProjectId) {
-      setWorkStatus("Create a project before Time In.");
-      return;
-    }
     const nextClockIn = new Date();
     try {
       const store = await getWorkStore(userId);
+      let projectId = selectedProjectId;
+      if (!projectId) {
+        if (!("createClient" in store) || !("createProject" in store)) throw new Error("Project creation is unavailable.");
+        const client = await store.createClient({ userId, name: "Local Client" });
+        const project = await store.createProject({ userId, clientId: client.id, name: buildAutomaticProjectName(nextClockIn), hourlyRateCents: 0, currency: "SGD" });
+        projectId = project.id;
+        setSelectedProjectId(project.id);
+      }
+      setWorkStatus("Saving time-in and getting location...");
+      const location = await Promise.race([
+        getOptionalWorkLocationAddress(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+      ]);
+      const gps = location && location.latitude != null ? location : null;
+      setNoGpsWarning(!gps);
+      if (location?.address) setLocationText(location.address);
       await store.clockIn({
         userId,
-        projectId: selectedProjectId ?? undefined,
+        projectId,
         clockInAt: nextClockIn,
         dayType,
-        locationText,
-        gpsLatitude: locationGps.latitude,
-        gpsLongitude: locationGps.longitude,
+        locationText: location?.address ?? locationText,
+        gpsLatitude: gps?.latitude ?? null,
+        gpsLongitude: gps?.longitude ?? null,
       });
       setClockInAt(nextClockIn);
       setClockOutAt(null);
@@ -257,14 +272,21 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     const nextClockOut = new Date();
     try {
       const store = await getWorkStore(userId);
+      setWorkStatus("Saving time-out and getting location...");
+      const location = await Promise.race([
+        getOptionalWorkLocationAddress(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+      ]);
+      if (!location || location.latitude == null) setNoGpsWarning(true);
       await store.clockOut({
         userId,
         entryId: homeState.activeEntry.id,
         clockOutAt: nextClockOut,
         breakMinutes: parseBreakMinutes(breakMinutes),
         activity: activityText,
-        gpsLatitude: locationGps.latitude,
-        gpsLongitude: locationGps.longitude,
+        locationText: location?.address ?? locationText,
+        gpsLatitude: location?.latitude ?? locationGps.latitude,
+        gpsLongitude: location?.longitude ?? locationGps.longitude,
       });
       setClockOutAt(nextClockOut);
       setNow(nextClockOut);
@@ -352,6 +374,40 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
           </View>
         </View>
 
+        <Pressable
+          accessibilityRole="button"
+          disabled={!clockInAt && !access.canCreateRecords}
+          onPress={() => void (clockInAt && !clockOutAt ? handleClockOut() : handleClockIn())}
+          style={[styles.actionButton, { minHeight: 64 }, !clockInAt && !access.canCreateRecords && styles.disabledButton]}
+        >
+          <Text style={styles.actionButtonText}>{clockInAt && !clockOutAt ? "TIME OUT" : "TIME IN"}</Text>
+        </Pressable>
+        <Text style={styles.muted}>{workStatus}</Text>
+        <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
+        <Text style={styles.muted}>Location: {locationText || "Captured automatically"}</Text>
+        {noGpsWarning ? (
+          <Pressable accessibilityRole="button" onPress={() => setDetailsExpanded(true)} style={[styles.card, styles.warningCard]}>
+            <Text style={styles.body}>⚠ No GPS for this time-{clockInAt && !clockOutAt ? "in" : "out"} – location services off or denied. Add a site note.</Text>
+          </Pressable>
+        ) : null}
+        {account.isGuest && access.trialDaysLeft != null ? <Text style={styles.muted}>Free trial · {access.trialDaysLeft} day{access.trialDaysLeft === 1 ? "" : "s"} left</Text> : null}
+        {!account.isGuest && formatTrialCountdown(access.subscription) ? <Text style={styles.muted}>{formatTrialCountdown(access.subscription)}</Text> : null}
+        {access.subscription && !access.canCreateRecords ? (
+          <View style={[styles.card, styles.warningCard]}>
+            <Text style={styles.heading}>{account.isGuest ? "Your 30-day free trial has ended." : "Your trial or subscription is not active."}</Text>
+            <Text style={styles.body}>{account.isGuest
+              ? "Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
+              : "Subscribe in Settings > Plan & billing to continue logging and exporting. All your records stay viewable."}</Text>
+            {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap TIME OUT to finish the current shift.</Text> : null}
+            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}><Text style={styles.actionButtonText}>Create account</Text></Pressable> : null}
+          </View>
+        ) : null}
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} onPress={() => setDetailsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
+          <Text style={styles.actionButtonSecondaryText}>Project &amp; day details {detailsExpanded ? "▲" : "▼"}</Text>
+        </Pressable>
+
+        {detailsExpanded ? <>
+
         <Text style={styles.inputLabel}>Project</Text>
         {!access.canCreateRecords ? (
           <View style={styles.statusCard}>
@@ -436,7 +492,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
             inputMode="decimal"
             keyboardType="decimal-pad"
             onChangeText={setProjectHourlyRate}
-            placeholder="25.00"
+            placeholder="Optional, e.g. 25.00"
             style={styles.textInput}
             value={projectHourlyRate}
           />
@@ -451,6 +507,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
               {activeProject ? "Save Project Detail" : "Create Project"}
             </Text>
           </Pressable>
+          <Text style={styles.muted}>{workStatus}</Text>
         </View>
 
         <Text style={styles.inputLabel}>Location</Text>
@@ -502,39 +559,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
             );
           })}
         </View>
-
-        <View style={styles.clockButtonRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: Boolean(clockInAt && !clockOutAt) || !selectedProjectId || !access.canCreateRecords,
-            }}
-            disabled={Boolean(clockInAt && !clockOutAt) || !selectedProjectId || !access.canCreateRecords}
-            onPress={() => void handleClockIn()}
-            style={[
-              styles.clockPrimaryButton,
-              (clockInAt && !clockOutAt || !selectedProjectId || !access.canCreateRecords) &&
-                styles.disabledButton,
-            ]}
-          >
-            <Text style={styles.clockPrimaryButtonText}>Time In</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !clockInAt || Boolean(clockOutAt) }}
-            disabled={!clockInAt || Boolean(clockOutAt)}
-            onPress={() => void handleClockOut()}
-            style={[
-              styles.clockSecondaryButton,
-              (!clockInAt || clockOutAt) && styles.disabledButton,
-            ]}
-          >
-            <Text style={styles.clockSecondaryButtonText}>Time Out</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.muted}>
-          {workStatus}
-        </Text>
+        </> : null}
       </View>
 
       <View style={styles.card}>
