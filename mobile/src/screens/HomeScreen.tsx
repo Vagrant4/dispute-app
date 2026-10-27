@@ -118,7 +118,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       setWorkStatus(
         nextProjects.length
           ? "Local work records are ready on this device."
-          : "No project yet. Enter your project detail and hourly rate below, then tap Create Project.",
+          : "Tap TIME IN to start. A project is created for you; rename it under Project & day details.",
       );
       if (Platform.OS === "web" && nextProjects.length === 0) {
         const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
@@ -384,7 +384,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         </Pressable>
         <Text style={styles.muted}>{workStatus}</Text>
         <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
-        <Text style={styles.muted}>Location: {locationText || "Captured automatically"}</Text>
+        <Text style={styles.muted}>Location: {locationText || (noGpsWarning ? "Not captured (no GPS)" : "Captured automatically at TIME IN")}</Text>
         {noGpsWarning ? (
           <Pressable accessibilityRole="button" onPress={() => setDetailsExpanded(true)} style={[styles.card, styles.warningCard]}>
             <Text style={styles.body}>⚠ No GPS for this time-{clockInAt && !clockOutAt ? "in" : "out"} – location services off or denied. Add a site note.</Text>
