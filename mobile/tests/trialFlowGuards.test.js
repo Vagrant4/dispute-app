@@ -123,3 +123,10 @@ test("sign-up sends the guest first-use time so the server anchors the same 30-d
 test("debug trial-clock panel renders only with the device-test flag", () => {
   assert.match(src("src/screens/SettingsScreen.tsx"), /isTrialDebugOverrideEnabled\(\) && account\.isGuest/);
 });
+
+test("TIME OUT never re-prompts for location permission", () => {
+  const home = src("src/screens/HomeScreen.tsx");
+  const out = home.slice(home.indexOf("Saving time-out"));
+  assert.match(out, /getOptionalWorkLocationAddress\(\{ prompt: false \}\)/);
+  assert.match(src("src/work/workLocation.ts"), /getForegroundPermissionsAsync/);
+});

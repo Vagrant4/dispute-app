@@ -274,7 +274,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       const store = await getWorkStore(userId);
       setWorkStatus("Saving time-out and getting location...");
       const location = await Promise.race([
-        getOptionalWorkLocationAddress(),
+        getOptionalWorkLocationAddress({ prompt: false }),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
       ]);
       if (!location || location.latitude == null) setNoGpsWarning(true);

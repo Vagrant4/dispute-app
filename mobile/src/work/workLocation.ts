@@ -8,7 +8,9 @@ export type WorkLocationResult = {
   blocked: boolean;
 };
 
-export async function getOptionalWorkLocationAddress(): Promise<WorkLocationResult> {
+export async function getOptionalWorkLocationAddress(
+  options: { prompt?: boolean } = {},
+): Promise<WorkLocationResult> {
   try {
     if (!Location.requestForegroundPermissionsAsync) {
       return nonBlockingLocationResult(
@@ -16,7 +18,11 @@ export async function getOptionalWorkLocationAddress(): Promise<WorkLocationResu
       );
     }
 
-    const permission = await Location.requestForegroundPermissionsAsync();
+    // TIME OUT passes prompt:false so the permission dialog is only shown once, at TIME IN.
+    const permission =
+      options.prompt === false && Location.getForegroundPermissionsAsync
+        ? await Location.getForegroundPermissionsAsync()
+        : await Location.requestForegroundPermissionsAsync();
     if (permission.status !== Location.PermissionStatus.GRANTED) {
       return nonBlockingLocationResult(
         "Location permission was not granted. Enter the site address manually.",
