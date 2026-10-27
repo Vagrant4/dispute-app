@@ -21,6 +21,7 @@ import {
 } from "../subscription/subscriptionClient";
 import type { WorkProject } from "../work/workRepository";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
+import { disputePackLockContent, getDisputePackExportAccess } from "../subscription/recordAccess";
 import {
   deleteWebGeneratedDocumentFile,
   getLastWebExportPreview,
@@ -33,9 +34,10 @@ import {
 type ProgressClaimReportsScreenProps = {
   account: LocalAccount;
   onCreateAccount: () => void;
+  onOpenPlanBilling?: () => void;
 };
 
-export function ProgressClaimReportsScreen({ account, onCreateAccount }: ProgressClaimReportsScreenProps) {
+export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPlanBilling }: ProgressClaimReportsScreenProps) {
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
@@ -63,6 +65,11 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
     null,
   );
   const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
+  const exportAccess = getDisputePackExportAccess({
+    isGuest: account.isGuest === true,
+    entitlement: account.isGuest ? access.subscription : subscription,
+  });
+  const exportLocked = !exportAccess.canExport;
 
   useEffect(() => {
     void refreshArchive();
@@ -99,9 +106,9 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
 
   async function ensureCanExport(): Promise<boolean> {
     if (account.isGuest) {
-      if (access.subscription?.canExportReports) return true;
+      // Guests (trial or expired) never download, share or open pack files.
       setSubscription(access.subscription);
-      setStatus(access.message);
+      setStatus(disputePackLockContent.lockedStatus);
       return false;
     }
     return ensureCanExportWithRefresh(
@@ -203,6 +210,27 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
     }
   }
 
+  async function handlePreview(projectIdOverride?: string) {
+    const projectId = projectIdOverride ?? selectedProjectId;
+    if (!projectId) {
+      setStatus("Create or choose a project before previewing a report.");
+      return;
+    }
+    try {
+      const repositories = await getReportRepositories(userId);
+      setSelectedProjectId(projectId);
+      const snapshot = await repositories.progressClaims.buildLatestProgressClaimSnapshot({ userId, projectId });
+      setReportPreview(snapshot);
+      setStatus(
+        exportLocked
+          ? `Report preview shown below. ${disputePackLockContent.body}`
+          : "Report preview shown below. Use Share dispute pack to send the file.",
+      );
+    } catch (error) {
+      setStatus(getErrorMessage(error));
+    }
+  }
+
   async function handleShareDisputePack() {
     if (!(await ensureCanExport()) || !selectedProjectId) return;
     try {
@@ -229,12 +257,21 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
     const snapshot = params.snapshot ?? parseSnapshot(params.snapshotJson);
     if (snapshot) {
       setReportPreview(snapshot);
-      setStatus("Report preview shown below. Use Email / Share to send the file.");
+      setStatus(
+        exportLocked
+          ? `Report preview shown below. ${disputePackLockContent.body}`
+          : "Report preview shown below. Use Email / Share to send the file.",
+      );
       return;
     }
 
     if (!params.filePath) {
       setStatus("This archived document does not have a preview or local file path.");
+      return;
+    }
+
+    // Opening the file itself hands it to another app, so it is gated like Download.
+    if (!(await ensureCanExport())) {
       return;
     }
 
@@ -371,18 +408,33 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Export</Text>
         <Text style={styles.heading}>Create claim report</Text>
-        <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handleShareDisputePack()} style={[styles.actionButton, !selectedProjectId && styles.disabledButton]}>
-          <Text style={styles.actionButtonText}>Share dispute pack</Text>
-        </Pressable>
-        <Text style={styles.muted}>{subscriptionStatus}</Text>
-        {subscription && !subscription.canExportReports ? (
-          <View style={[styles.statusCard, styles.warningCard]}>
-            <Text style={styles.statusMessage}>{account.isGuest
-              ? "Your 30-day free trial has ended. Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
-              : "Export needs an active trial or subscription. Subscribe in Settings > Plan & billing. All your records and earlier files stay viewable."}</Text>
-            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}><Text style={styles.actionButtonText}>Create account</Text></Pressable> : null}
+        {exportLocked ? (
+          <View accessibilityLabel="Dispute pack locked" style={[styles.statusCard, styles.warningCard]}>
+            <Text style={styles.statusTitle}>{"\u{1F512} "}{disputePackLockContent.title}</Text>
+            {account.isGuest && subscription && !subscription.canCreateRecords ? (
+              <Text style={styles.statusMessage}>{disputePackLockContent.guestTrialEnded}</Text>
+            ) : null}
+            <Text style={styles.statusMessage}>{disputePackLockContent.body}</Text>
+            <Text style={styles.muted}>{disputePackLockContent.previewHint}</Text>
+            {exportAccess.lock === "guest" ? (
+              <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}>
+                <Text style={styles.actionButtonText}>{disputePackLockContent.guestButton}</Text>
+              </Pressable>
+            ) : onOpenPlanBilling ? (
+              <Pressable accessibilityRole="button" onPress={onOpenPlanBilling} style={styles.actionButton}>
+                <Text style={styles.actionButtonText}>{disputePackLockContent.subscribeButton}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handlePreview()} style={[styles.actionButtonSecondary, !selectedProjectId && styles.disabledButton]}>
+              <Text style={styles.actionButtonSecondaryText}>Preview report</Text>
+            </Pressable>
           </View>
-        ) : null}
+        ) : (
+          <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handleShareDisputePack()} style={[styles.actionButton, !selectedProjectId && styles.disabledButton]}>
+            <Text style={styles.actionButtonText}>Share dispute pack</Text>
+          </Pressable>
+        )}
+        <Text style={styles.muted}>{subscriptionStatus}</Text>
         <Text style={styles.muted}>
           Choose one project. PDF and CSV exports only include that project&apos;s
           time, locations, and photos.
@@ -418,7 +470,11 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                   key={project.id}
-                  onPress={() => void handleGenerate("progress_claim_pdf", project.id)}
+                  onPress={() =>
+                    void (exportLocked
+                      ? handlePreview(project.id)
+                      : handleGenerate("progress_claim_pdf", project.id))
+                  }
                   style={selected ? styles.actionButton : styles.actionButtonSecondary}
                 >
                   <Text
@@ -446,7 +502,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
                         : styles.actionButtonSecondarySubtext
                     }
                   >
-                    Tap to create PDF
+                    {exportLocked ? "Tap to preview" : "Tap to create PDF"}
                   </Text>
                 </Pressable>
               );
@@ -461,13 +517,13 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
           <Pressable
             accessibilityRole="button"
             accessibilityState={{
-              disabled: !selectedProjectId || subscription?.canExportReports === false,
+              disabled: !selectedProjectId || exportLocked,
             }}
-            disabled={!selectedProjectId || subscription?.canExportReports === false}
+            disabled={!selectedProjectId || exportLocked}
             onPress={() => void handleGenerate("progress_claim_pdf")}
             style={[
               styles.actionButton,
-              (!selectedProjectId || subscription?.canExportReports === false) &&
+              (!selectedProjectId || exportLocked) &&
                 styles.disabledButton,
             ]}
           >
@@ -477,13 +533,13 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
           <Pressable
             accessibilityRole="button"
             accessibilityState={{
-              disabled: !selectedProjectId || subscription?.canExportReports === false,
+              disabled: !selectedProjectId || exportLocked,
             }}
-            disabled={!selectedProjectId || subscription?.canExportReports === false}
+            disabled={!selectedProjectId || exportLocked}
             onPress={() => void handleGenerate("progress_claim_csv")}
             style={[
               styles.actionButtonSecondary,
-              (!selectedProjectId || subscription?.canExportReports === false) &&
+              (!selectedProjectId || exportLocked) &&
                 styles.disabledButton,
             ]}
           >
@@ -529,9 +585,10 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
                           documentType: document.document_type,
                         })
                       }
-                      style={styles.statusPill}
+                      accessibilityState={{ disabled: exportLocked }}
+                      style={[styles.statusPill, exportLocked && styles.disabledButton]}
                     >
-                      <Text style={styles.statusPillText}>Download PDF</Text>
+                      <Text style={styles.statusPillText}>{exportLocked ? "\u{1F512} Download PDF" : "Download PDF"}</Text>
                     </Pressable>
                   ) : null}
                   <Pressable
@@ -549,9 +606,10 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount }: Progres
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => void handleShare(document)}
-                    style={styles.statusPill}
+                    accessibilityState={{ disabled: exportLocked }}
+                    style={[styles.statusPill, exportLocked && styles.disabledButton]}
                   >
-                  <Text style={styles.statusPillText}>Email / Share</Text>
+                  <Text style={styles.statusPillText}>{exportLocked ? "\u{1F512} Email / Share" : "Email / Share"}</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -677,7 +735,7 @@ async function ensureCanExportWithRefresh(
     return true;
   }
 
-  setStatus(result.subscription.message);
+  setStatus(disputePackLockContent.lockedStatus);
   return false;
 }
 

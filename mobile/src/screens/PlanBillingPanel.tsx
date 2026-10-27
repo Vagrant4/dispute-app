@@ -10,6 +10,7 @@ type PlanBillingPanelProps = {
   localizedStorePrice: string | null;
   onManageSubscription: () => void;
   onSubscribe: () => void;
+  exportNote?: string | null;
 };
 
 export function PlanBillingPanel({
@@ -18,6 +19,7 @@ export function PlanBillingPanel({
   localizedStorePrice,
   onManageSubscription,
   onSubscribe,
+  exportNote,
 }: PlanBillingPanelProps) {
   const monthlyPrice = formatMonthlyStorePrice(localizedStorePrice);
 
@@ -32,6 +34,9 @@ export function PlanBillingPanel({
         <Text style={styles.rowLabel}>Price</Text>
         <Text style={styles.rowValue}>{monthlyPrice}</Text>
       </View>
+      {exportNote ? (
+        <Text style={styles.muted}>{"\u{1F512} "}{exportNote}</Text>
+      ) : null}
       {action === "subscribe" ? (
         <Pressable
           accessibilityRole="button"

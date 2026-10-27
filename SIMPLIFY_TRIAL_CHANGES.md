@@ -31,3 +31,12 @@ node --test mobile/tests/*.test.js
 npx tsc -p mobile/tsconfig.json --noEmit
 npm test --workspace server -- --run tests/auth.test.ts tests/subscription.test.ts
 ```
+
+## Dispute pack export lock (patch 0007, owner decision 27 Oct 2026)
+
+- Free trial (guest or signed in) keeps logging, evidence and the in-app report preview, but creating, downloading, sharing or opening dispute pack files (PDF/CSV) is locked.
+- Export unlocks only for a signed-in account with a paid DISPUTE Basic period that has not ended (ACTIVE, CANCELED until period end, PAST_DUE in period). Trials and referral rewards do not unlock it.
+- Single gate: `getDisputePackExportAccess` in `mobile/src/subscription/recordAccess.ts`; `canExportProgressClaim` also requires a paid period.
+- Locked card on Reports: lock icon, "Downloading your dispute pack needs a subscription. Your records stay safe on this phone.", Preview report, and Create account or sign in (guest) / Open Plan & billing (signed in).
+- Plan & billing explains when Subscribe becomes available (after the trial ends; purchase during trial is still refused by `purchaseDisputeBasicSubscription`).
+- Tests: `mobile/tests/disputePackLock.test.js`.

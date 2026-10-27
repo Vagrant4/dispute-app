@@ -18,18 +18,20 @@ import {
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import { useDisputeBasicStorePrice } from "../subscription/useDisputeBasicStorePrice";
 import { isTrialDebugOverrideEnabled, rewriteGuestTrial } from "../subscription/guestTrial";
+import { getDisputePackBillingNote } from "../subscription/recordAccess";
 
 type SettingsScreenProps = {
   account: LocalAccount;
   onLogout: () => void;
   onAccountDeleted: (message: string) => void;
+  initialPanel?: SettingPanel;
 };
 
-type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
+export type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
 
-export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
+export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPanel }: SettingsScreenProps) {
   const userId = account.id ?? account.email.trim().toLowerCase();
-  const [panel, setPanel] = useState<SettingPanel>("profile");
+  const [panel, setPanel] = useState<SettingPanel>(initialPanel ?? "profile");
   const [currency, setCurrency] = useState(DEFAULT_APP_SETTINGS.currency);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [rateBasis, setRateBasis] = useState<AppSettings["rateBasis"]>(
@@ -61,6 +63,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   } = useSubscriptionAccess(account);
   const storePrice = useDisputeBasicStorePrice(account);
   const subscriptionAction = getSubscriptionSettingsAction(subscription);
+  const exportNote = getDisputePackBillingNote(account.isGuest === true, subscriptionAction, subscription?.trialEndsAt ?? null);
 
   const options: { id: SettingPanel; label: string }[] = [
     { id: "profile", label: "Profile" },
@@ -390,6 +393,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
           localizedStorePrice={storePrice}
           onManageSubscription={() => void handleManageSubscription()}
           onSubscribe={() => void handleSubscribe()}
+          exportNote={exportNote}
         />
       ) : null}
 

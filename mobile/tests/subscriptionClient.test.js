@@ -217,7 +217,7 @@ test("restore does not report success when server verification fails", async () 
   }
 });
 
-test("PDF export access accepts an active trial and rejects expired access", () => {
+test("PDF export access needs a paid plan: rejects trial and expired access", () => {
   const { canExportProgressClaim } = loadTsModule(
     "src/subscription/subscriptionClient.ts",
     {
@@ -256,6 +256,13 @@ test("PDF export access accepts an active trial and rejects expired access", () 
       { ...base, trialEndsAt: "2026-08-08T00:00:00.000Z" },
       nowMs,
     ),
+    false,
+  );
+  assert.equal(
+    canExportProgressClaim(
+      { ...base, status: "ACTIVE", trialEndsAt: null, currentPeriodEnd: "2026-08-08T00:00:00.000Z" },
+      nowMs,
+    ),
     true,
   );
   assert.equal(
@@ -290,9 +297,9 @@ test("PDF export access accepts an active trial and rejects expired access", () 
   );
 });
 
-test("export screen gates report actions behind canExportReports", () => {
+test("export screen gates report actions behind the paid dispute pack gate", () => {
   assert.match(reportsSource, /ensureCanExport/);
-  assert.match(reportsSource, /canExportReports/);
+  assert.match(reportsSource, /getDisputePackExportAccess/);
   assert.match(reportsSource, /Trial ended|subscription before export|Export requires/);
 });
 

@@ -14,7 +14,7 @@ import { LoginScreen } from "./src/screens/LoginScreen";
 import { LogoScreen } from "./src/screens/LogoScreen";
 import { PhotoEvidenceScreen } from "./src/screens/PhotoEvidenceScreen";
 import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsScreen";
-import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { SettingsScreen, type SettingPanel } from "./src/screens/SettingsScreen";
 import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
 import { clearCachedSubscriptionEntitlement } from "./src/subscription/subscriptionClient";
@@ -25,23 +25,31 @@ import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
 function renderScreen(
   activeTab: TabId,
-  onNavigate: (tab: TabId) => void,
+  onNavigate: (tab: TabId, settingsPanel?: SettingPanel) => void,
   account: LocalAccount,
   onLogout: () => void,
   onAccountDeleted: (message: string) => void,
   onCreateAccount: () => void,
+  settingsInitialPanel?: SettingPanel,
 ) {
   switch (activeTab) {
     case "evidence":
       return <PhotoEvidenceScreen account={account} />;
     case "reports":
-      return <ProgressClaimReportsScreen account={account} onCreateAccount={onCreateAccount} />;
+      return (
+        <ProgressClaimReportsScreen
+          account={account}
+          onCreateAccount={onCreateAccount}
+          onOpenPlanBilling={() => onNavigate("settings", "subscription")}
+        />
+      );
     case "settings":
       return (
         <SettingsScreen
           account={account}
           onAccountDeleted={onAccountDeleted}
           onLogout={onLogout}
+          initialPanel={settingsInitialPanel}
         />
       );
     case "home":
@@ -56,6 +64,7 @@ export default function App() {
   const [pendingVerification, setPendingVerification] =
     useState<PendingEmailVerification | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [settingsInitialPanel, setSettingsInitialPanel] = useState<SettingPanel | undefined>(undefined);
   const [authNotice, setAuthNotice] = useState("");
   const activeTitle = useMemo(
     () => tabs.find((tab) => tab.id === activeTab)?.title ?? "dispute",
@@ -117,7 +126,10 @@ export default function App() {
                   accessibilityRole="tab"
                   accessibilityState={{ selected }}
                   key={tab.id}
-                  onPress={() => setActiveTab(tab.id)}
+                  onPress={() => {
+                    setSettingsInitialPanel(undefined);
+                    setActiveTab(tab.id);
+                  }}
                   style={[styles.tabButton, selected && styles.tabButtonActive]}
                 >
                   <Text
@@ -142,7 +154,10 @@ export default function App() {
           {account ? (
             renderScreen(
               activeTab,
-              setActiveTab,
+              (tab, settingsPanel) => {
+                setSettingsInitialPanel(settingsPanel);
+                setActiveTab(tab);
+              },
               account,
               () => {
                 void clearCachedSubscriptionEntitlement(account.id);
@@ -159,6 +174,7 @@ export default function App() {
                 setAuthMode("login");
               },
               () => { setAccount(null); setAuthMode("create"); },
+              settingsInitialPanel,
             )
           ) : authMode === "logo" ? (
             <LogoScreen
