@@ -4,7 +4,7 @@ import { Linking, Platform, Pressable, Text, TextInput, View } from "react-nativ
 import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
 import { saveWorkHours, loadWorkHours as loadSavedWorkHours, calculateNormalHours } from "../work/workHoursSettings";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
 import { PlanBillingPanel } from "./PlanBillingPanel";
 import { PrivacyScreen } from "./PrivacyScreen";
@@ -308,7 +308,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           <Text style={styles.inputLabel}>
             {rateBasis === "monthly" ? "Monthly rate" : "Daily rate"} ({currency})
           </Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Base rate amount"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -318,7 +318,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             value={baseRate}
           />
           <Text style={styles.inputLabel}>Normal start (HH:MM)</Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Normal work start time"
             inputMode="numeric"
             keyboardType="numbers-and-punctuation"
@@ -328,7 +328,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             value={normalStart}
           />
           <Text style={styles.inputLabel}>Normal end (HH:MM)</Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Normal work end time"
             inputMode="numeric"
             keyboardType="numbers-and-punctuation"
@@ -338,7 +338,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             value={normalEnd}
           />
           <Text style={styles.inputLabel}>OT rate multiplier</Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Overtime rate multiplier"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -348,7 +348,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             value={overtimeMultiplier}
           />
           <Text style={styles.inputLabel}>Off day rate multiplier</Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Off day rate multiplier"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -358,7 +358,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             value={offDayMultiplier}
           />
           <Text style={styles.inputLabel}>Holiday rate multiplier</Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Holiday rate multiplier"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -448,5 +448,5 @@ function formatRateAmount(cents: number): string {
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Work hours action failed.";
+  return "Something went wrong. Please try again.";
 }

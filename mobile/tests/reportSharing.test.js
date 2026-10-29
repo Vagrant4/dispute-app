@@ -31,5 +31,5 @@ test("shareGeneratedDocument returns non-blocking file path when sharing is unav
 
   assert.equal(result.shared, false);
   assert.equal(result.filePath, "file:///claim.pdf");
-  assert.match(result.message, /Sharing is unavailable/);
+  assert.match(result.message, /Sharing didn't open/);
 });

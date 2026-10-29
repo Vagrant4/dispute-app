@@ -52,3 +52,84 @@ Validation:
 
 Commit requested: simplify-v2 A: GPS-only location evidence and stop-location fix.
 Git add/commit was attempted, but .git is read-only and Git cannot create index.lock. Changes cannot be staged or committed in this sandbox. Branch remains feature/simplify-v2; no remote changes.
+
+
+## Chunk D — Today, plain wording, dead screens, report sites, readability
+
+- Today uses Start work / Stop work, Not started / Working, and started. A compact day-type row defaults from Singapore dates and the offline MOM 2026–2027 holiday list (update yearly). The row is disabled while working, with an explanation; the saved active type is restored on reopen.
+- Profile identity and verification moved to Settings > Profile. Removed the redundant manual phone-record claim flow; App still claims records after login.
+- Replaced technical display wording, file-action pills and backup validation messages. Validation reasons remain in error causes; UI uses short messages. Browser export diagnostics remain development-only.
+- Deleted the five unused screens and their unused content exports. Shared evidence helpers remain.
+- PDF uses a Work sites table grouped by address/distinct date, address/source work-log labels, and a GPS appendix with both phases and captured refresh history, accuracy and source. Preview omits coordinates; CSV appends four coordinate columns without reordering existing columns. No maps or network requests added.
+- All text inputs use the placeholder theme token. Disabled controls use solid surface/border/text colours instead of opacity.
+
+Files changed (D):
+
+- mobile/App.tsx
+- mobile/src/backup/backupFiles.ts
+- mobile/src/backup/backupService.ts
+- mobile/src/photos/photoFileStorage.ts
+- mobile/src/photos/photoGps.ts
+- mobile/src/reports/generatedDocumentFiles.ts
+- mobile/src/reports/progressClaimCsv.ts
+- mobile/src/reports/progressClaimHtml.ts
+- mobile/src/reports/progressClaimSnapshot.ts
+- mobile/src/reports/progressClaimTypes.ts
+- mobile/src/reports/reportDownload.ts
+- mobile/src/reports/reportPdfExport.ts
+- mobile/src/reports/reportSharing.ts
+- mobile/src/reports/reportViewing.ts
+- mobile/src/screenContent.ts
+- mobile/src/screens/CreateAccountScreen.tsx
+- mobile/src/screens/DeleteAccountScreen.tsx
+- mobile/src/screens/EvidenceLockScreen.tsx
+- mobile/src/screens/ForgotPasswordScreen.tsx
+- mobile/src/screens/HomeScreen.tsx
+- mobile/src/screens/LoginScreen.tsx
+- mobile/src/screens/PhotoEvidenceScreen.tsx
+- mobile/src/screens/ProfileSettingsPanel.tsx
+- mobile/src/screens/ProgressClaimReportsScreen.tsx
+- mobile/src/screens/ProjectDetailScreen.tsx
+- mobile/src/screens/ProjectNameSheet.tsx
+- mobile/src/screens/ProjectPayCard.tsx
+- mobile/src/screens/ProjectsScreen.tsx
+- mobile/src/screens/ReferralScreen.tsx
+- mobile/src/screens/SettingsBackupScreen.tsx
+- mobile/src/screens/SettingsScreen.tsx
+- mobile/src/screens/StorageDiagnosticsScreen.tsx
+- mobile/src/screens/SubscriptionScreen.tsx
+- mobile/src/screens/TrialReadinessScreen.tsx
+- mobile/src/screens/VerifyEmailScreen.tsx
+- mobile/src/screens/WorkSetupScreen.tsx
+- mobile/src/styles.ts
+- mobile/src/work/workLocation.ts
+- mobile/tests/backupService.test.js
+- mobile/tests/disputePackLock.test.js
+- mobile/tests/locationSource.test.js
+- mobile/tests/photoEvidence.test.js
+- mobile/tests/reportBuilders.test.js
+- mobile/tests/reportExportDurability.test.js
+- mobile/tests/reportSharing.test.js
+- mobile/tests/reportSnapshot.test.js
+- mobile/tests/screenContent.test.js
+- mobile/tests/trialFlowGuards.test.js
+- mobile/src/work/defaultDayType.ts
+- mobile/tests/defaultDayType.test.js
+- mobile/tests/plainWording.test.js
+- mobile/tests/readability.test.js
+- SIMPLIFY_V2_CHANGES.md
+
+Tests added: defaultDayType.test.js (2), plainWording.test.js (1), readability.test.js (3), plus a reportBuilders.test.js regression for sites, phase fixes, refreshes and CSV coordinates. Existing wording assertions updated; no tests removed.
+
+Validation summary:
+
+- npm run build --workspace @claimproof/shared — passed.
+- npm run typecheck --workspace mobile — passed.
+- npm run test --workspace mobile — 46 test files passed, zero failures.
+- node --test --test-isolation=none mobile/tests/*.test.js — 214 tests passed, zero failures.
+- npm run test --workspace client — 9 files / 24 tests passed.
+- (cd client && npx tsc -b) — passed.
+- git diff --check (CRLF-aware) — passed. Existing line endings preserved.
+- No server changes; server tests left to the coordinator per common instructions.
+
+All Chunk D work is in the working tree on feature/simplify-v2, based on a1620af. No commit, push, release, or billing-gate changes.

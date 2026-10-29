@@ -12,7 +12,7 @@ export async function writeBackupFile(
   userId = "local-user",
 ): Promise<BackupFileResult> {
   if (!FileSystem.documentDirectory) {
-    throw new Error("Durable app storage is unavailable on this device.");
+    throw new Error("Couldn't save a copy on this phone. Please try again.");
   }
   const directory = `${FileSystem.documentDirectory}backups/${sanitizePathSegment(userId)}/`;
   await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
@@ -25,7 +25,7 @@ export async function writeBackupFile(
   if (!info.exists || !("size" in info) || (info.size ?? 0) <= 0) {
     throw new Error("Backup file could not be verified after writing.");
   }
-  return { filePath, message: "Backup saved in dispute local storage." };
+  return { filePath, message: "Copy saved." };
 }
 
 function sanitizePathSegment(value: string): string {
@@ -38,14 +38,14 @@ function sanitizePathSegment(value: string): string {
 
 export async function shareBackupFile(filePath: string): Promise<string> {
   if (!(await Sharing.isAvailableAsync())) {
-    return `Native sharing is unavailable. Backup remains at ${filePath}`;
+    return "Sharing didn't open. Your copy is saved.";
   }
   await Sharing.shareAsync(filePath, {
     mimeType: "application/json",
-    dialogTitle: "Export dispute backup",
+    dialogTitle: "Send a copy of my records",
     UTI: "public.json",
   });
-  return "Backup share sheet opened.";
+  return "";
 }
 
 export async function pickBackupFile(): Promise<{

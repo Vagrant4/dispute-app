@@ -1,3 +1,4 @@
+import { defaultDayType } from "../work/defaultDayType";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -8,7 +9,7 @@ import {
 } from "react-native";
 
 import { ProjectNameSheet } from "./ProjectNameSheet";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { formatLocationChip, locationReading, type LocationReading } from "../work/locationEvidence";
@@ -28,7 +29,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [homeState, setHomeState] = useState<WorkHomeState | null>(null);
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [workStatus, setWorkStatus] = useState("Loading local work records...");
+  const [workStatus, setWorkStatus] = useState("");
   const [locationFix, setLocationFix] = useState<LocationReading | null>(null);
   const [locating, setLocating] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
@@ -38,9 +39,8 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [stopping, setStopping] = useState(false);
   const [activityText, setActivityText] = useState("");
   const [breakMinutes, setBreakMinutes] = useState("0");
-  const [dayType, setDayType] = useState<WorkDayType>("normal");
+  const [dayType, setDayType] = useState<WorkDayType>(() => defaultDayType(new Date()));
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
-  const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -63,7 +63,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     return Math.max(0, Math.floor((end.getTime() - clockInAt.getTime()) / 60000));
   }, [clockInAt, clockOutAt, now]);
 
-  const clockStatus = clockInAt && !clockOutAt ? "Clocked in" : "Ready";
+  const clockStatus = clockInAt && !clockOutAt ? "Working" : "Not started";
   const trackedTodayMinutes = homeState?.totalMinutesToday ?? 0;
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
@@ -79,6 +79,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       setProjects(nextProjects);
       if (nextState.activeEntry?.startTime) {
         setSelectedProjectId(nextState.activeEntry.projectId);
+        setDayType(nextState.activeEntry.dayType);
         setClockInAt(new Date(nextState.activeEntry.startTime));
         setClockOutAt(null);
         setLocationEntryId(nextState.activeEntry.id);
@@ -113,20 +114,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
             : nextState.project?.id ?? nextProjects[0]?.id ?? null,
         );
       }
-      setWorkStatus(
-        nextProjects.length
-          ? "Local work records are ready on this device."
-          : "Tap TIME IN to start. A project is created for you; rename it under Project & day details.",
-      );
-      if (Platform.OS === "web" && nextProjects.length === 0) {
-        const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
-        setLegacyDataAvailable(hasLegacyWebWorkData());
-      } else if (Platform.OS !== "web" && nextProjects.length === 0) {
-        const { hasLegacyLocalRepositories } = await import("../db/repositories");
-        setLegacyDataAvailable(await hasLegacyLocalRepositories());
-      } else {
-        setLegacyDataAvailable(false);
-      }
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
     }
@@ -160,7 +147,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       setClockInAt(nextClockIn);
       setClockOutAt(null);
       setNow(nextClockIn);
-      setWorkStatus("Clock-in saved to local device storage.");
+      setWorkStatus(`Started at ${formatTime(nextClockIn)}.`);
       await refreshWorkState();
       try {
         const location = await getWorkLocationWithTimeout(20_000);
@@ -207,7 +194,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     const nextClockOut = new Date();
     try {
       const store = await getWorkStore(userId);
-      setWorkStatus("Saving time-out and getting location...");
+      setWorkStatus("Stopping work and getting location...");
       setLocating(true);
       const location = await getWorkLocationWithTimeout(10_000, { prompt: false });
       await store.clockOut({
@@ -225,8 +212,9 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       setLocationPhase("stop");
       setLocationFix(locationReading({ locationText: location?.address ?? undefined, gpsLatitude: location?.latitude, gpsLongitude: location?.longitude, gpsAccuracyM: location?.accuracy, locatedAt: location?.timestamp }, "stop"));
       setClockOutAt(nextClockOut);
+      setDayType(defaultDayType(nextClockOut));
       setNow(nextClockOut);
-      setWorkStatus("Clock-out saved. The entry is now available for reports.");
+      setWorkStatus(`Stopped at ${formatTime(nextClockOut)}.`);
       await refreshWorkState();
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
@@ -243,39 +231,11 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     try {
       const store = await getWorkStore(userId);
       if (!("deleteEntry" in store) || typeof store.deleteEntry !== "function") {
-        throw new Error("Delete time entry is unavailable in this runtime.");
+        throw new Error("This can't be done right now. Please try again.");
       }
       await store.deleteEntry({ userId, entryId });
       setPendingDeleteEntryId(null);
       setWorkStatus("Time entry deleted.");
-      await refreshWorkState();
-    } catch (error) {
-      setWorkStatus(getErrorMessage(error));
-    }
-  }
-
-  async function handleClaimLegacyData() {
-    try {
-      if (Platform.OS === "web") {
-        const { claimLegacyWebWorkData } = await import("../work/webWorkStore");
-        const claimed = claimLegacyWebWorkData(userId);
-        setWorkStatus(
-          claimed
-            ? "Existing browser records are now assigned to this account."
-            : "No unassigned browser records were found.",
-        );
-        await refreshWorkState();
-        return;
-      }
-      const { claimLegacyLocalRepositoriesForUser } = await import(
-        "../db/repositories"
-      );
-      const claimed = await claimLegacyLocalRepositoriesForUser(userId);
-      setWorkStatus(
-        claimed
-          ? "Existing phone records are now assigned to this account."
-          : "No unassigned phone records were found.",
-      );
       await refreshWorkState();
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
@@ -288,7 +248,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         <View style={styles.clockHeader}>
           <View>
             <Text style={styles.eyebrow}>Today</Text>
-            <Text style={styles.heading}>Time in / out</Text>
+            <Text style={styles.heading}>Work today</Text>
           </View>
           <View style={styles.clockBadge}>
             <Text style={styles.clockBadgeText}>{clockStatus}</Text>
@@ -306,7 +266,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
             <Text style={styles.metricValue}>
               {clockInAt ? formatTime(clockInAt) : "--:--"}
             </Text>
-            <Text style={styles.metricLabel}>time in</Text>
+            <Text style={styles.metricLabel}>started</Text>
           </View>
         </View>
 
@@ -316,51 +276,10 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           onPress={() => void (clockInAt && !clockOutAt ? handleClockOut() : handleClockIn())}
           style={[styles.actionButton, { minHeight: 64 }, !clockInAt && !access.canCreateRecords && styles.disabledButton]}
         >
-          <Text style={styles.actionButtonText}>{clockInAt && !clockOutAt ? "TIME OUT" : "TIME IN"}</Text>
+          <Text style={[styles.actionButtonText, (!clockInAt && !access.canCreateRecords) && styles.disabledButtonText]}>{clockInAt && !clockOutAt ? "Stop work" : "Start work"}</Text>
         </Pressable>
-        <Text style={styles.muted}>{workStatus}</Text>
-        <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Refresh GPS location" disabled={locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))} onPress={() => void handleLocateMe()} style={styles.locationChip}>
-          <Text style={styles.locationChipText}>{formatLocationChip(locationFix, locating)}</Text>
-        </Pressable>
-        {!locationFix || locationFix.source !== "gps" ? <Pressable accessibilityRole="button" onPress={() => setNoteExpanded((value) => !value)}><Text style={styles.muted}>Add a note</Text></Pressable> : null}
-        {workerNote ? <Text style={styles.muted}>Note (typed by you): {workerNote}</Text> : null}
-        {noteExpanded ? <View>
-          <Text style={styles.inputLabel}>Note (typed by you)</Text>
-          <TextInput accessibilityLabel="Worker note" value={workerNote} onChangeText={setWorkerNote} style={styles.textInput} placeholder="Optional worker note" />
-          <Pressable accessibilityRole="button" onPress={() => void handleSaveLocationNote()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save note</Text></Pressable>
-        </View> : null}
-        {account.isGuest && access.trialDaysLeft != null ? <Text style={styles.muted}>Free trial · {access.trialDaysLeft} day{access.trialDaysLeft === 1 ? "" : "s"} left</Text> : null}
-        {!account.isGuest && formatTrialCountdown(access.subscription) ? <Text style={styles.muted}>{formatTrialCountdown(access.subscription)}</Text> : null}
-        {access.subscription && !access.canCreateRecords ? (
-          <View style={[styles.card, styles.warningCard]}>
-            <Text style={styles.heading}>{account.isGuest ? "Your 30-day free trial has ended." : "Your trial or subscription is not active."}</Text>
-            <Text style={styles.body}>{account.isGuest
-              ? "Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
-              : "Subscribe in Settings > Plan & billing to continue logging and exporting. All your records stay viewable."}</Text>
-            {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap TIME OUT to finish the current shift.</Text> : null}
-            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}><Text style={styles.actionButtonText}>Create account</Text></Pressable> : null}
-          </View>
-        ) : null}
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} onPress={() => setDetailsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
-          <Text style={styles.actionButtonSecondaryText}>Project &amp; day details {detailsExpanded ? "▲" : "▼"}</Text>
-        </Pressable>
-
-        {detailsExpanded ? <>
-
-        <Pressable disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={styles.body}>Project: {activeProject?.name ?? "Auto-create Job 1"} ›</Text></Pressable>
-        {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={styles.body}>+ New project</Text></Pressable></View> : null}
-        {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
-          if (!access.canCreateRecords) throw new Error(access.message);
-          const store = await getWorkStore(userId);
-          const clients = await store.listClients(userId);
-          const client = clients[0] ?? await store.createClient({ userId, name: "My client" });
-          const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
-          await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
-        }} /> : null}
-
         <Text style={styles.inputLabel}>Day type</Text>
-        <View style={styles.actionRow}>
+        <View style={styles.dayTypeRow}>
           {DAY_TYPE_OPTIONS.map((option) => {
             const selected = option.id === dayType;
             const disabled = Boolean(clockInAt && !clockOutAt);
@@ -373,32 +292,63 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
                 onPress={() => setDayType(option.id)}
                 style={[
                   selected ? styles.actionButton : styles.actionButtonSecondary,
+                  styles.dayTypeSegment,
                   disabled && styles.disabledButton,
                 ]}
               >
-                <Text style={selected ? styles.actionButtonText : styles.actionButtonSecondaryText}>
+                <Text style={[selected ? styles.actionButtonText : styles.actionButtonSecondaryText, (disabled) && styles.disabledButtonText]}>
                   {option.label}
                 </Text>
               </Pressable>
             );
           })}
         </View>
+        {clockInAt && !clockOutAt ? <Text style={styles.muted}>Day type can be changed after stopping.</Text> : null}
+        {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
+        <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Refresh GPS location" disabled={locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))} onPress={() => void handleLocateMe()} style={[styles.locationChip, (locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))) && styles.disabledButton]}>
+          <Text style={[styles.locationChipText, (locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))) && styles.disabledButtonText]}>{formatLocationChip(locationFix, locating)}</Text>
+        </Pressable>
+        {!locationFix || locationFix.source !== "gps" ? <Pressable accessibilityRole="button" onPress={() => setNoteExpanded((value) => !value)}><Text style={styles.muted}>Add a note</Text></Pressable> : null}
+        {workerNote ? <Text style={styles.muted}>Note (typed by you): {workerNote}</Text> : null}
+        {noteExpanded ? <View>
+          <Text style={styles.inputLabel}>Note (typed by you)</Text>
+          <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Worker note" value={workerNote} onChangeText={setWorkerNote} style={styles.textInput} placeholder="Optional worker note" />
+          <Pressable accessibilityRole="button" onPress={() => void handleSaveLocationNote()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save note</Text></Pressable>
+        </View> : null}
+        {account.isGuest && access.trialDaysLeft != null ? <Text style={styles.muted}>Free trial · {access.trialDaysLeft} day{access.trialDaysLeft === 1 ? "" : "s"} left</Text> : null}
+        {!account.isGuest && formatTrialCountdown(access.subscription) ? <Text style={styles.muted}>{formatTrialCountdown(access.subscription)}</Text> : null}
+        {access.subscription && !access.canCreateRecords ? (
+          <View style={[styles.card, styles.warningCard]}>
+            <Text style={styles.heading}>{account.isGuest ? "Your 30-day free trial has ended." : "Your trial or subscription is not active."}</Text>
+            <Text style={styles.body}>{account.isGuest
+              ? "Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
+              : "Subscribe in Settings > Plan & billing to continue logging and exporting. All your records stay viewable."}</Text>
+            {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Stop work to finish the current shift.</Text> : null}
+            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}><Text style={styles.actionButtonText}>Create account</Text></Pressable> : null}
+          </View>
+        ) : null}
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} onPress={() => setDetailsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
+          <Text style={styles.actionButtonSecondaryText}>Project &amp; day details {detailsExpanded ? "▲" : "▼"}</Text>
+        </Pressable>
+
+        {detailsExpanded ? <>
+
+        <Pressable style={[(Boolean(clockInAt && !clockOutAt)) && styles.disabledButton]} disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={[styles.body, (Boolean(clockInAt && !clockOutAt)) && styles.disabledButtonText]}>Project: {activeProject?.name ?? "Auto-create Job 1"} ›</Text></Pressable>
+        {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
+        {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
+          if (!access.canCreateRecords) throw new Error(access.message);
+          const store = await getWorkStore(userId);
+          const clients = await store.listClients(userId);
+          const client = clients[0] ?? await store.createClient({ userId, name: "My client" });
+          const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
+          await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
+        }} /> : null}
         </> : null}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.heading}>Recent time</Text>
-        {legacyDataAvailable ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleClaimLegacyData()}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>
-              Use Existing Phone Records
-            </Text>
-          </Pressable>
-        ) : null}
         {homeState?.recentEntries.length ? (
           <View style={styles.list}>
             {homeState.recentEntries.slice(0, 4).map((entry) => {
@@ -452,7 +402,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           </View>
         ) : (
           <Text style={styles.muted}>
-            No saved time entries yet. Clock in to start a local record.
+            No saved time entries yet. Tap Start work to begin.
           </Text>
         )}
       </View>
@@ -510,5 +460,5 @@ function parseBreakMinutes(value: string): number {
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Local work action failed.";
+  return "Something went wrong. Please try again.";
 }

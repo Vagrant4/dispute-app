@@ -8,7 +8,7 @@ export const tabs = [
 export type TabId = (typeof tabs)[number]["id"];
 
 export const backupWarning =
-  "dispute stores records locally on this device. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up.";
+  "Your records are kept on this phone. Save a copy before you change phone or delete the app.";
 
 export const privacyContent = {
   heading: "Local-first work evidence",
@@ -19,8 +19,8 @@ export const privacyContent = {
   analyticsHeading: "No advertising trackers",
   analyticsBody:
     "The current mobile release does not include advertising trackers, cloud " +
-    "work-record sync or background evidence uploads. Google Play and RevenueCat " +
-    "process store subscription and entitlement information.",
+    "work-record sync or background evidence uploads. Google Play and our payment partner " +
+    "handle your subscription.",
 };
 
 export const subscriptionContent = {
@@ -28,55 +28,11 @@ export const subscriptionContent = {
   billingPath: "DISPUTE Basic",
   noCheckout:
     "New users receive a 30-day no-card trial starting when they verify their email. No payment method is required. No charge starts automatically. After the trial, choose whether to subscribe to create new records and export premium PDF and CSV reports. Existing records remain readable.",
-  policyGated:
-    "Google Play displays the localized subscription price for Android. Mobile store billing is policy-gated, and Stripe checkout is not used inside the app. App Store billing will be configured before the separate iOS release.",
   expiredExport:
-    "Trial ended. Existing records remain readable and basic JSON backup remains available. Subscribe to create new records or export premium PDF and CSV reports.",
+    "Trial ended. You can still see your records and save a copy. Subscribe to add new records or share reports.",
   checking:
     "Checking subscription status before export.",
 };
-
-export const trialReadinessContent = {
-  heading: "30-day verified account trial",
-  warning:
-    "New users verify their email to start a 30-day no-card trial. After it ends, they may choose a Google Play subscription to keep creating records and exporting premium reports on Android.",
-  backupReminder:
-    "Export a backup before uninstalling, changing phone, clearing app data, or relying on important records.",
-  localOnly:
-    "Work records stay local unless you export, back up, or share them. Account registration and subscription status are stored securely by the Dispute server; work records are not cloud-synced.",
-  goals: [
-    "Validate clock in/out and manual time entries.",
-    "Check photo evidence quality, notes, and optional GPS denial.",
-    "Generate and share PDF/CSV progress claim reports.",
-    "Confirm pay summary and evidence lock are useful for disputes.",
-  ],
-  checklist: [
-    "Create realistic projects and clients.",
-    "Log daily time and project activity.",
-    "Capture photo evidence with useful notes.",
-    "Generate weekly PDF and CSV reports.",
-    "Back up important records before device changes.",
-  ],
-  privacy:
-    "Do not enter real FIN/NRIC unless comfortable. Use realistic non-sensitive names where possible.",
-  limitations:
-    "Known limits: no CPF/MOM automation, employer approval, cloud backup, GPS verification, Work Permit tracking, OCR, or photo analysis.",
-} as const;
-
-export const evidenceLockStates = [
-  {
-    title: "Draft",
-    description: "The record can still be edited before it is used as evidence.",
-  },
-  {
-    title: "Finalized",
-    description: "The record is marked complete and ready for claim reporting.",
-  },
-  {
-    title: "Locked",
-    description: "The record is protected from later edits for dispute support.",
-  },
-] as const;
 
 export const photoEvidenceContent = {
   heading: "Photoshoot evidence",
@@ -87,8 +43,7 @@ export const photoEvidenceContent = {
     "Photo permission was not granted. dispute can still keep existing " +
     "records, and you can enable camera or gallery access later in device settings.",
   localStorageBody:
-    "Photos imported here are copied into app-owned local storage when the " +
-    "device runtime supports it. They are not uploaded or shared from this phase.",
+    "Photos stay on your phone unless you share them.",
   gpsOptional:
     "GPS is optional. If location access is denied or unavailable, photo evidence " +
     "can still be saved without coordinates. Coordinates are not a verification " +
@@ -98,9 +53,9 @@ export const photoEvidenceContent = {
 export const progressClaimReportContent = {
   heading: "Export claim",
   body:
-    "Create a PDF claim from your time records and evidence. Use Email / Share to send it when ready.",
+    "Create a PDF claim from your time records and evidence. Use Share to send it when ready.",
   localStorage:
-    "Generated PDF files are saved locally on this device. Email / Share opens your phone sharing options.",
+    "Reports are saved on your phone. Share sends them to any app.",
   noUpload:
     "dispute does not upload reports automatically. You choose when to email or share a file.",
 };

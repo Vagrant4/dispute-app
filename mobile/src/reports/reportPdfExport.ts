@@ -42,6 +42,6 @@ export async function saveProgressClaimPdf(params: {
 
   return {
     filePath: copyResult.filePath,
-    message: "PDF generated locally and saved in app-owned report storage.",
+    message: "Report ready.",
   };
 }

@@ -15,7 +15,7 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
   const [creating, setCreating] = useState(false);
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState("");
-  async function refresh() { try { const store = await getProjectScreenStore(userId); setSummaries(await store.listProjectSummaries(userId, currentWeekStart())); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load projects."); } }
+  async function refresh() { try { const store = await getProjectScreenStore(userId); setSummaries(await store.listProjectSummaries(userId, currentWeekStart())); } catch (cause) { setError("Could not load projects."); } }
   useEffect(() => { void refresh(); }, [userId]);
   async function create(name: string) {
     if (!access.canCreateRecords) throw new Error(access.message);
@@ -37,7 +37,7 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
     <View style={styles.row}>
       <Text style={styles.heading}>Projects</Text>
       <Pressable disabled={!access.canCreateRecords} onPress={() => setCreating(true)} style={[styles.actionButton, !access.canCreateRecords && styles.disabledButton]}>
-        <Text style={styles.actionButtonText}>+ New</Text>
+        <Text style={[styles.actionButtonText, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New</Text>
       </Pressable>
     </View>
     {error ? <Text style={styles.body}>{error}</Text> : null}

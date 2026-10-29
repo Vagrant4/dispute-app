@@ -16,7 +16,7 @@ export async function getOptionalWorkLocationAddress(
   try {
     if (!Location.requestForegroundPermissionsAsync) {
       return nonBlockingLocationResult(
-        "Location services are unavailable in this runtime. Turn on location.",
+        "Location is off. Turn on location and try again.",
       );
     }
 
@@ -27,13 +27,13 @@ export async function getOptionalWorkLocationAddress(
         : await Location.requestForegroundPermissionsAsync();
     if (permission.status !== Location.PermissionStatus.GRANTED) {
       return nonBlockingLocationResult(
-        "Location permission was not granted. Turn on location.",
+        "Location is off. Turn on location and try again.",
       );
     }
 
     if (!Location.getCurrentPositionAsync) {
       return nonBlockingLocationResult(
-        "Location services are unavailable in this runtime. Turn on location.",
+        "Location is off. Turn on location and try again.",
       );
     }
 
@@ -54,9 +54,7 @@ export async function getOptionalWorkLocationAddress(
     };
   } catch (error) {
     return nonBlockingLocationResult(
-      error instanceof Error
-        ? `Location unavailable: ${error.message}`
-        : "Location unavailable. Turn on location.",
+      "Location is off. Turn on location and try again.",
     );
   }
 }

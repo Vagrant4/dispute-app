@@ -23,13 +23,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     .claim-highlight { background: #edf4ff; border-left: 6px solid #f2a900; display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin: 0 0 20px; padding: 14px; page-break-inside: avoid; }
     .claim-highlight strong { color: #102447; display: block; font-size: 18px; }
     .claim-highlight span { color: #62708a; font-size: 11px; text-transform: uppercase; }
-    .location-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 10px; }
-    .location-card { border: 1px solid #b9d8d2; border-radius: 12px; overflow: hidden; page-break-inside: avoid; }
-    .location-map { background: linear-gradient(135deg, #dff3ef 0%, #f6fbfa 45%, #cde9e4 100%); border-bottom: 1px solid #b9d8d2; min-height: 92px; position: relative; }
-    .location-map::before { background: repeating-linear-gradient(90deg, rgba(17, 94, 89, 0.13) 0 1px, transparent 1px 28px), repeating-linear-gradient(0deg, rgba(17, 94, 89, 0.10) 0 1px, transparent 1px 24px); content: ""; inset: 0; position: absolute; }
-    .location-pin { background: #dc2626; border: 3px solid #fff; border-radius: 999px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22); height: 18px; left: 50%; position: absolute; top: 46%; transform: translate(-50%, -50%); width: 18px; }
-    .location-pin::after { background: #dc2626; bottom: -8px; content: ""; height: 10px; left: 4px; position: absolute; transform: rotate(45deg); width: 10px; }
-    .location-body { padding: 10px; }
+    .gps-appendix { color: #62708a; font-size: 10px; }
     .photo-card { border: 1px solid #d5e2de; border-radius: 12px; margin-top: 10px; overflow: hidden; page-break-inside: avoid; }
     .photo-card-header { background: #edf4ff; border-left: 5px solid #f2a900; color: #102447; font-size: 12px; font-weight: 700; padding: 8px 10px; }
     .photo-card-body { display: grid; gap: 10px; grid-template-columns: 150px 1fr; padding: 10px; }
@@ -118,8 +112,8 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     </tbody>
   </table>
 
-  <h2>Location Graphic</h2>
-  ${buildLocationGraphic(snapshot)}
+  <h2>Work sites</h2>
+  ${buildWorkSites(snapshot)}
 
   <h2>Photo Evidence</h2>
   <table>
@@ -134,6 +128,9 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     </tbody>
   </table>
   ${buildPhotoEvidenceCards(snapshot)}
+
+  <h2>GPS appendix</h2>
+  ${buildGpsAppendix(snapshot)}
 
   <h2>Disclaimer</h2>
   <p>${escapeHtml(snapshot.disclaimer)}</p>
@@ -198,35 +195,49 @@ function formatDayType(value: string): string {
   return "Normal";
 }
 
-function buildLocationGraphic(snapshot: ProgressClaimSnapshot): string {
-  const locationItems = snapshot.dailyWorkLog.flatMap((item) =>
-    item.locations.map((location) => ({
-      ...location,
-      workDate: item.workDate,
-    })),
-  );
-
-  if (locationItems.length === 0) {
-    return `<p class="muted">No location address or coordinates were recorded for this report.</p>`;
+function buildWorkSites(snapshot: ProgressClaimSnapshot): string {
+  const sites = new Map<string, Set<string>>();
+  for (const day of snapshot.dailyWorkLog) {
+    for (const location of day.locations) {
+      const address = location.siteAddress ?? location.address.split(" · ")[0];
+      if (!address || location.source === "none" || location.address.startsWith("Typed by worker, not GPS:")) continue;
+      const dates = sites.get(address) ?? new Set<string>();
+      dates.add(day.workDate);
+      sites.set(address, dates);
+    }
   }
+  return `<table><thead><tr><th>Address</th><th>Days</th><th>First date</th><th>Last date</th></tr></thead><tbody>${[...sites].map(([address, dates]) => {
+    const sorted = [...dates].sort();
+    return `<tr><td>${escapeHtml(address)}</td><td>${dates.size}</td><td>${escapeHtml(sorted[0])}</td><td>${escapeHtml(sorted[sorted.length - 1])}</td></tr>`;
+  }).join("")}</tbody></table>`;
+}
 
-  return `<div class="location-grid">${locationItems
-    .map(
-      (location) =>
-        `<div class="location-card"><div class="location-map"><span class="location-pin"></span></div><div class="location-body"><strong>${escapeHtml(location.workDate)}</strong><br />${escapeHtml(location.address)}<br /><span class="muted">${escapeHtml(formatCoordinates(location.latitude, location.longitude))}</span></div></div>`,
-    )
-    .join("")}</div>`;
+function buildGpsAppendix(snapshot: ProgressClaimSnapshot): string {
+  return snapshot.dailyWorkLog.flatMap((day) => {
+    const fixes = day.locationEntries?.flatMap((entry) => {
+      const initial = [
+        { phase: "start", latitude: entry.clockInGpsLatitude, longitude: entry.clockInGpsLongitude, accuracy: entry.clockInGpsAccuracyM, source: entry.clockInLocationSource, locatedAt: entry.clockInLocatedAt },
+        { phase: "stop", latitude: entry.clockOutGpsLatitude, longitude: entry.clockOutGpsLongitude, accuracy: entry.clockOutGpsAccuracyM, source: entry.clockOutLocationSource, locatedAt: entry.clockOutLocatedAt },
+      ];
+      const history = entry.locationHistoryJson ? JSON.parse(entry.locationHistoryJson) as import("../work/locationEvidence").LocationReading[] : [];
+      // History includes initial patches too. Print each captured reading once per entry.
+      const seen = new Set<string>();
+      return [...initial, ...history].filter((fix) => {
+        const key = JSON.stringify([fix.phase, fix.latitude, fix.longitude, fix.locatedAt ?? null, fix.accuracy ?? null, fix.source ?? "legacy"]);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }) ?? day.locations;
+    return fixes.filter((fix) => fix.latitude != null && fix.longitude != null)
+      .map((fix) => `<div class="gps-appendix">${escapeHtml(`${day.workDate} · ${fix.phase ?? "start/stop"} · ${formatCoordinates(fix.latitude ?? null, fix.longitude ?? null)} · ${fix.accuracy == null ? "accuracy unknown" : `±${fix.accuracy} m`} · ${fix.source ?? "legacy"}${fix.locatedAt ? ` · ${fix.locatedAt}` : ""}`)}</div>`);
+  }).join("");
 }
 
 function formatLocations(
   locations: Array<{ address: string; latitude: number | null; longitude: number | null }>,
 ): string {
-  return locations
-    .map((location) => {
-      const coordinates = formatCoordinates(location.latitude, location.longitude);
-      return coordinates ? `${location.address} (${coordinates})` : location.address;
-    })
-    .join("; ");
+  return locations.map((location) => location.address.replace(/ · \d{4}-\d{2}-\d{2}T[^; ]+/g, "")).join("; ");
 }
 
 function formatCoordinates(

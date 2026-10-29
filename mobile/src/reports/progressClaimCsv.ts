@@ -35,7 +35,7 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
     ["Pay Summary", "Net Pay Cents", payValue(snapshot.totals.netPayCents)],
     ["Pay Summary", "Total Claim Amount Cents", payValue(snapshot.totals.totalClaimAmountCents)],
     [],
-    ["Work Log", "Date", "Day Type", "Activity", "Location", "Normal Hours", "OT Hours", "Off Day Hours", "Holiday Hours", "Photo Evidence IDs", "start_source", "stop_source", "start_accuracy_m", "stop_accuracy_m", "location_note"],
+    ["Work Log", "Date", "Day Type", "Activity", "Location", "Normal Hours", "OT Hours", "Off Day Hours", "Holiday Hours", "Photo Evidence IDs", "start_source", "stop_source", "start_accuracy_m", "stop_accuracy_m", "location_note", "start_lat", "start_lng", "stop_lat", "stop_lng"],
     ...snapshot.dailyWorkLog.map((item) => [
       "Work Log",
       item.workDate,
@@ -48,6 +48,7 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
       String(item.holidayHours),
       item.photoEvidenceIds.join(";"),
       ...( ["clockInLocationSource", "clockOutLocationSource", "clockInGpsAccuracyM", "clockOutGpsAccuracyM", "locationNote"] as const).map((field) => (item.locationEntries ?? []).map((entry) => String(entry[field] ?? (field.endsWith("Source") ? "legacy" : ""))).join(";")),
+      ...(["clockInGpsLatitude", "clockInGpsLongitude", "clockOutGpsLatitude", "clockOutGpsLongitude"] as const).map((field) => (item.locationEntries ?? []).map((entry) => String(entry[field] ?? "")).join(";")),
     ]),
     [],
     ["Photo Evidence", "Photo Evidence ID", "Linked Time Entry ID", "Caption", "Type", "Captured At", "Local URI"],
@@ -62,7 +63,6 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
     ]),
     [],
     ["Disclaimer", "Text", snapshot.disclaimer],
-    ["Local Storage", "Notice", snapshot.localStorageNotice],
   ];
 
   return `${rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n")}\n`;

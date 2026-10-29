@@ -126,7 +126,7 @@ test("saveProgressClaimCsv rejects when durable app-owned storage is unavailable
         userId: "user-a",
         documentId: "doc-1",
       }),
-    /Durable report storage is unavailable/,
+    /Couldn't save the report/,
   );
 });
 
@@ -151,7 +151,7 @@ test("saveProgressClaimCsv rejects when documentDirectory is unavailable", async
         userId: "user-a",
         documentId: "doc-1",
       }),
-    /app-owned local report storage is unavailable/,
+    /Couldn't save the report/,
   );
   assert.deepEqual(writes, []);
 });
@@ -177,7 +177,7 @@ test("saveProgressClaimCsv rejects when durable file verification fails after wr
         userId: "user-a",
         documentId: "doc-1",
       }),
-    /verification failed/,
+    /Couldn't save the report/,
   );
   assert.equal(writes.length, 1);
 });
@@ -203,7 +203,7 @@ test("saveProgressClaimPdf rejects instead of archiving Expo print cache URI whe
         userId: "user-a",
         documentId: "doc-1",
       }),
-    /Durable report storage is unavailable/,
+    /Couldn't save the report/,
   );
   assert.equal(printCalls.length, 1);
 });
@@ -231,7 +231,7 @@ test("saveProgressClaimPdf rejects when documentDirectory is blank before copyin
         userId: "user-a",
         documentId: "doc-1",
       }),
-    /app-owned local report storage is unavailable/,
+    /Couldn't save the report/,
   );
   assert.deepEqual(copies, []);
 });
@@ -259,7 +259,7 @@ test("saveProgressClaimPdf rejects when copied file verification fails", async (
         userId: "user-a",
         documentId: "doc-1",
       }),
-    /verification failed/,
+    /Couldn't save the report/,
   );
   assert.equal(copies.length, 1);
 });
@@ -293,10 +293,10 @@ test("generateAndArchiveProgressClaim does not insert archive row when durable e
         },
         createDocumentId: () => "doc-1",
         saveCsv: async () => {
-          throw new Error("Durable report storage is unavailable.");
+          throw new Error("Couldn't save the report.");
         },
       }),
-    /Durable report storage is unavailable/,
+    /Couldn't save the report/,
   );
   assert.deepEqual(inserted, []);
 });

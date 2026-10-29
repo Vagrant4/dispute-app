@@ -214,7 +214,7 @@ function buildLocations(entries: TimeEntrySnapshotInput[]): WorkLocationSnapshot
     const key = `${address}|${latitude ?? ""}|${longitude ?? ""}|${source ?? ""}${phase?.endsWith("refresh") ? `|${locatedAt}` : ""}`;
     if (seen.has(key)) return;
     seen.add(key);
-    locations.push({ address: label, latitude, longitude, source, accuracy, locatedAt, phase });
+    locations.push({ siteAddress: address, address: label, latitude, longitude, source, accuracy, locatedAt, phase });
   }
   for (const entry of entries) {
     const phases = [

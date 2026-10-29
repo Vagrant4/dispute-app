@@ -9,7 +9,7 @@ export function ProjectNameSheet({ name = "", onSave, onClose }: { name?: string
     if (!value.trim() || busy) return;
     setBusy(true);
     try { await onSave(value.trim()); onClose(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save project."); }
+    catch (cause) { setError("Could not save project."); }
     finally { setBusy(false); }
   }
   return <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -20,7 +20,7 @@ export function ProjectNameSheet({ name = "", onSave, onClose }: { name?: string
         <TextInput accessibilityLabel="Project name" placeholder="Client or site name" placeholderTextColor={theme.colors.placeholder} value={value} onChangeText={setValue} style={styles.textInput} autoFocus />
         {error ? <Text style={styles.body}>{error}</Text> : null}
         <Pressable disabled={busy || !value.trim()} onPress={() => void save()} style={[styles.actionButton, (busy || !value.trim()) && styles.disabledButton]}>
-          <Text style={styles.actionButtonText}>Save</Text>
+          <Text style={[styles.actionButtonText, ((busy || !value.trim())) && styles.disabledButtonText]}>Save</Text>
         </Pressable>
         <Pressable onPress={onClose}>
           <Text style={styles.muted}>Cancel</Text>

@@ -58,7 +58,7 @@ export function ReferralScreen() {
         onPress={() => void handleShare()}
         style={[styles.actionButton, !referral && styles.disabledButton]}
       >
-        <Text style={styles.actionButtonText}>Share referral link</Text>
+        <Text style={[styles.actionButtonText, (!referral) && styles.disabledButtonText]}>Share referral link</Text>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => void loadReferral()} style={styles.actionButtonSecondary}>
         <Text style={styles.actionButtonSecondaryText}>Refresh referral progress</Text>

@@ -101,7 +101,9 @@ export class BackupRepository {
     );
 
     if (violations.length > 0) {
-      throw new Error("Backup restore failed foreign key validation.");
+      throw new Error("This file isn't a DISPUTE copy.", {
+        cause: "Backup restore failed foreign key validation.",
+      });
     }
   }
 }
@@ -147,6 +149,7 @@ function toBackupSqlValue(
   }
 
   throw new Error(
-    `Backup value for ${tableName}.${columnName} must be a SQLite-compatible primitive.`,
+    "This file isn't a DISPUTE copy.",
+    { cause: `Backup value for ${tableName}.${columnName} must be a SQLite-compatible primitive.` },
   );
 }

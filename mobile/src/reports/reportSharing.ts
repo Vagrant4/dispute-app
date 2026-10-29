@@ -27,7 +27,7 @@ export async function shareGeneratedDocument(params: {
       shared: false,
       filePath: params.filePath,
       message:
-        "Sharing is unavailable in this runtime. The file remains stored locally at the returned path.",
+        "Sharing didn't open. Your report is saved, try again.",
     };
   }
 
@@ -39,6 +39,6 @@ export async function shareGeneratedDocument(params: {
   return {
     shared: true,
     filePath: params.filePath,
-    message: "Native share sheet opened for manual export.",
+    message: "",
   };
 }

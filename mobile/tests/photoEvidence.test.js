@@ -174,5 +174,5 @@ test("GPS denied result is non-blocking", async () => {
 
   assert.equal(result.coordinates, null);
   assert.equal(result.blocked, false);
-  assert.match(result.message, /Location permission was not granted/);
+  assert.match(result.message, /Location is off\. The photo is saved without a place\./);
 });

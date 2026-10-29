@@ -26,11 +26,11 @@ test("mobile production navigation declares simplified field-work destinations",
 
 test("mobile scaffold declares real user trial readiness copy", () => {
   for (const requiredCopy of [
-    "New users verify their email to start a 30-day no-card trial",
-    "Export a backup before uninstalling, changing phone, clearing app data",
-    "Account registration and subscription status are stored securely by the Dispute server",
-    "Do not enter real FIN/NRIC unless comfortable",
-    "no CPF/MOM automation",
+    "New users receive a 30-day no-card trial",
+    "Save a copy before you change phone or delete the app",
+    "DISPUTE stores account and subscription status securely on the server",
+    "on this device unless you choose to export",
+    "No advertising trackers",
   ]) {
     assert.match(contentSource, new RegExp(requiredCopy));
   }
@@ -39,14 +39,14 @@ test("mobile scaffold declares real user trial readiness copy", () => {
 test("mobile scaffold keeps required backup warning and status copy", () => {
   assert.match(
     contentSource,
-    /dispute stores records locally on this device\. If you delete the app, change phone, or lose the device, your records may be lost unless you export or back them up\./,
+    /Your records are kept on this phone\. Save a copy before you change phone or delete the app\./,
   );
   assert.match(contentSource, /No advertising trackers/);
-  assert.match(contentSource, /Google Play and RevenueCat/);
-  assert.match(contentSource, /policy-gated/);
+  assert.match(contentSource, /Google Play and our payment partner/);
+  assert.doesNotMatch(contentSource, /policyGated/);
 
-  for (const lockState of ["Draft", "Finalized", "Locked"]) {
-    assert.match(contentSource, new RegExp(`\\b${lockState}\\b`));
+  for (const lockState of ["trialReadinessContent", "evidenceLockStates"]) {
+    assert.doesNotMatch(contentSource, new RegExp(`\\b${lockState}\\b`));
   }
 });
 
@@ -55,10 +55,7 @@ test("mobile subscription screen copy declares the 30-day no-card trial and stor
     "no-card trial",
     "No charge starts automatically",
     "subscribe to create new records and export premium PDF and CSV reports",
-    "localized subscription price",
-    "Google Play displays the localized subscription price for Android",
-    "App Store billing will be configured before the separate iOS release",
-    "Stripe checkout is not used inside the app",
+    "Subscribe to add new records or share reports",
   ]) {
     assert.match(contentSource, new RegExp(requiredCopy));
   }

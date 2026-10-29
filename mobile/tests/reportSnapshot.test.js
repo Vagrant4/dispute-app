@@ -135,6 +135,7 @@ test("buildProgressClaimSnapshot totals days hours overtime and claim amount", (
   assert.deepEqual(snapshot.dailyWorkLog[0].dayTypes, ["normal"]);
   assert.deepEqual(snapshot.dailyWorkLog[0].locations, [
     {
+      siteAddress: "10 Anson Road, Singapore 079903",
       address: "10 Anson Road, Singapore 079903 · Source not recorded (older record)",
       source: "legacy", accuracy: undefined, locatedAt: undefined, phase: "start",
       latitude: 1.2765,

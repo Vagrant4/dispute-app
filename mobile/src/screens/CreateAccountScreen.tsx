@@ -5,7 +5,7 @@ import {
   registerRemoteAccount,
   type PendingEmailVerification,
 } from "../auth/remoteAuth";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 import { loadGuestTrial } from "../subscription/guestTrial";
 
 type CreateAccountScreenProps = {
@@ -74,7 +74,7 @@ export function CreateAccountScreen({
           autoCapitalize="words"
           onChangeText={setName}
           placeholder="Your name"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={name}
         />
@@ -86,7 +86,7 @@ export function CreateAccountScreen({
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="name@example.com"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={email}
         />
@@ -145,7 +145,7 @@ export function CreateAccountScreen({
           keyboardType="phone-pad"
           onChangeText={setPhone}
           placeholder="9000 0000"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={phone}
         />
@@ -156,7 +156,7 @@ export function CreateAccountScreen({
           autoCapitalize="characters"
           onChangeText={setReferralCode}
           placeholder="DSP-XXXXXXXXXX"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={referralCode}
         />
@@ -170,7 +170,7 @@ export function CreateAccountScreen({
             accessibilityLabel="Create account password"
             onChangeText={setPassword}
             placeholder="Minimum 8 characters"
-            placeholderTextColor="#677064"
+            placeholderTextColor={theme.colors.placeholder}
             secureTextEntry={!showPassword}
             style={[styles.textInput, styles.passwordTextInput]}
             value={password}
@@ -193,7 +193,7 @@ export function CreateAccountScreen({
           onPress={handleCreateAccount}
           style={[styles.actionButton, isSubmitting && styles.disabledButton]}
         >
-          <Text style={styles.actionButtonText}>
+          <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
             {isSubmitting ? "Creating..." : "Create account"}
           </Text>
         </Pressable>

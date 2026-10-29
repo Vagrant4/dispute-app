@@ -363,8 +363,12 @@ export const styles = StyleSheet.create({
     fontWeight: "900",
   },
   disabledButton: {
-    opacity: 0.45,
+    backgroundColor: theme.colors.surfaceMuted,
+    borderColor: theme.colors.border,
   },
+  disabledButtonText: { color: theme.colors.placeholder },
+  dayTypeRow: { flexDirection: "row", gap: 4 },
+  dayTypeSegment: { flex: 1, minWidth: 0, minHeight: 40, paddingHorizontal: 8 },
   mapPanel: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,

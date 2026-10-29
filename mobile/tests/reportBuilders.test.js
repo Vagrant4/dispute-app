@@ -137,7 +137,7 @@ test("buildProgressClaimHtml includes clean report sections without signature or
     "Claim Period",
     "Daily Work Log",
     "Photo Evidence",
-    "Location Graphic",
+    "Work sites",
     "10 Anson Road, Singapore 079903",
     "Rate Calculation",
     "Normal working time",
@@ -179,7 +179,7 @@ test("buildProgressClaimHtml renders the revised palette, dynamic overview, and 
   assert.match(html, /thead \{ display: table-header-group; \}/);
   assert.match(html, /page-break-inside: avoid/);
   assert.match(html, /overflow-wrap: anywhere/);
-  assert.match(html, /\.location-card \{[^}]*page-break-inside: avoid/);
+  assert.match(html, /tr, \.report-section \{[^}]*page-break-inside: avoid/);
 });
 
 test("buildProgressClaimHtml embeds printable photos and keeps unsupported references as placeholders", () => {
@@ -220,4 +220,37 @@ test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   assert.match(csv, /2026-06-01,normal,"Installed cable, tested line\nready","10 Anson Road, Singapore 079903 \(1.27650, 103.84580\)",8,1.5,0,0,photo-1/);
   assert.match(csv, /Photo Evidence,photo-1,time-1,"Before, after, and ""done"""/);
   assert.doesNotMatch(csv, /Deductions Cents/);
+});
+
+
+test("work sites group addresses by distinct day; GPS appendix retains both phases and refresh evidence", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const { buildProgressClaimCsv } = load("src/reports/progressClaimCsv.ts");
+  const entry = {
+    id: "first", workDate: "2026-10-26", durationMinutes: 60, activity: "Work",
+    locationText: "Site <A>", clockOutLocationText: "Site <A>",
+    clockInGpsLatitude: 1.2, clockInGpsLongitude: 103.4,
+    clockOutGpsLatitude: 1.2, clockOutGpsLongitude: 103.4,
+    clockInGpsAccuracyM: 5, clockOutGpsAccuracyM: 6,
+    clockInLocationSource: "gps", clockOutLocationSource: "gps",
+    clockInLocatedAt: "2026-10-26T01:00:00Z", clockOutLocatedAt: "2026-10-26T02:00:00Z",
+    locationHistoryJson: JSON.stringify([{ phase: "start", source: "gps", address: "Site <A>", latitude: 1.3, longitude: 103.5, accuracy: 4, locatedAt: "2026-10-26T01:30:00Z" }]),
+  };
+  const snapshot = buildProgressClaimSnapshot({ timeEntries: [entry, { ...entry, id: "second", workDate: "2026-10-27", locationHistoryJson: null }] });
+  const html = buildProgressClaimHtml(snapshot);
+  assert.match(html, /<h2>Work sites<\/h2>/);
+  assert.doesNotMatch(html, /Location Graphic|location-map|location-grid|maps\.google|openstreetmap/);
+  assert.match(html, /<td>Site &lt;A&gt;<\/td><td>2<\/td><td>2026-10-26<\/td><td>2026-10-27<\/td>/);
+  const workLog = html.split("<h2>Daily Work Log</h2>")[1].split("<h2>Work sites</h2>")[0];
+  assert.doesNotMatch(workLog, /1\.20000|103\.40000|T01:00/);
+  assert.match(workLog, /GPS ±5 m/);
+  assert.match(html, /2026-10-26 · start · 1\.20000, 103\.40000 · ±5 m · gps/);
+  assert.match(html, /2026-10-26 · stop · 1\.20000, 103\.40000 · ±6 m · gps/);
+  assert.match(html, /2026-10-26 · start · 1\.30000, 103\.50000 · ±4 m · gps/);
+  const csv = buildProgressClaimCsv(snapshot);
+  assert.match(csv, /location_note,start_lat,start_lng,stop_lat,stop_lng/);
+  assert.match(csv, /,1\.2,103\.4,1\.2,103\.4/);
+  assert.doesNotMatch(csv, /Local Storage,Notice/);
 });

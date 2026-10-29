@@ -252,11 +252,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         savePdf: Platform.OS === "web" ? saveProgressClaimPdfForWeb : undefined,
       });
 
-      setStatus(
-        `${result.message} Archived locally for manual export${
-          selectedProject?.name ? ` for ${selectedProject.name}` : ""
-        }. Tap View Report to inspect it.`,
-      );
+      setStatus("Report ready.");
       setReportPreview(result.snapshot);
       if (Platform.OS === "web") {
         setExportPreview(getLastWebExportPreview());
@@ -319,13 +315,13 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       setStatus(
         exportLocked
           ? `Report preview shown below. ${disputePackLockContent.body}`
-          : "Report preview shown below. Use Email / Share to send the file.",
+          : "Report preview shown below. Use Share to send the file.",
       );
       return;
     }
 
     if (!params.filePath) {
-      setStatus("This archived document does not have a preview or local file path.");
+      setStatus("This report does not have a preview or local file path.");
       return;
     }
 
@@ -351,7 +347,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
     }
 
     if (!document.local_uri) {
-      setStatus("This archived document does not have a local file path.");
+      setStatus("This report does not have a local file path.");
       return;
     }
 
@@ -451,7 +447,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
               </Pressable>
             ) : null}
             <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handlePreview()} style={[styles.actionButtonSecondary, !selectedProjectId && styles.disabledButton]}>
-              <Text style={styles.actionButtonSecondaryText}>Preview report</Text>
+              <Text style={[styles.actionButtonSecondaryText, (!selectedProjectId) && styles.disabledButtonText]}>Preview report</Text>
             </Pressable>
           </View>
         ) : renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked }) : (
@@ -471,7 +467,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         <Text style={styles.heading}>Earlier reports</Text>
         {documents.length === 0 ? (
           <Text style={styles.muted}>
-            No generated reports are archived on this device yet.
+            No earlier reports on this phone yet.
           </Text>
         ) : (
           <View style={styles.list}>
@@ -499,7 +495,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                       accessibilityState={{ disabled: exportLocked }}
                       style={[styles.statusPill, exportLocked && styles.disabledButton]}
                     >
-                      <Text style={styles.statusPillText}>{exportLocked ? "\u{1F512} Download PDF" : "Download PDF"}</Text>
+                      <Text style={[styles.statusPillText, (exportLocked) && styles.disabledButtonText]}>{exportLocked ? "\u{1F512} Save to phone" : "Save to phone"}</Text>
                     </Pressable>
                   ) : null}
                   <Pressable
@@ -512,7 +508,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                     }
                     style={styles.statusPill}
                   >
-                    <Text style={styles.statusPillText}>View Report</Text>
+                    <Text style={styles.statusPillText}>Open</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -520,7 +516,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                     accessibilityState={{ disabled: exportLocked }}
                     style={[styles.statusPill, exportLocked && styles.disabledButton]}
                   >
-                  <Text style={styles.statusPillText}>{exportLocked ? "\u{1F512} Email / Share" : "Email / Share"}</Text>
+                  <Text style={[styles.statusPillText, (exportLocked) && styles.disabledButtonText]}>{exportLocked ? "\u{1F512} Share" : "Share"}</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -536,7 +532,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         )}
       </View>
 
-      {Platform.OS === "web" && exportPreview ? (
+      {__DEV__ && Platform.OS === "web" && exportPreview ? (
         <View style={styles.card}>
           <Text style={styles.heading}>Browser export preview</Text>
           <Text style={styles.muted}>{exportPreview.fileName}</Text>
@@ -651,7 +647,7 @@ async function ensureCanExportWithRefresh(
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Report action failed.";
+  return "Something went wrong. Please try again.";
 }
 
 function formatDocumentType(type: string): string {
@@ -666,13 +662,7 @@ function formatPreviewLocations(
   locations: Array<{ address: string; latitude: number | null; longitude: number | null }>,
 ): string {
   return locations
-    .map((location) => {
-      const coordinates =
-        location.latitude != null && location.longitude != null
-          ? ` (${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)})`
-          : "";
-      return `${location.address}${coordinates}`;
-    })
+    .map((location) => location.address.split(" · ")[0])
     .join("; ") || "No location recorded";
 }
 

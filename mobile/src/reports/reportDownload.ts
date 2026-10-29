@@ -46,7 +46,7 @@ export async function downloadGeneratedPdfToUserFolder(params: {
       downloaded: false,
       sourcePath: params.filePath,
       message:
-        "Download PDF is unavailable in this runtime. Use Email / Share as a fallback.",
+        "Can't save to a folder here. Use Share instead.",
     };
   }
 

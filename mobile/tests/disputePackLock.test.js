@@ -106,8 +106,8 @@ test("locked UI: lock card, preview button, create-account or Plan & billing act
   assert.match(reports, /disputePackLockContent\.guestButton/);
   assert.match(reports, /onPress=\{onOpenPlanBilling\}/);
   assert.match(reports, /handlePreview\(\)/);
-  assert.match(reports, /exportLocked \? "\\u\{1F512\} Download PDF"/);
-  assert.match(reports, /exportLocked \? "\\u\{1F512\} Email \/ Share"/);
+  assert.match(reports, /exportLocked \? "\\u\{1F512\} Save to phone"/);
+  assert.match(reports, /exportLocked \? "\\u\{1F512\} Share"/);
   assert.match(reports, /renderActions\(\{ share:.*locked: true/);
   const app = src("App.tsx");
   assert.match(app, /onOpenPlanBilling=\{\(\) => onNavigate\("settings", "subscription"\)\}/);

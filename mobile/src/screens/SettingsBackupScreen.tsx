@@ -18,7 +18,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
   const [backupPath, setBackupPath] = useState<string | null>(null);
   const [restoreArmed, setRestoreArmed] = useState(false);
   const [status, setStatus] = useState(
-    "Export a durable JSON backup before changing phone, clearing app data, or uninstalling.",
+    "Save a copy before changing phone.",
   );
 
   async function handleExport() {
@@ -28,7 +28,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
       const file = await writeBackupFile(json, userId);
       setBackupJson(json);
       setBackupPath(file.filePath);
-      setStatus(`${file.message} Use Share Backup to copy it off this device.`);
+      setStatus("Copy saved. Use Send a copy to keep it somewhere else.");
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
@@ -42,12 +42,12 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
     try {
       const picked = await pickBackupFile();
       if (picked.canceled || !picked.json) {
-        setStatus("Backup selection cancelled. Local records were not changed.");
+        setStatus("Nothing was changed.");
         return;
       }
       setBackupJson(picked.json);
       setRestoreArmed(true);
-      setStatus(`Selected ${picked.fileName ?? "backup file"}. Tap Confirm Overwrite Restore to replace local records.`);
+      setStatus("Tap Confirm restore to replace what's on this phone.");
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
@@ -65,12 +65,11 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
 
     try {
       const repositories = await getNativeRepositories(userId);
-      const result = await importBackupJson(backupJson, repositories.backup, {
+      await importBackupJson(backupJson, repositories.backup, {
         mode: "overwrite",
         userId,
       });
-      const tableCount = Object.keys(result.importedTableCounts).length;
-      setStatus(`JSON backup restored in overwrite mode across ${tableCount} tables.`);
+      setStatus("Your records were restored.");
       setRestoreArmed(false);
     } catch (error) {
       setStatus(getErrorMessage(error));
@@ -79,7 +78,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
 
   async function handleShare() {
     if (!backupPath) {
-      setStatus("Export a backup before opening the share sheet.");
+      setStatus("Save a copy first.");
       return;
     }
     try {
@@ -92,48 +91,44 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
   return (
     <>
       <View style={[styles.card, styles.warningCard]}>
-        <Text style={styles.eyebrow}>Backup warning</Text>
+        <Text style={styles.eyebrow}>Keep a copy of your records</Text>
         <Text style={styles.body}>{backupWarning}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.heading}>Backup tools</Text>
+        <Text style={styles.heading}>Your records</Text>
         <Text style={styles.body}>
-          Export creates a dispute JSON backup from local SQLite. {exportOnly
+          Save a copy of your records. {exportOnly
             ? "Read-only mode keeps export and share available without changing records."
-            : "Import validates a selected JSON file and restores it only after explicit overwrite confirmation."}
+            : "Restoring replaces what's on this phone. We'll ask first."}
         </Text>
         <View style={styles.actionRow}>
           <Pressable style={styles.actionButton} onPress={handleExport}>
-            <Text style={styles.actionButtonText}>Export JSON Backup</Text>
+            <Text style={styles.actionButtonText}>Save a copy</Text>
           </Pressable>
           <Pressable style={styles.actionButtonSecondary} onPress={handleShare}>
-            <Text style={styles.actionButtonSecondaryText}>Share Backup</Text>
+            <Text style={styles.actionButtonSecondaryText}>Send a copy</Text>
           </Pressable>
           {!exportOnly ? (
             <Pressable style={styles.actionButtonSecondary} onPress={handleChooseImport}>
-              <Text style={styles.actionButtonSecondaryText}>Choose Backup File</Text>
+              <Text style={styles.actionButtonSecondaryText}>Restore from a copy</Text>
             </Pressable>
           ) : null}
         </View>
         {restoreArmed && !exportOnly ? (
           <Pressable style={styles.actionButton} onPress={handleImport}>
-            <Text style={styles.actionButtonText}>Confirm Overwrite Restore</Text>
+            <Text style={styles.actionButtonText}>Confirm restore</Text>
           </Pressable>
         ) : null}
         <Text style={styles.muted}>{status}</Text>
-        {backupJson ? (
-          <Text style={styles.codePreview} numberOfLines={6}>
-            {backupJson}
-          </Text>
-        ) : null}
       </View>
     </>
   );
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Backup action failed.";
+  if (error instanceof Error && error.message === "This file isn't a DISPUTE copy.") return error.message;
+  return "Something went wrong. Please try again.";
 }
 
 async function getNativeRepositories(userId: string) {

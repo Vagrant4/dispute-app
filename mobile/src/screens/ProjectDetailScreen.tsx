@@ -46,11 +46,11 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
       }
       const rows: PhotoEvidenceRow[] = Platform.OS === "web" ? JSON.parse(globalThis.localStorage?.getItem(`dispute-web-saved-photo-evidence:${encodeURIComponent(userId)}`) || "[]") : await (await (await import("../db/repositories")).getLocalRepositories(userId)).photoEvidence.listRecentPhotoEvidence({ userId });
       setPhotos(rows.filter((photo) => photo.project_id === projectId));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load project."); }
+    } catch (cause) { setError("Could not load project."); }
   }
   useEffect(() => { void refresh(); }, [userId, projectId]);
   async function saveName(name: string) { if (!project || !access.canCreateRecords) throw new Error(access.message); const store = await getProjectScreenStore(userId); await store.updateProject({ userId, projectId, name, description: project.description, hourlyRateCents: project.hourlyRateCents }); await refresh(); }
-  async function toggleFinished() { try { const store = await getProjectScreenStore(userId); await store.setProjectStatus(userId, projectId, project?.status === "archived" ? "active" : "archived"); await refresh(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not update project."); } }
+  async function toggleFinished() { try { const store = await getProjectScreenStore(userId); await store.setProjectStatus(userId, projectId, project?.status === "archived" ? "active" : "archived"); await refresh(); } catch (cause) { setError("Could not update project."); } }
   return <>
     <Pressable onPress={onBack}>
       <Text style={styles.body}>‹ Projects</Text>
@@ -60,8 +60,8 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
       <View style={styles.card}>
         <Text style={styles.heading}>{project.name}</Text>
         <Text style={styles.muted}>📍 {summary?.lastSiteAddress ?? "No GPS site recorded"}</Text>
-        <Pressable disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
-          <Text style={styles.body}>✎ Rename</Text>
+        <Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
+          <Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>✎ Rename</Text>
         </Pressable>
         <View style={styles.metricGrid}>{[["This week", `${((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)}h`], ["OT", `${totals.totalOvertimeHours.toFixed(1)}h`], ["Est. pay", project.hourlyRateCents > 0 ? `SGD ${(totals.totalClaimAmountCents / 100).toFixed(2)}` : "Set pay rate"]].map(([label, value]) => <Pressable key={label} accessibilityRole={label === "Est. pay" ? "button" : undefined} onPress={label === "Est. pay" ? () => setPaySetupRequest((value) => value + 1) : undefined} style={styles.metricTile}>
           <Text style={styles.metricLabel}>{label}</Text>
@@ -95,8 +95,8 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
         <Text style={styles.muted}>Week {currentWeekStart()} – {weekEnd()}</Text>
         <View style={styles.actionRow}>{!locked ? <Pressable onPress={preview}>
           <Text style={styles.body}>Preview</Text>
-        </Pressable> : null}<Pressable disabled={locked} onPress={csv}>
-            <Text style={styles.muted}>CSV</Text>
+        </Pressable> : null}<Pressable style={[(locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
+            <Text style={[styles.muted, (locked) && styles.disabledButtonText]}>CSV</Text>
           </Pressable>
         </View>
       </>} />

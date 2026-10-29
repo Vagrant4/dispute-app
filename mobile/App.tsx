@@ -84,7 +84,7 @@ export default function App() {
     });
     void reconcilePendingAccountDeletion().then((cleaned) => {
       if (cleaned) {
-        setAuthNotice("Account deletion completed. Local app data was cleared.");
+        setAuthNotice("Your account was deleted and this phone was cleared.");
         setAuthMode("login");
       }
     });
@@ -99,15 +99,7 @@ export default function App() {
             <View style={styles.brandRow}>
               <View>
                 <Text style={styles.appName}>DISPUTE</Text>
-                {account ? (
-                  <Text style={styles.headerMeta}>{account.isGuest ? "On this phone · no account yet" : `Signed in as ${account.name}`}</Text>
-                ) : null}
               </View>
-              {account?.emailVerified ? (
-                <View style={styles.headerPill}>
-                  <Text style={styles.headerPillText}>Email verified</Text>
-                </View>
-              ) : null}
             </View>
             <Text numberOfLines={1} style={styles.screenTitle}>
               {account

@@ -60,7 +60,7 @@ test("PDF labels GPS, no-fix, legacy and worker notes; CSV appends the five colu
   assert.match(html, /Site A/);
   const csv = load("src/reports/progressClaimCsv.ts").buildProgressClaimCsv(snapshot);
   const header = csv.split("\n").find((line) => line.startsWith("Work Log,Date"));
-  assert.ok(header.endsWith("start_source,stop_source,start_accuracy_m,stop_accuracy_m,location_note"));
+  assert.ok(header.endsWith("start_source,stop_source,start_accuracy_m,stop_accuracy_m,location_note,start_lat,start_lng,stop_lat,stop_lng"));
   assert.match(csv, /none,gps,,75,Closed gate <outside>/);
 });
 test("fresh schema and every migration have matching columns; legacy and backup round trip retain provenance", async () => {

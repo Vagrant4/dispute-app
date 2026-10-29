@@ -3,7 +3,7 @@ export const PROGRESS_CLAIM_DISCLAIMER =
   "This app helps you record work, time, pay, and evidence for reference. It does not replace legal, accounting, or MOM advice.";
 
 export const LOCAL_REPORT_STORAGE_NOTICE =
-  "Generated report files are stored locally on this device and can be shared or exported manually. They are not uploaded or emailed automatically.";
+  "Reports are saved on your phone and only leave it when you share them.";
 
 export type WorkerProfileSnapshot = {
   name?: string;
@@ -105,6 +105,7 @@ export type DailyWorkLogItem = {
 };
 
 export type WorkLocationSnapshot = {
+  siteAddress?: string;
   source?: LocationSource;
   accuracy?: number | null;
   locatedAt?: string | null;

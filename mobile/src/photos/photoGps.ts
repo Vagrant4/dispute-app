@@ -6,20 +6,20 @@ export async function getOptionalPhotoGps(): Promise<PhotoGpsResult> {
   try {
     if (!Location.requestForegroundPermissionsAsync) {
       return nonBlockingGpsResult(
-        "Location services are unavailable in this runtime. Photo evidence can still be saved without coordinates.",
+        "Location is off. The photo is saved without a place.",
       );
     }
 
     const permission = await Location.requestForegroundPermissionsAsync();
     if (permission.status !== Location.PermissionStatus.GRANTED) {
       return nonBlockingGpsResult(
-        "Location permission was not granted. Photo evidence can still be saved without coordinates.",
+        "Location is off. The photo is saved without a place.",
       );
     }
 
     if (!Location.getCurrentPositionAsync) {
       return nonBlockingGpsResult(
-        "Location services are unavailable in this runtime. Photo evidence can still be saved without coordinates.",
+        "Location is off. The photo is saved without a place.",
       );
     }
 
@@ -41,9 +41,7 @@ export async function getOptionalPhotoGps(): Promise<PhotoGpsResult> {
     };
   } catch (error) {
     return nonBlockingGpsResult(
-      error instanceof Error
-        ? `Location unavailable: ${error.message}`
-        : "Location unavailable. Photo evidence can still be saved without coordinates.",
+      "Location is off. The photo is saved without a place.",
     );
   }
 }

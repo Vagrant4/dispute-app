@@ -14,7 +14,7 @@ import {
   ACCOUNT_DELETION_CONFIRMATION,
   deleteRemoteAccount,
 } from "../auth/remoteAuth";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 import { getSubscriptionManagementUrl } from "../subscription/subscriptionClient";
 
 type DeleteAccountScreenProps = {
@@ -143,12 +143,12 @@ export function DeleteAccountScreen({
         accessibilityRole="link"
         disabled={deleting}
         onPress={() => void openSubscriptionManagement()}
-        style={styles.actionButtonSecondary}
+        style={[styles.actionButtonSecondary, (deleting) && styles.disabledButton]}
       >
-        <Text style={styles.actionButtonSecondaryText}>Manage subscription</Text>
+        <Text style={[styles.actionButtonSecondaryText, (deleting) && styles.disabledButtonText]}>Manage subscription</Text>
       </Pressable>
       <Text style={styles.inputLabel}>Current password</Text>
-      <TextInput
+      <TextInput placeholderTextColor={theme.colors.placeholder}
         accessibilityLabel="Account deletion current password"
         autoCapitalize="none"
         editable={!deleting}
@@ -158,7 +158,7 @@ export function DeleteAccountScreen({
         value={password}
       />
       <Text style={styles.inputLabel}>Type {ACCOUNT_DELETION_CONFIRMATION} to confirm</Text>
-      <TextInput
+      <TextInput placeholderTextColor={theme.colors.placeholder}
         accessibilityLabel={`Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm account deletion`}
         autoCapitalize="characters"
         editable={!deleting}
@@ -174,9 +174,9 @@ export function DeleteAccountScreen({
           accessibilityRole="button"
           disabled={deleting}
           onPress={reviewDeletion}
-          style={styles.dangerButtonSecondary}
+          style={[styles.dangerButtonSecondary, (deleting) && styles.disabledButton]}
         >
-          <Text style={styles.dangerButtonSecondaryText}>Review permanent deletion</Text>
+          <Text style={[styles.dangerButtonSecondaryText, (deleting) && styles.disabledButtonText]}>Review permanent deletion</Text>
         </Pressable>
       ) : (
         <View style={styles.deletionWarningCard}>
@@ -188,9 +188,9 @@ export function DeleteAccountScreen({
             accessibilityState={{ disabled: deleting }}
             disabled={deleting}
             onPress={() => void permanentlyDeleteAccount()}
-            style={styles.dangerButton}
+            style={[styles.dangerButton, (deleting) && styles.disabledButton]}
           >
-            <Text style={styles.dangerButtonText}>
+            <Text style={[styles.dangerButtonText, (deleting) && styles.disabledButtonText]}>
               {deleting ? "Deleting permanently..." : "Delete account permanently"}
             </Text>
           </Pressable>
