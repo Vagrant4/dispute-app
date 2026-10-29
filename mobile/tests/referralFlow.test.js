@@ -24,7 +24,7 @@ test("settings exposes a server-backed referral share link and progress", () => 
   assert.match(referralClientSource, /credentials: "include"/);
   assert.match(referralScreenSource, /Share referral link/);
   assert.match(referralScreenSource, /two paid months/);
-  assert.match(referralScreenSource, /Five qualified referrals/);
+  assert.match(referralScreenSource, /Five counted referrals/);
 });
 
 test("expired access gates new local capture while preserving user control of existing records", () => {

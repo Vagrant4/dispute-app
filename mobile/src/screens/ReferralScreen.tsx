@@ -6,17 +6,20 @@ import { styles } from "../styles";
 
 export function ReferralScreen() {
   const [referral, setReferral] = useState<ReferralSummary | null>(null);
-  const [status, setStatus] = useState("Loading your referral code...");
+  const [status, setStatus] = useState("");
+  const [codeLoading, setCodeLoading] = useState(true);
 
   useEffect(() => {
     void loadReferral();
   }, []);
 
   async function loadReferral() {
+    setCodeLoading(true);
     const result = await fetchReferralSummary();
+    setCodeLoading(false);
     if (!result.ok) {
       setReferral(null);
-      setStatus(result.message);
+      setStatus("");
       return;
     }
     setReferral(result.referral);
@@ -36,15 +39,22 @@ export function ReferralScreen() {
     <View style={styles.settingsSection}>
       <Text style={styles.todayTitle}>Refer a friend</Text>
       <Text style={styles.body}>
-        A referral qualifies after the new user completes two paid months. Five qualified referrals earn one reward month.
+        A referral counts after the new user completes two paid months. Five counted referrals earn one free month.
       </Text>
       <Text style={styles.inputLabel}>Your code</Text>
-      <Text selectable style={styles.settingsRowLabel}>{referral?.code ?? "Loading"}</Text>
+      <Text selectable style={[styles.settingsRowLabel, styles.referralCodeSlot, !referral && styles.muted]}>
+        {codeLoading ? "Getting your code…" : referral?.code ?? "Connect to the internet to see your code"}
+      </Text>
+      {!codeLoading && !referral ? (
+        <Pressable accessibilityRole="button" onPress={() => void loadReferral()}>
+          <Text style={styles.actionButtonSecondaryText}>Try again</Text>
+        </Pressable>
+      ) : null}
       <Text selectable style={styles.muted}>{referral?.shareUrl ?? ""}</Text>
       <View style={styles.settingsSection}>
         <View style={styles.settingsValueRow}>
           <Text style={styles.settingsRowLabel}>{referral?.qualifiedCount ?? 0}</Text>
-          <Text style={styles.metricLabel}>qualified</Text>
+          <Text style={styles.metricLabel}>counted</Text>
         </View>
         <View style={styles.settingsValueRow}>
           <Text style={styles.settingsRowLabel}>{referral?.earnedRewardMonths ?? 0}</Text>
@@ -64,7 +74,7 @@ export function ReferralScreen() {
       </Pressable>
       <Text style={styles.statusMessage}>{status}</Text>
       <Text style={styles.muted}>
-        Reward months are recorded first and fulfilled only through a store-compliant process. Accounts that reuse a registered mobile number do not qualify. Rewards may be reviewed before fulfillment.
+        Free months are recorded first, then given only in a store-approved way. Accounts that reuse a registered phone number do not count. Rewards may be checked before they are given.
       </Text>
     </View>
   );

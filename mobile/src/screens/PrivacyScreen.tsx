@@ -10,7 +10,13 @@ export function PrivacyScreen({ supportOnly = false }: { supportOnly?: boolean }
       {!supportOnly ? <>
       <View style={styles.settingsSection}>
         <Text style={styles.todayTitle}>Privacy &amp; data</Text>
+        <Text style={styles.rowLabel}>{privacyContent.heading}</Text>
         <Text style={styles.body}>{privacyContent.body}</Text>
+      </View>
+
+      <View style={styles.settingsSection}>
+        <Text style={styles.rowLabel}>{privacyContent.accountHeading}</Text>
+        <Text style={styles.body}>{privacyContent.accountBody}</Text>
       </View>
 
       <View style={styles.settingsSection}>
@@ -18,11 +24,16 @@ export function PrivacyScreen({ supportOnly = false }: { supportOnly?: boolean }
         <Text style={styles.body}>{privacyContent.analyticsBody}</Text>
       </View>
 
+      <View style={styles.settingsSection}>
+        <Text style={styles.rowLabel}>{privacyContent.subscriptionHeading}</Text>
+        <Text style={styles.body}>{privacyContent.subscriptionBody}</Text>
+      </View>
+
       </> : null}
       <View style={styles.settingsSection}>
         <Text style={supportOnly ? styles.todayTitle : styles.rowLabel}>{supportOnly ? "Support" : "Privacy and deletion links"}</Text>
         <Text style={styles.body}>
-          {supportOnly ? "Questions or problems? See our privacy and help pages." : "Read the public policy or use the web deletion page when the mobile app is unavailable."}
+          {supportOnly ? "Questions or problems? See our privacy and help pages." : "Read the privacy policy below. Delete your account here in Settings, or use the web deletion page if you cannot use the app."}
         </Text>
         <Pressable
           accessibilityRole="link"

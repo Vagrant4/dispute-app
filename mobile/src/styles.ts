@@ -33,6 +33,7 @@ export const styles = StyleSheet.create({
   settingsRow: { width: "100%", minHeight: 72, flexDirection: "row", alignItems: "center", gap: today.rowGap, paddingVertical: today.rowY, borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.colors.border, marginTop: today.rowOverlap },
   settingsRowContent: { flex: 1, minWidth: 0, gap: today.subtitleTop },
   settingsRowLabel: { color: theme.colors.text, ...type.label },
+  referralCodeSlot: { height: 48 },
   settingsRowSubtitle: { color: theme.colors.textMuted, ...type.caption },
   settingsChevron: { color: theme.colors.textMuted, ...today.chevron },
   settingsBackRow: { minHeight: control.height, justifyContent: "center", marginBottom: space.sm },

@@ -122,7 +122,7 @@ export function DeleteAccountScreen({
       onAccountDeleted(result.message);
     } catch {
       onAccountDeleted(
-        `Your server account was deleted. Clear DISPUTE app storage in phone Settings to finish local cleanup. Request ID: ${result.requestId}`,
+        `Your account was deleted. Clear DISPUTE app storage in phone Settings to finish clearing this phone. Request ID: ${result.requestId}`,
       );
     }
   }
@@ -132,13 +132,13 @@ export function DeleteAccountScreen({
       {!embedded ? <Text style={styles.eyebrow}>Danger zone</Text> : null}
       <Text style={embedded ? styles.rowLabel : styles.heading}>Delete account and data</Text>
       <Text style={styles.body}>
-        Permanently deletes {account.email}, projects, time entries, locations,
-        evidence, reports and login tokens. This cannot be recovered.
+        Permanently deletes the account for {account.email}, projects, time entries, places,
+        evidence, reports and saved sign-in access. This removes the account data DISPUTE keeps and its data on this phone. You cannot get it back.
       </Text>
       <View style={embedded ? styles.settingsSection : styles.deletionWarningCard}>
         <Text style={styles.warningText}>
           Deleting DISPUTE does not cancel an active Google Play or App Store
-          subscription. Manage the subscription separately before deletion.
+          subscription. Manage it separately before deletion.
         </Text>
       </View>
       <Pressable

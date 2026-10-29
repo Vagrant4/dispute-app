@@ -11,16 +11,18 @@ export const backupWarning =
   "Your records are kept on this phone. Save a copy before you change phone or delete the app.";
 
 export const privacyContent = {
-  heading: "Local-first work evidence",
+  heading: "Your work records",
   body:
-    "DISPUTE stores account and subscription status securely on the server. " +
-    "Work logs, evidence photos, location details and generated reports stay " +
-    "on this device unless you choose to export, back up or share them.",
-  analyticsHeading: "No advertising trackers",
+    "Work records, evidence photos, places and reports stay on this phone unless you save a copy or share them.",
+  accountHeading: "Your account",
+  accountBody:
+    "DISPUTE securely keeps your account details and subscription status for your account.",
+  analyticsHeading: "No advertising tracking",
   analyticsBody:
-    "The current mobile release does not include advertising trackers, cloud " +
-    "work-record sync or background evidence uploads. Google Play and our payment partner " +
-    "handle your subscription.",
+    "This version has no advertising tracking. It does not copy work records between phones or send evidence automatically.",
+  subscriptionHeading: "Your subscription",
+  subscriptionBody:
+    "Google Play and our payment partner handle your subscription.",
 };
 
 export const subscriptionContent = {

@@ -28,9 +28,9 @@ test("mobile scaffold declares real user trial readiness copy", () => {
   for (const requiredCopy of [
     "New users receive a 30-day no-card trial",
     "Save a copy before you change phone or delete the app",
-    "DISPUTE stores account and subscription status securely on the server",
-    "on this device unless you choose to export",
-    "No advertising trackers",
+    "DISPUTE securely keeps your account details and subscription status for your account",
+    "on this phone unless you save a copy or share them",
+    "No advertising tracking",
   ]) {
     assert.match(contentSource, new RegExp(requiredCopy));
   }
@@ -41,7 +41,7 @@ test("mobile scaffold keeps required backup warning and status copy", () => {
     contentSource,
     /Your records are kept on this phone\. Save a copy before you change phone or delete the app\./,
   );
-  assert.match(contentSource, /No advertising trackers/);
+  assert.match(contentSource, /No advertising tracking/);
   assert.match(contentSource, /Google Play and our payment partner/);
   assert.doesNotMatch(contentSource, /policyGated/);
 
