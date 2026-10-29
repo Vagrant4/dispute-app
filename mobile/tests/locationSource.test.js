@@ -1,10 +1,10 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { createLoader, fixture, source, sqliteDatabase } = require("./locationTestHelpers");
-test("Home has a GPS chip and only a separately bound worker note", () => {
+test("Home has a GPS chip without typed location input", () => {
   const home = source("src/screens/HomeScreen.tsx");
   for (const input of home.matchAll(/<TextInput[\s\S]*?\/>/g)) assert.doesNotMatch(input[0], /value=\{location|setLocationText|site address/i);
-  assert.match(home, /Note \(typed by you\)/);
+  assert.doesNotMatch(home, /TextInput/);
   assert.match(home, /formatLocationChip\(locationFix, locating\)/);
   assert.doesNotMatch(home, /GPS attached:|toFixed\(5\)/);
   assert.ok(home.indexOf("await store.clockIn(") < home.indexOf("await getWorkLocationWithTimeout(20_000)"));

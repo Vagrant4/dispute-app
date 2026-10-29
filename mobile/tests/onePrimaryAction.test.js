@@ -10,7 +10,7 @@ test("Today reserves filled lime for Start / Stop, including expired access", ()
   assert.match(home, /handleClockOut\(\) : handleClockIn\(\)/);
   assert.match(home, /"Stop work" : "Start work"/);
   assert.match(home, /onPress=\{onCreateAccount\} style=\{styles.actionButtonSecondary\}/);
-  assert.match(home, /selected \? styles.selectedSecondaryText/);
+  assert.match(home, /startDisabled && styles.disabledButtonText/);
 });
 
 test("Projects open through plain rows; New project and name sheets are secondary", () => {
@@ -49,14 +49,11 @@ test("Photos has one camera action for empty and populated galleries; sheet acti
   assert.match(source("src/photos/photoSeal.ts"), /Sealed on this phone/);
 });
 
-test("Today Details starts collapsed and contains times, day controls, picker and recent entries", () => {
+test("Today shows one summary and a direct project picker without Details", () => {
   const home = screen("Home");
-  assert.match(home, /\[detailsExpanded, setDetailsExpanded\] = useState\(false\)/);
-  assert.match(home, /accessibilityState=\{\{ expanded: detailsExpanded \}\}/);
-  assert.match(home, />Details \{detailsExpanded/);
-  const details = home.slice(home.indexOf("{detailsExpanded ? <>"));
-  for (const content of ["Started:", "Stopped:", "DAY_TYPE_OPTIONS.map", "setProjectPickerOpen", "Recent time", "Confirm Delete"]) assert.ok(details.includes(content));
-  assert.equal((home.slice(home.indexOf("return ("), home.indexOf("{detailsExpanded ? <>")).match(/styles.metricValue/g) || []).length, 1);
+  assert.doesNotMatch(home, /detailsExpanded|DAY_TYPE_OPTIONS|Recent time|Started:|Stopped:/);
+  assert.match(home, /setProjectPickerOpen/);
+  assert.equal((home.match(/styles.metricValue/g) || []).length, 1);
 });
 
 test("Project sessions and breakdown start collapsed; each screen has one title", () => {

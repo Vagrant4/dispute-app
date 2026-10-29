@@ -4,22 +4,23 @@ import {
   Platform,
   Pressable,
   Text,
-  TextInput,
+  Linking,
   View,
 } from "react-native";
 
 import { ProjectNameSheet } from "./ProjectNameSheet";
-import { styles, theme } from "../styles";
+import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { formatLocationChip, locationReading, type LocationReading } from "../work/locationEvidence";
 import { getWorkLocationWithTimeout } from "../work/workLocation";
-import { buildAutomaticProjectName } from "../work/projectDraft";
+import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
-import { formatTrialCountdown } from "../subscription/subscriptionClient";
 
 export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount; onCreateAccount: () => void }) {
   const locationRequest = useRef(0);
+  const pendingLocations = useRef<LocationReading[]>([]);
+  const [locationOff, setLocationOff] = useState(false);
   const savingStart = useRef(false);
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
@@ -32,18 +33,14 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [workStatus, setWorkStatus] = useState("");
   const [locationFix, setLocationFix] = useState<LocationReading | null>(null);
   const [locating, setLocating] = useState(false);
-  const [noteExpanded, setNoteExpanded] = useState(false);
-  const [workerNote, setWorkerNote] = useState("");
   const [locationEntryId, setLocationEntryId] = useState<string | null>(null);
   const [locationPhase, setLocationPhase] = useState<"start" | "stop">("start");
   const [stopping, setStopping] = useState(false);
   const [activityText, setActivityText] = useState("");
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [dayType, setDayType] = useState<WorkDayType>(() => defaultDayType(new Date()));
-  const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -68,6 +65,11 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
     : null;
+  const isRunning = Boolean(clockInAt && !clockOutAt);
+  const readiness = startReadiness({ hasLocation: locationFix?.source === "gps", hasProject: Boolean(activeProject) });
+  const startDisabled = !isRunning && (!readiness.enabled || !access.canCreateRecords);
+  const trialDaysLeft = account.isGuest ? access.trialDaysLeft : access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
+    ? Math.ceil((Date.parse(access.subscription.trialEndsAt) - now.getTime()) / 86400000) : null;
   async function refreshWorkState() {
     try {
       const store = await getWorkStore(userId);
@@ -77,6 +79,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       ]);
       setHomeState(nextState);
       setProjects(nextProjects);
+      const activeProjects = nextProjects.filter((project) => project.status !== "archived");
       if (nextState.activeEntry?.startTime) {
         setSelectedProjectId(nextState.activeEntry.projectId);
         setDayType(nextState.activeEntry.dayType);
@@ -91,7 +94,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           latitude: entry.clockInGpsLatitude, longitude: entry.clockInGpsLongitude,
           accuracy: entry.clockInGpsAccuracyM ?? null, locatedAt: entry.clockInLocatedAt ?? null,
         });
-        setWorkerNote(entry.locationNote ?? "");
       } else {
         const recent = nextState.recentEntries[0];
         if (recent?.endTime && Date.now() - new Date(recent.endTime).getTime() <= 600_000) {
@@ -101,17 +103,16 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           setClockOutAt(new Date(recent.endTime));
           const history = JSON.parse(recent.locationHistoryJson || "[]") as LocationReading[];
           setLocationFix(history.filter((fix) => fix.phase === "stop").at(-1) ?? { phase: "stop", source: recent.clockOutLocationSource ?? "legacy", address: recent.clockOutLocationText ?? null, latitude: recent.clockOutGpsLatitude, longitude: recent.clockOutGpsLongitude, accuracy: recent.clockOutGpsAccuracyM ?? null, locatedAt: recent.clockOutLocatedAt ?? null });
-          setWorkerNote(recent.locationNote ?? "");
         } else {
           setClockInAt(null);
           setClockOutAt(null);
           setLocationEntryId(null);
-          setLocationFix(null);
+          setLocationFix(pendingLocations.current.at(-1) ?? null);
         }
         setSelectedProjectId((current) =>
-          nextProjects.some((project) => project.id === current)
+          activeProjects.some((project) => project.id === current)
             ? current
-            : nextState.project?.id ?? nextProjects[0]?.id ?? null,
+            : activeProjects.length === 1 ? activeProjects[0].id : null,
         );
       }
     } catch (error) {
@@ -120,7 +121,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   }
 
   async function handleClockIn() {
-    if (savingStart.current) return;
+    if (savingStart.current || !readiness.enabled) return;
     if (!access.hasCurrentCreateAccess()) {
       setWorkStatus("An active trial or subscription is required to create new time records.");
       return;
@@ -130,15 +131,12 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     const nextClockIn = new Date();
     try {
       const store = await getWorkStore(userId);
-      let projectId = selectedProjectId;
-      if (!projectId) {
-        if (!("createClient" in store) || !("createProject" in store)) throw new Error("Project creation is unavailable.");
-        const client = await store.createClient({ userId, name: "Local Client" });
-        const project = await store.createProject({ userId, clientId: client.id, name: buildAutomaticProjectName(nextClockIn), hourlyRateCents: 0, currency: "SGD" });
-        projectId = project.id;
-        setSelectedProjectId(project.id);
-      }
+      const projectId = selectedProjectId!;
       const entry = await store.clockIn({ userId, projectId, clockInAt: nextClockIn, dayType });
+      for (const fix of pendingLocations.current) {
+        await store.refreshLocation({ userId, entryId: entry.id, phase: "start", locationText: fix.address ?? undefined, gpsLatitude: fix.latitude, gpsLongitude: fix.longitude, gpsAccuracyM: fix.accuracy, locatedAt: fix.locatedAt });
+      }
+      pendingLocations.current = [];
       savingStart.current = false;
       setLocationEntryId(entry.id);
       setLocationPhase("start");
@@ -161,27 +159,22 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   }
 
   async function handleLocateMe() {
-    if (!locationEntryId || locating || stopping) return;
+    if (locating || stopping) return;
     const request = ++locationRequest.current;
     setLocating(true);
     try {
       const location = await getWorkLocationWithTimeout(20_000);
       if (request !== locationRequest.current) return;
       const store = await getWorkStore(userId);
-      const params = { userId, entryId: locationEntryId, phase: locationPhase, locationText: location?.address ?? undefined, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
-      await store.refreshLocation(params);
-      setLocationFix(locationReading(params, locationPhase));
+      const canRefreshEntry = locationEntryId && (locationPhase === "start" || (clockOutAt && now.getTime() - clockOutAt.getTime() <= 600_000));
+      const params = { userId, entryId: locationEntryId!, phase: locationPhase, locationText: location?.address ?? undefined, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
+      const fix = locationReading(params, canRefreshEntry ? locationPhase : "start");
+      setLocationOff(fix.source !== "gps");
+      if (canRefreshEntry) await store.refreshLocation(params);
+      else if (fix.source === "gps") pendingLocations.current.push(fix);
+      setLocationFix(fix);
     } catch (error) { setWorkStatus(getErrorMessage(error)); }
     finally { if (request === locationRequest.current) setLocating(false); }
-  }
-
-  async function handleSaveLocationNote() {
-    if (!locationEntryId) return;
-    try {
-      const store = await getWorkStore(userId);
-      await store.saveLocationNote({ userId, entryId: locationEntryId, note: workerNote });
-      setNoteExpanded(false);
-    } catch (error) { setWorkStatus(getErrorMessage(error)); }
   }
 
   async function handleClockOut() {
@@ -221,29 +214,8 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     } finally { setLocating(false); setStopping(false); }
   }
 
-  async function handleDeleteEntry(entryId: string) {
-    if (pendingDeleteEntryId !== entryId) {
-      setPendingDeleteEntryId(entryId);
-      setWorkStatus("Tap Confirm Delete to remove this recent time entry.");
-      return;
-    }
-
-    try {
-      const store = await getWorkStore(userId);
-      if (!("deleteEntry" in store) || typeof store.deleteEntry !== "function") {
-        throw new Error("This can't be done right now. Please try again.");
-      }
-      await store.deleteEntry({ userId, entryId });
-      setPendingDeleteEntryId(null);
-      setWorkStatus("Time entry deleted.");
-      await refreshWorkState();
-    } catch (error) {
-      setWorkStatus(getErrorMessage(error));
-    }
-  }
-
   return (
-    <>
+    <View style={styles.todayScreen}>
       <View style={styles.clockPanel}>
         <View style={styles.clockHeader}>
           <View style={styles.clockBadge}>
@@ -260,28 +232,26 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           </View>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          disabled={!clockInAt && !access.canCreateRecords}
-          onPress={() => void (clockInAt && !clockOutAt ? handleClockOut() : handleClockIn())}
-          style={[styles.actionButton, { minHeight: 64 }, !clockInAt && !access.canCreateRecords && styles.disabledButton]}
-        >
-          <Text style={[styles.actionButtonText, (!clockInAt && !access.canCreateRecords) && styles.disabledButtonText]}>{clockInAt && !clockOutAt ? "Stop work" : "Start work"}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Get location" disabled={locating || stopping} onPress={() => void handleLocateMe()} style={[styles.locationChip, styles.todayLocationRow, (locating || stopping) && styles.disabledButton]}>
+          <Text accessible={false} style={styles.locationChipText}>⌖</Text>
+          <Text style={[styles.locationChipText, (locating || stopping) && styles.disabledButtonText]}>{locating || locationFix?.source === "gps" ? formatLocationChip(locationFix, locating) : "Tap for location"}</Text>
         </Pressable>
-        {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
-        <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Refresh GPS location" disabled={locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))} onPress={() => void handleLocateMe()} style={[styles.locationChip, (locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))) && styles.disabledButton]}>
-          <Text style={[styles.locationChipText, (locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))) && styles.disabledButtonText]}>{formatLocationChip(locationFix, locating)}</Text>
-        </Pressable>
-        {!locationFix || locationFix.source !== "gps" ? <Pressable accessibilityRole="button" onPress={() => setNoteExpanded((value) => !value)}><Text style={styles.muted}>Add a note</Text></Pressable> : null}
-        {workerNote ? <Text style={styles.muted}>Note (typed by you): {workerNote}</Text> : null}
-        {noteExpanded ? <View>
-          <Text style={styles.inputLabel}>Note (typed by you)</Text>
-          <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Worker note" value={workerNote} onChangeText={setWorkerNote} style={styles.textInput} placeholder="Optional worker note" />
-          <Pressable accessibilityRole="button" onPress={() => void handleSaveLocationNote()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save note</Text></Pressable>
+        {locationOff ? <View>
+          <Text style={styles.muted}>Location is off for DISPUTE. Turn it on in your phone settings.</Text>
+          <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}><Text style={styles.actionButtonSecondaryText}>Open settings</Text></Pressable>
         </View> : null}
-        {account.isGuest && access.trialDaysLeft != null ? <Text style={styles.muted}>Free trial · {access.trialDaysLeft} day{access.trialDaysLeft === 1 ? "" : "s"} left</Text> : null}
-        {!account.isGuest && formatTrialCountdown(access.subscription) ? <Text style={styles.muted}>{formatTrialCountdown(access.subscription)}</Text> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} style={[(Boolean(clockInAt && !clockOutAt)) && styles.disabledButton]} disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={[styles.body, (Boolean(clockInAt && !clockOutAt)) && styles.disabledButtonText]}>{activeProject?.name ?? "Choose a project"} ›</Text></Pressable>
+        {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
+        {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
+          if (!access.canCreateRecords) throw new Error(access.message);
+          const store = await getWorkStore(userId);
+          const clients = await store.listClients(userId);
+          const client = clients[0] ?? await store.createClient({ userId, name: "My client" });
+          const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
+          await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
+        }} /> : null}
+        {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
+        {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.muted}>{trialDaysLeft} days left in your free trial</Text> : null}
         {access.subscription && !access.canCreateRecords ? (
           <View style={[styles.card, styles.warningCard]}>
             <Text style={styles.heading}>{account.isGuest ? "Your 30-day free trial has ended." : "Your trial or subscription is not active."}</Text>
@@ -292,123 +262,22 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
             {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Create account</Text></Pressable> : null}
           </View>
         ) : null}
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} onPress={() => setDetailsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
-          <Text style={styles.actionButtonSecondaryText}>Details {detailsExpanded ? "▲" : "▼"}</Text>
+      </View>
+      <View style={styles.todayBottomAction}>
+        {!isRunning && readiness.hint ? <Text style={styles.muted}>{readiness.hint}</Text> : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: startDisabled }}
+          disabled={startDisabled}
+          onPress={() => void (clockInAt && !clockOutAt ? handleClockOut() : handleClockIn())}
+          style={[styles.actionButton, startDisabled && styles.disabledButton]}
+        >
+          <Text style={[styles.actionButtonText, startDisabled && styles.disabledButtonText]}>{clockInAt && !clockOutAt ? "Stop work" : "Start work"}</Text>
         </Pressable>
-
       </View>
-      {detailsExpanded ? <>
-      <View style={styles.card}>
-        <Text style={styles.muted}>Started: {clockInAt ? formatTime(clockInAt) : "--:--"} · Stopped: {clockOutAt ? formatTime(clockOutAt) : "--:--"}</Text>
-        <Text style={styles.inputLabel}>Day type</Text>
-        <View style={styles.dayTypeRow}>
-          {DAY_TYPE_OPTIONS.map((option) => {
-            const selected = option.id === dayType;
-            const disabled = Boolean(clockInAt && !clockOutAt);
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected, disabled }}
-                disabled={disabled}
-                key={option.id}
-                onPress={() => setDayType(option.id)}
-                style={[
-                  styles.actionButtonSecondary,
-                  styles.dayTypeSegment,
-                  disabled && styles.disabledButton,
-                ]}
-              >
-                <Text style={[selected ? styles.selectedSecondaryText : styles.actionButtonSecondaryText, (disabled) && styles.disabledButtonText]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {clockInAt && !clockOutAt ? <Text style={styles.muted}>Day type can be changed after stopping.</Text> : null}
-
-        <Pressable style={[(Boolean(clockInAt && !clockOutAt)) && styles.disabledButton]} disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={[styles.body, (Boolean(clockInAt && !clockOutAt)) && styles.disabledButtonText]}>Project: {activeProject?.name ?? "Auto-create Job 1"} ›</Text></Pressable>
-        {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
-        {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
-          if (!access.canCreateRecords) throw new Error(access.message);
-          const store = await getWorkStore(userId);
-          const clients = await store.listClients(userId);
-          const client = clients[0] ?? await store.createClient({ userId, name: "My client" });
-          const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
-          await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
-        }} /> : null}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.heading}>Recent time</Text>
-        {homeState?.recentEntries.length ? (
-          <View style={styles.list}>
-            {homeState.recentEntries.slice(0, 4).map((entry) => {
-              const isConfirmingDelete = pendingDeleteEntryId === entry.id;
-              return (
-              <View key={entry.id} style={styles.row}>
-                <View style={styles.recentTimeContent}>
-                  <View>
-                    <Text style={styles.rowLabel}>{entry.projectName}</Text>
-                    <Text style={styles.muted}>
-                      {entry.workDate} - {formatDayType(entry.dayType)} - {entry.endTime ? "Clocked out" : "Active"}
-                    </Text>
-                    <Text style={styles.body}>{entry.activity}</Text>
-                  </View>
-                  <View style={styles.recentTimeActions}>
-                    <Text style={styles.rowValue}>
-                      {formatElapsed(entry.durationMinutes)}
-                    </Text>
-                    {isConfirmingDelete ? (
-                      <View style={styles.deleteConfirmRow}>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => setPendingDeleteEntryId(null)}
-                          style={styles.compactSecondaryButton}
-                        >
-                          <Text style={styles.compactSecondaryButtonText}>Cancel</Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => void handleDeleteEntry(entry.id)}
-                          style={styles.compactDangerButton}
-                        >
-                          <Text style={styles.compactDangerButtonText}>Confirm Delete</Text>
-                        </Pressable>
-                      </View>
-                    ) : (
-                      <Pressable
-                        accessibilityLabel={`Delete time entry for ${entry.projectName}`}
-                        accessibilityRole="button"
-                        onPress={() => void handleDeleteEntry(entry.id)}
-                        style={styles.compactSecondaryButton}
-                      >
-                        <Text style={styles.compactSecondaryButtonText}>Delete</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-              </View>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={styles.muted}>
-            No saved time entries yet. Tap Start work to begin.
-          </Text>
-        )}
-      </View>
-      </> : null}
-
-    </>
+    </View>
   );
 }
-
-const DAY_TYPE_OPTIONS: Array<{ id: WorkDayType; label: string }> = [
-  { id: "normal", label: "Normal" },
-  { id: "off_day", label: "Off day" },
-  { id: "holiday", label: "Holiday" },
-];
 
 async function getWorkStore(userId: string) {
   if (Platform.OS === "web") {
@@ -432,16 +301,6 @@ function formatTime(date: Date): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatDayType(value: WorkDayType): string {
-  if (value === "off_day") {
-    return "Off day";
-  }
-  if (value === "holiday") {
-    return "Holiday";
-  }
-  return "Normal";
 }
 
 function parseBreakMinutes(value: string): number {

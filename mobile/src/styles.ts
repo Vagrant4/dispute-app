@@ -144,6 +144,7 @@ export const styles = StyleSheet.create({
     width: "100%",
   },
   contentInner: {
+    flexGrow: 1,
     gap: theme.spacing.lg,
     padding: space.md,
     paddingBottom: space.xl,
@@ -269,6 +270,9 @@ export const styles = StyleSheet.create({
     },
   selectedSecondaryText: { color: theme.colors.primary, ...type.body, },
   chipSelected: { backgroundColor: theme.colors.surfaceMuted, borderColor: theme.colors.primary, borderRadius: radius.pill, borderWidth: 1, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
+  todayScreen: { flexGrow: 1, gap: space.md },
+  todayBottomAction: { marginTop: "auto", gap: space.sm, paddingTop: space.md },
+  todayLocationRow: { minHeight: control.height, flexDirection: "row", alignItems: "center", gap: space.sm },
   clockPanel: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,

@@ -48,8 +48,8 @@ test("project navigation, one-field sheet, Today picker and one primary PDF acti
   const today = source("src/screens/HomeScreen.tsx");
   for (const input of today.matchAll(/<TextInput[\s\S]*?\/>/g)) assert.doesNotMatch(input[0], /projectName|projectDescription|projectHourlyRate|Project name|Project description|Project hourly rate/);
   assert.match(today, /ProjectNameSheet/);
-  assert.match(today, /Project:.*›/);
-  assert.match(today, /Worker note/);
+  assert.match(today, /Choose a project.*›/);
+  assert.doesNotMatch(today, /TextInput/);
   assert.equal((source("src/screens/ProjectNameSheet.tsx").match(/<TextInput\b/g) || []).length, 1);
   const projects = source("src/screens/ProjectsScreen.tsx");
   assert.match(projects, /openProjectId/);

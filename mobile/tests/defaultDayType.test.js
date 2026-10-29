@@ -19,13 +19,14 @@ test("Singapore day defaults cover Sundays, holidays, substitute days and weekda
   assert.match(source, /update yearly/);
 });
 
-test("Today has one Start/Stop toggle, compact day row and profile details live in Settings", () => {
+test("Today has one Start/Stop toggle, automatic day type and profile details live in Settings", () => {
   const home = fs.readFileSync(path.join(__dirname, "../src/screens/HomeScreen.tsx"), "utf8");
   const app = fs.readFileSync(path.join(__dirname, "../App.tsx"), "utf8");
   const profile = fs.readFileSync(path.join(__dirname, "../src/screens/ProfileSettingsPanel.tsx"), "utf8");
   assert.equal((home.match(/"Stop work" : "Start work"/g) || []).length, 1);
   assert.match(home, /"Working" : "Not started"/);
-  assert.match(home, /styles.dayTypeRow/);
+  assert.doesNotMatch(home, /styles.dayTypeRow/);
+  assert.match(home, /useState<WorkDayType>\(\(\) => defaultDayType\(new Date\(\)\)\)/);
   assert.match(home, /setDayType\(defaultDayType\(nextClockOut\)\)/);
   assert.doesNotMatch(home, /Use Existing Phone Records|Loading local work records|Local work records are ready/);
   assert.doesNotMatch(app, /Signed in as|Email verified|On this phone · no account yet/);
