@@ -1,3 +1,10 @@
+import type { ReactNode } from "react";
+import { ProjectPayCard } from "./ProjectPayCard";
+import { loadWorkHours, saveWorkHours, calculateNormalHours } from "../work/workHoursSettings";
+import { needsPayStep, currentWeekStart } from "../work/projectScreenStore";
+import type { AppSettings } from "../db/settingsValidation";
+import { parseSgdHourlyRateCents } from "../work/projectRates";
+import { buildProjectWeekReport } from "../reports/projectWeekReport";
 import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 
@@ -33,11 +40,16 @@ import {
 
 type ProgressClaimReportsScreenProps = {
   account: LocalAccount;
+  projectId?: string;
+  paySetupRequest?: number;
+  renderActions?: (actions: { share: () => void; preview: () => void; csv: () => void; locked: boolean }) => ReactNode;
+  onPaySaved?: () => void;
+
   onCreateAccount: () => void;
   onOpenPlanBilling?: () => void;
 };
 
-export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPlanBilling }: ProgressClaimReportsScreenProps) {
+export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPlanBilling, projectId: detailProjectId, paySetupRequest, renderActions, onPaySaved }: ProgressClaimReportsScreenProps) {
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
@@ -49,22 +61,87 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   );
   const [documents, setDocuments] = useState<GeneratedDocumentRow[]>([]);
   const [projects, setProjects] = useState<WorkProject[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(detailProjectId ?? null);
   const [exportPreview, setExportPreview] = useState<{
     fileName: string;
     contents: string;
   } | null>(null);
-  const [lastExportedReport, setLastExportedReport] = useState<{
-    filePath: string;
-    fileName: string;
-    documentId: string;
-    type: GeneratedDocumentType;
-    snapshot: ProgressClaimSnapshot;
-  } | null>(null);
   const [reportPreview, setReportPreview] = useState<ProgressClaimSnapshot | null>(
     null,
   );
-  const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
+  const [payStep, setPayStep] = useState<{ settings: AppSettings; name: string; action: "share" | "preview" | "save" } | null>(null);
+  useEffect(() => {
+    if (!paySetupRequest) return;
+    void loadWorkHours(userId).then((preferences) => setPayStep({ settings: preferences.settings, name: (!account.isGuest && account.name) || preferences.reportName, action: "save" })).catch((error) => setStatus(getErrorMessage(error)));
+  }, [paySetupRequest]);
+  async function preparePay(action: "share" | "preview") {
+    if (!selectedProjectId) return false;
+    const preferences = await loadWorkHours(userId);
+    const project = projects.find((item) => item.id === selectedProjectId);
+    if (project && needsPayStep({ hourlyRateCents: project.hourlyRateCents, hasWorkHours: preferences.hasWorkHours })) {
+      setPayStep({ settings: preferences.settings, name: account.isGuest ? "" : account.name || preferences.reportName, action });
+      return false;
+    }
+    return true;
+  }
+  async function savePay(name: string, rate: string, settings: AppSettings) {
+    if (!selectedProjectId || !payStep) return;
+    const hourlyRateCents = parseSgdHourlyRateCents(rate);
+    if (hourlyRateCents <= 0) throw new Error("Enter an hourly rate above zero.");
+    const repositories = await getReportRepositories(userId);
+    // Read the current project so saving pay cannot undo a rename in detail.
+    const project = (await repositories.work.listProjects(userId)).find((item) => item.id === selectedProjectId);
+    if (!project) throw new Error("Project not found for this account.");
+    const dailyHours = calculateNormalHours(settings.normalWorkStartTime, settings.normalWorkEndTime);
+    await saveWorkHours(userId, {
+      currency: settings.currency,
+      rateBasis: settings.rateBasis,
+      baseRateCents: settings.baseRateCents,
+      normalWorkStartTime: settings.normalWorkStartTime,
+      normalWorkEndTime: settings.normalWorkEndTime,
+      dailyHours,
+      weeklyHours: Math.max(settings.weeklyHours, dailyHours),
+      overtimeMultiplier: settings.overtimeMultiplier,
+      offDayMultiplier: settings.offDayMultiplier,
+      holidayMultiplier: settings.holidayMultiplier,
+    }, name);
+    await repositories.work.updateProject({
+      userId, projectId: project.id, name: project.name,
+      description: project.description, hourlyRateCents,
+    });
+    const action = payStep.action;
+    setPayStep(null);
+    await refreshArchive();
+    onPaySaved?.();
+    if (action === "share") await handleShareDisputePack();
+    else if (action === "preview") await handlePreview();
+  }
+  async function reportRepositories() {
+    const repositories = await getReportRepositories(userId);
+    return { ...repositories, progressClaims: { buildLatestProgressClaimSnapshot: async (params: { userId: string; projectId?: string }) => {
+      const preferences = await loadWorkHours(userId);
+      const entries = await repositories.work.listProjectEntries(userId, params.projectId!);
+      const snapshot = await repositories.progressClaims.buildLatestProgressClaimSnapshot(params);
+      return buildProjectWeekReport({
+        weekStart: currentWeekStart(),
+        accountName: account.isGuest ? undefined : account.name,
+        reportName: preferences.reportName,
+        input: {
+          generatedAt: new Date().toISOString(),
+          client: snapshot.client,
+          project: snapshot.project,
+          timeEntries: entries,
+          photoEvidence: snapshot.photoEvidence,
+          pay: {
+            ...snapshot.rateCalculation,
+            ...preferences.settings,
+            hourlyRateCents: snapshot.project.hourlyRateCents,
+            dailyNormalMinutes: preferences.settings.dailyHours * 60,
+          },
+        },
+      });
+    } } };
+  }
   const exportAccess = getDisputePackExportAccess({
     isGuest: account.isGuest === true,
     entitlement: account.isGuest ? access.subscription : subscription,
@@ -127,31 +204,18 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         repositories.generatedDocuments.listRecentGeneratedDocuments({
           userId,
           limit: 10,
+          projectId: detailProjectId,
         }),
         repositories.work.listProjects(userId),
         repositories.work.getHomeState(userId),
       ]);
-      setDocuments(rows);
+      setDocuments(detailProjectId ? rows.filter((row) => row.project_id === detailProjectId) : rows);
       setProjects(projectRows);
-      setSelectedProjectId((current) =>
+      setSelectedProjectId((current) => detailProjectId ?? (
         projectRows.some((project) => project.id === current)
           ? current
-          : home.recentEntries[0]?.projectId ?? projectRows[0]?.id ?? null,
+          : home.recentEntries[0]?.projectId ?? projectRows[0]?.id ?? null),
       );
-      if (Platform.OS === "web" && rows.length === 0 && projectRows.length === 0) {
-        const { hasLegacyWebGeneratedDocuments } = await import(
-          "../reports/webReportAdapters"
-        );
-        const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
-        setLegacyDataAvailable(
-          hasLegacyWebGeneratedDocuments() || hasLegacyWebWorkData(),
-        );
-      } else if (Platform.OS !== "web" && rows.length === 0 && projectRows.length === 0) {
-        const { hasLegacyLocalRepositories } = await import("../db/repositories");
-        setLegacyDataAvailable(await hasLegacyLocalRepositories());
-      } else {
-        setLegacyDataAvailable(false);
-      }
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
@@ -172,7 +236,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
     }
 
     try {
-      const repositories = await getReportRepositories(userId);
+      const repositories = await reportRepositories();
       const selectedProject = projects.find((project) => project.id === projectId);
       const formatLabel = type === "progress_claim_csv" ? "CSV" : "PDF";
       setSelectedProjectId(projectId);
@@ -193,13 +257,6 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           selectedProject?.name ? ` for ${selectedProject.name}` : ""
         }. Tap View Report to inspect it.`,
       );
-      setLastExportedReport({
-        filePath: result.filePath,
-        fileName: result.fileName,
-        documentId: result.documentId,
-        type,
-        snapshot: result.snapshot,
-      });
       setReportPreview(result.snapshot);
       if (Platform.OS === "web") {
         setExportPreview(getLastWebExportPreview());
@@ -217,7 +274,8 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       return;
     }
     try {
-      const repositories = await getReportRepositories(userId);
+      if (!(await preparePay("preview"))) return;
+      const repositories = await reportRepositories();
       setSelectedProjectId(projectId);
       const snapshot = await repositories.progressClaims.buildLatestProgressClaimSnapshot({ userId, projectId });
       setReportPreview(snapshot);
@@ -234,18 +292,19 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   async function handleShareDisputePack() {
     if (!(await ensureCanExport()) || !selectedProjectId) return;
     try {
-      const repositories = await getReportRepositories(userId);
+      if (!(await preparePay("share"))) return;
+      const repositories = await reportRepositories();
       const result = await generateAndArchiveProgressClaim({
         type: "progress_claim_pdf", userId, projectId: selectedProjectId, repositories,
         savePdf: Platform.OS === "web" ? saveProgressClaimPdfForWeb : undefined,
       });
       await refreshArchive();
       if (Platform.OS === "web") {
-        setStatus("Dispute pack created and archived. Use the Files list to download or share it.");
+        setStatus("Report ready.");
         return;
       }
-      const shared = await shareGeneratedDocument({ filePath: result.filePath, mimeType: "application/pdf", sharing: expoSharingAdapter });
-      setStatus(shared.message);
+      await shareGeneratedDocument({ filePath: result.filePath, mimeType: "application/pdf", sharing: expoSharingAdapter });
+      setStatus("Report ready.");
     } catch (error) { setStatus(getErrorMessage(error)); }
   }
 
@@ -370,44 +429,10 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
     }
   }
 
-  async function handleClaimLegacyData() {
-    try {
-      if (Platform.OS === "web") {
-        const { claimLegacyWebGeneratedDocuments } = await import(
-          "../reports/webReportAdapters"
-        );
-        const { claimLegacyWebWorkData } = await import("../work/webWorkStore");
-        const reportsClaimed = claimLegacyWebGeneratedDocuments(userId);
-        const workClaimed = claimLegacyWebWorkData(userId);
-        const claimed = reportsClaimed || workClaimed;
-        setStatus(
-          claimed
-            ? "Existing browser records are now assigned to this account."
-            : "No unassigned browser records were found.",
-        );
-        await refreshArchive();
-        return;
-      }
-      const { claimLegacyLocalRepositoriesForUser } = await import(
-        "../db/repositories"
-      );
-      const claimed = await claimLegacyLocalRepositoriesForUser(userId);
-      setStatus(
-        claimed
-          ? "Existing phone records are now assigned to this account."
-          : "No unassigned phone records were found.",
-      );
-      await refreshArchive();
-    } catch (error) {
-      setStatus(getErrorMessage(error));
-    }
-  }
-
   return (
     <>
       <View style={styles.card}>
-        <Text style={styles.eyebrow}>Export</Text>
-        <Text style={styles.heading}>Create claim report</Text>
+        <Text style={styles.eyebrow}>Weekly report</Text>
         {exportLocked ? (
           <View accessibilityLabel="Dispute pack locked" style={[styles.statusCard, styles.warningCard]}>
             <Text style={styles.statusTitle}>{"\u{1F512} "}{disputePackLockContent.title}</Text>
@@ -429,127 +454,13 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
               <Text style={styles.actionButtonSecondaryText}>Preview report</Text>
             </Pressable>
           </View>
-        ) : (
-          <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handleShareDisputePack()} style={[styles.actionButton, !selectedProjectId && styles.disabledButton]}>
-            <Text style={styles.actionButtonText}>Share dispute pack</Text>
-          </Pressable>
+        ) : renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked }) : (
+          <Pressable onPress={() => void handleShareDisputePack()} style={styles.actionButton}><Text style={styles.actionButtonText}>Share report</Text></Pressable>
         )}
+        {exportLocked && renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: true }) : null}
         <Text style={styles.muted}>{subscriptionStatus}</Text>
-        <Text style={styles.muted}>
-          Choose one project. PDF and CSV exports only include that project&apos;s
-          time, locations, and photos.
-        </Text>
-        {legacyDataAvailable ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleClaimLegacyData()}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>
-              Use Existing Phone Records
-            </Text>
-          </Pressable>
-        ) : null}
-        <View style={styles.metricGrid}>
-          <View style={styles.metricTile}>
-            <Text style={styles.metricValue}>{documents.length}</Text>
-            <Text style={styles.metricLabel}>archived files</Text>
-          </View>
-          <View style={styles.metricTile}>
-            <Text style={styles.metricValue}>PDF / CSV</Text>
-            <Text style={styles.metricLabel}>export formats</Text>
-          </View>
-        </View>
-        <Text style={styles.inputLabel}>Project to export</Text>
-        {projects.length ? (
-          <View style={styles.actionRow}>
-            {projects.map((project) => {
-              const selected = project.id === selectedProjectId;
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  key={project.id}
-                  onPress={() =>
-                    void (exportLocked
-                      ? handlePreview(project.id)
-                      : handleGenerate("progress_claim_pdf", project.id))
-                  }
-                  style={selected ? styles.actionButton : styles.actionButtonSecondary}
-                >
-                  <Text
-                    style={
-                      selected
-                        ? styles.actionButtonText
-                        : styles.actionButtonSecondaryText
-                    }
-                  >
-                    {project.name}
-                  </Text>
-                  <Text
-                    style={
-                      selected
-                        ? styles.actionButtonSubtext
-                        : styles.actionButtonSecondarySubtext
-                    }
-                  >
-                    Individual project report
-                  </Text>
-                  <Text
-                    style={
-                      selected
-                        ? styles.actionButtonSubtext
-                        : styles.actionButtonSecondarySubtext
-                    }
-                  >
-                    {exportLocked ? "Tap to preview" : "Tap to create PDF"}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={styles.muted}>
-            No project yet. Create a project before exporting.
-          </Text>
-        )}
-        <View style={styles.actionRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: !selectedProjectId || exportLocked,
-            }}
-            disabled={!selectedProjectId || exportLocked}
-            onPress={() => void handleGenerate("progress_claim_pdf")}
-            style={[
-              styles.actionButton,
-              (!selectedProjectId || exportLocked) &&
-                styles.disabledButton,
-            ]}
-          >
-            <Text style={styles.actionButtonText}>Create PDF</Text>
-            <Text style={styles.actionButtonSubtext}>Ready for claim sharing</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: !selectedProjectId || exportLocked,
-            }}
-            disabled={!selectedProjectId || exportLocked}
-            onPress={() => void handleGenerate("progress_claim_csv")}
-            style={[
-              styles.actionButtonSecondary,
-              (!selectedProjectId || exportLocked) &&
-                styles.disabledButton,
-            ]}
-          >
-            <Text style={styles.actionButtonSecondaryText}>Create CSV</Text>
-            <Text style={styles.actionButtonSecondarySubtext}>
-              Spreadsheet-ready project data
-            </Text>
-          </Pressable>
-        </View>
       </View>
+      {payStep ? <ProjectPayCard name={payStep.name} settings={payStep.settings} rateCents={projects.find((project) => project.id === selectedProjectId)?.hourlyRateCents ?? 0} onSave={savePay} /> : null}
 
       <View style={styles.statusCard}>
         <Text style={styles.statusTitle}>Status</Text>
@@ -557,7 +468,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.heading}>Files</Text>
+        <Text style={styles.heading}>Earlier reports</Text>
         {documents.length === 0 ? (
           <Text style={styles.muted}>
             No generated reports are archived on this device yet.

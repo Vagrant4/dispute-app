@@ -108,7 +108,7 @@ test("locked UI: lock card, preview button, create-account or Plan & billing act
   assert.match(reports, /handlePreview\(\)/);
   assert.match(reports, /exportLocked \? "\\u\{1F512\} Download PDF"/);
   assert.match(reports, /exportLocked \? "\\u\{1F512\} Email \/ Share"/);
-  assert.match(reports, /exportLocked\s*\? handlePreview\(project\.id\)/);
+  assert.match(reports, /renderActions\(\{ share:.*locked: true/);
   const app = src("App.tsx");
   assert.match(app, /onOpenPlanBilling=\{\(\) => onNavigate\("settings", "subscription"\)\}/);
   assert.match(src("src/screens/SettingsScreen.tsx"), /useState<SettingPanel>\(initialPanel \?\? "profile"\)/);

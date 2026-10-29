@@ -26,7 +26,7 @@ const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
 ];
 const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 
-export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
+export function PhotoEvidenceScreen({ account, initialProjectId }: { account: LocalAccount; initialProjectId?: string }) {
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState("");
@@ -40,7 +40,7 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
   const [pendingGps, setPendingGps] = useState<PhotoGpsResult | null>(null);
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [detail, setDetail] = useState<PhotoEvidenceRow | null>(null);
-  const [filterProjectId, setFilterProjectId] = useState("");
+  const [filterProjectId, setFilterProjectId] = useState(initialProjectId ?? "");
   const [captureSource, setCaptureSource] = useState<PhotoAction>("camera");
   const [captureTimeSource, setCaptureTimeSource] = useState<"device_clock" | "exif" | "unknown">("device_clock");
   const [saving, setSaving] = useState(false);

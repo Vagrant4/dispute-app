@@ -79,6 +79,7 @@ export class GeneratedDocumentRepository {
   async listRecentGeneratedDocuments(params: {
     userId: string;
     limit?: number;
+    projectId?: string;
   }): Promise<GeneratedDocumentRow[]> {
     const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
 
@@ -101,10 +102,10 @@ export class GeneratedDocumentRepository {
         created_at,
         updated_at
       FROM generated_documents
-      WHERE user_id = ?
+      WHERE user_id = ? AND (? IS NULL OR project_id = ?)
       ORDER BY created_at DESC
       LIMIT ?`,
-      [params.userId, limit],
+      [params.userId, params.projectId ?? null, params.projectId ?? null, limit],
     );
   }
 

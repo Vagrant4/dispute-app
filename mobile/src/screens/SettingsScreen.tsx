@@ -3,6 +3,7 @@ import { Linking, Platform, Pressable, Text, TextInput, View } from "react-nativ
 
 import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
+import { saveWorkHours, loadWorkHours as loadSavedWorkHours, calculateNormalHours } from "../work/workHoursSettings";
 import { styles } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
 import { PlanBillingPanel } from "./PlanBillingPanel";
@@ -100,12 +101,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }
 
   const loadWorkHours = useCallback(async () => {
-    if (Platform.OS === "web") {
-      return;
-    }
     try {
-      const repositories = await getNativeRepositories(userId);
-      const settings = await repositories.settings.getSettings(userId);
+      const { settings } = await loadSavedWorkHours(userId);
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -130,12 +127,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       const multiplier = Number.parseFloat(overtimeMultiplier);
       const offDayRate = Number.parseFloat(offDayMultiplier);
       const holidayRate = Number.parseFloat(holidayMultiplier);
-      if (Platform.OS === "web") {
-        setWorkHoursStatus("Work hours are saved in the native phone app build.");
-        return;
-      }
-      const repositories = await getNativeRepositories(userId);
-      const settings = await repositories.settings.updateSettings({
+      const settings = await saveWorkHours(userId, {
         currency,
         rateBasis,
         baseRateCents: parseRateAmountCents(baseRate),
@@ -149,7 +141,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         overtimeMultiplier: multiplier,
         offDayMultiplier: offDayRate,
         holidayMultiplier: holidayRate,
-      }, userId);
+      });
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -159,7 +151,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
       setWorkHoursStatus(
-        `Saved. ${settings.currency} ${formatRateAmount(settings.baseRateCents)} ${settings.rateBasis} rate. OT ${settings.overtimeMultiplier}x, off day ${settings.offDayMultiplier}x, holiday ${settings.holidayMultiplier}x.`,
+        `Work hours are saved on your phone. ${settings.currency} ${formatRateAmount(settings.baseRateCents)} ${settings.rateBasis} rate. OT ${settings.overtimeMultiplier}x, off day ${settings.offDayMultiplier}x, holiday ${settings.holidayMultiplier}x.`,
       );
     } catch (error) {
       setWorkHoursStatus(getErrorMessage(error));
@@ -437,27 +429,6 @@ function getCurrencyLabel(currency: string): string {
 function getRateBasisLabel(rateBasis: AppSettings["rateBasis"]): string {
   const option = RATE_BASIS_OPTIONS.find((item) => item.id === rateBasis);
   return option?.label ?? rateBasis;
-}
-
-async function getNativeRepositories(userId: string) {
-  const { getLocalRepositories } = await import("../db/repositories");
-  return getLocalRepositories(userId);
-}
-
-function calculateNormalHours(startTime: string, endTime: string): number {
-  const start = minutesOfDay(startTime);
-  let end = minutesOfDay(endTime);
-  if (end <= start) {
-    end += 24 * 60;
-  }
-  return Number(((end - start) / 60).toFixed(2));
-}
-
-function minutesOfDay(value: string): number {
-  const [hourText, minuteText] = value.split(":");
-  const hour = Number.parseInt(hourText, 10);
-  const minute = Number.parseInt(minuteText, 10);
-  return hour * 60 + minute;
 }
 
 function parseRateAmountCents(value: string): number {

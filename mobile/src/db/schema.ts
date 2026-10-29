@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -216,6 +216,9 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  overtime_multiplier REAL NOT NULL,\n  status TEXT NOT NULL DEFAULT 'active',",
   "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  status TEXT NOT NULL DEFAULT 'active',",
 ).replace(
+  "  overtime_multiplier REAL NOT NULL,\n  rate_basis",
+  "  work_hours_saved INTEGER NOT NULL DEFAULT 0,\n  report_name TEXT,\n  overtime_multiplier REAL NOT NULL,\n  rate_basis",
+).replace(
   "  caption TEXT,\n  captured_at TEXT,",
   "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,\n  gps_accuracy_m REAL,\n  capture_source TEXT,\n  capture_time_source TEXT,",
 ).replace(
@@ -228,6 +231,15 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);",
   "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);\nCREATE INDEX IF NOT EXISTS idx_generated_documents_project_id ON generated_documents(project_id);",
 );
+
+export const REPORT_PAY_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN work_hours_saved INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE app_settings ADD COLUMN report_name TEXT;
+UPDATE app_settings SET work_hours_saved = 1
+WHERE updated_at <> created_at OR base_rate_cents > 0
+   OR normal_work_start_time <> '08:00' OR normal_work_end_time <> '17:00'
+   OR overtime_multiplier <> 1.5 OR off_day_multiplier <> 2 OR holiday_multiplier <> 2;
+`;
 
 export const REPOSITORY_HEALTH_SQL = {
   settingsCount: "SELECT COUNT(*) AS count FROM app_settings",
@@ -272,4 +284,5 @@ export const LOCAL_MIGRATIONS = [
   },
   { version: 8, name: "location_evidence", sql: LOCATION_EVIDENCE_MIGRATION_SQL },
   { version: 9, name: "photo_capture_seal", sql: PHOTO_SEAL_MIGRATION_SQL },
+  { version: 10, name: "report_pay_preferences", sql: REPORT_PAY_MIGRATION_SQL },
 ] as const;

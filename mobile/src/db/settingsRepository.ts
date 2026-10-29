@@ -116,6 +116,15 @@ WHERE id = ? AND user_id = ?
     return next;
   }
 
+  async getReportPreferences(userId: string): Promise<{ hasWorkHours: boolean; reportName: string }> {
+    const row = await this.database.getFirstAsync<{ work_hours_saved: number; report_name: string | null }>("SELECT work_hours_saved, report_name FROM app_settings WHERE user_id = ?", [userId]);
+    return { hasWorkHours: Boolean(row?.work_hours_saved), reportName: row?.report_name ?? "" };
+  }
+
+  async saveReportPreferences(userId: string, reportName?: string): Promise<void> {
+    await this.database.runAsync("UPDATE app_settings SET work_hours_saved = 1, report_name = COALESCE(?, report_name) WHERE user_id = ?", [reportName === undefined ? null : reportName.trim(), userId]);
+  }
+
   async getHealth(): Promise<RepositoryHealth> {
     const settings = await this.database.getFirstAsync<CountRow>(
       REPOSITORY_HEALTH_SQL.settingsCount,

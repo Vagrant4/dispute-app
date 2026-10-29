@@ -13,7 +13,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { LogoScreen } from "./src/screens/LogoScreen";
 import { PhotoEvidenceScreen } from "./src/screens/PhotoEvidenceScreen";
-import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsScreen";
+import { ProjectsScreen } from "./src/screens/ProjectsScreen";
 import { SettingsScreen, type SettingPanel } from "./src/screens/SettingsScreen";
 import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
@@ -31,13 +31,16 @@ function renderScreen(
   onAccountDeleted: (message: string) => void,
   onCreateAccount: () => void,
   settingsInitialPanel?: SettingPanel,
+  photoProjectId?: string,
+  onSeePhotos?: (projectId: string) => void,
 ) {
   switch (activeTab) {
     case "evidence":
-      return <PhotoEvidenceScreen account={account} />;
+      return <PhotoEvidenceScreen account={account} initialProjectId={photoProjectId} />;
     case "reports":
       return (
-        <ProgressClaimReportsScreen
+        <ProjectsScreen
+          onSeePhotos={onSeePhotos ?? (() => onNavigate("evidence"))}
           account={account}
           onCreateAccount={onCreateAccount}
           onOpenPlanBilling={() => onNavigate("settings", "subscription")}
@@ -59,6 +62,7 @@ function renderScreen(
 }
 
 export default function App() {
+  const [photoProjectId, setPhotoProjectId] = useState<string | undefined>();
   const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login" | "forgot">("logo");
   const [account, setAccount] = useState<LocalAccount | null>(null);
   const [pendingVerification, setPendingVerification] =
@@ -88,7 +92,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.app} edges={["top", "left", "right", "bottom"]}>
         <StatusBar style="light" />
         {showHeader ? (
           <View style={styles.header}>
@@ -116,35 +120,6 @@ export default function App() {
                       ? "Reset password"
                     : "Login"}
             </Text>
-          </View>
-        ) : null}
-
-        {account ? (
-          <View style={styles.tabRow}>
-            {tabs.map((tab) => {
-              const selected = tab.id === activeTab;
-              return (
-                <Pressable
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected }}
-                  key={tab.id}
-                  onPress={() => {
-                    setSettingsInitialPanel(undefined);
-                    setActiveTab(tab.id);
-                  }}
-                  style={[styles.tabButton, selected && styles.tabButtonActive]}
-                >
-                  <Text
-                    style={[
-                      styles.tabButtonText,
-                      selected && styles.tabButtonTextActive,
-                    ]}
-                  >
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
         ) : null}
 
@@ -176,6 +151,8 @@ export default function App() {
               },
               () => { setAccount(null); setAuthMode("create"); },
               settingsInitialPanel,
+              photoProjectId,
+              (projectId) => { setPhotoProjectId(projectId); setActiveTab("evidence"); },
             )
           ) : authMode === "logo" ? (
             <LogoScreen
@@ -244,6 +221,35 @@ export default function App() {
             </>
           )}
         </ScreenContainer>
+        {account ? (
+          <View style={styles.tabRow}>
+            {tabs.map((tab) => {
+              const selected = tab.id === activeTab;
+              return (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  key={tab.id}
+                  onPress={() => {
+                    setSettingsInitialPanel(undefined);
+                    setActiveTab(tab.id);
+                  }}
+                  style={[styles.tabButton, selected && styles.tabButtonActive]}
+                >
+                  <Text
+                    style={[
+                      styles.tabButtonText,
+                      selected && styles.tabButtonTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
       </SafeAreaView>
     </SafeAreaProvider>
   );

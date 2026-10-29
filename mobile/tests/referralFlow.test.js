@@ -29,7 +29,7 @@ test("settings exposes a server-backed referral share link and progress", () => 
 
 test("expired access gates new local capture while preserving user control of existing records", () => {
   assert.match(homeSource, /canCreateRecords/);
-  assert.match(homeSource, /Read-only access/);
+  assert.match(homeSource, /!access.canCreateRecords/);
   assert.match(evidenceSource, /canCreateRecords/);
   assert.match(evidenceSource, /Existing evidence remains readable/);
   assert.match(settingsSource, /SettingsBackupScreen/);
@@ -39,7 +39,7 @@ test("expired access gates new local capture while preserving user control of ex
 });
 
 test("report export screen offers individual-project PDF and CSV generation", () => {
-  assert.match(reportsSource, /Create PDF/);
-  assert.match(reportsSource, /Create CSV/);
+  assert.match(readFileSync(path.join(__dirname, "..", "src", "screens", "ProjectDetailScreen.tsx"), "utf8"), /Create & share PDF/);
+  assert.match(reportsSource, /handleShareDisputePack/);
   assert.match(reportsSource, /handleGenerate\("progress_claim_csv"\)/);
 });

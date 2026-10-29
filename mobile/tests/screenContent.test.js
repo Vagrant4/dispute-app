@@ -10,14 +10,14 @@ const contentSource = readFileSync(
 
 test("mobile production navigation declares simplified field-work destinations", () => {
   for (const label of [
-    "Time",
-    "Evidence",
-    "Export",
+    "Today",
+    "Photos",
+    "Projects",
     "Settings",
   ]) {
     assert.match(contentSource, new RegExp(`\\b${label}\\b`));
   }
-  assert.doesNotMatch(contentSource, /label: "Today"/);
+  assert.match(contentSource, /label: "Today"/);
   assert.doesNotMatch(contentSource, /label: "Work"/);
   assert.doesNotMatch(contentSource, /label: "Reports"/);
   assert.doesNotMatch(contentSource, /label: "Trial"/);

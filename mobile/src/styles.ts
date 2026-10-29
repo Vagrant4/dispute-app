@@ -29,6 +29,10 @@ export const theme = {
 };
 
 export const styles = StyleSheet.create({
+  projectSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.photoScrim },
+  projectSheet: { backgroundColor: theme.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14 },
+  projectPhoto: { width: 70, height: 70, borderRadius: 10 },
+
   photoScreenContainer: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md },
   photosPage: { flex: 1, gap: 12, paddingBottom: 84 },
   photoList: { flex: 1 },
@@ -45,7 +49,7 @@ export const styles = StyleSheet.create({
   photoEmpty: { alignItems: "center", gap: 16, paddingVertical: 72 },
   photoEmptyIcon: { fontSize: 40, backgroundColor: theme.colors.surfaceMuted, borderRadius: 28, padding: 24 },
   photoFab: { position: "absolute", right: 0, bottom: 12, borderRadius: 18, backgroundColor: theme.colors.primary, paddingHorizontal: 22, paddingVertical: 18 },
-  photoSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.background },
+  photoSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.photoScrim },
   photoSheet: { maxHeight: "92%", backgroundColor: theme.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   photoSheetContent: { padding: 24, paddingTop: 48, gap: 16, paddingBottom: 40 },
   photoDetail: { flex: 1, backgroundColor: theme.colors.background },

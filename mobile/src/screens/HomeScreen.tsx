@@ -7,13 +7,13 @@ import {
   View,
 } from "react-native";
 
+import { ProjectNameSheet } from "./ProjectNameSheet";
 import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { formatLocationChip, locationReading, type LocationReading } from "../work/locationEvidence";
 import { getWorkLocationWithTimeout } from "../work/workLocation";
-import { buildAutomaticProjectName, getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
-import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
+import { buildAutomaticProjectName } from "../work/projectDraft";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialCountdown } from "../subscription/subscriptionClient";
 
@@ -36,14 +36,13 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [locationEntryId, setLocationEntryId] = useState<string | null>(null);
   const [locationPhase, setLocationPhase] = useState<"start" | "stop">("start");
   const [stopping, setStopping] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
-  const [projectHourlyRate, setProjectHourlyRate] = useState("");
   const [activityText, setActivityText] = useState("");
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [dayType, setDayType] = useState<WorkDayType>("normal");
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
   const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   useEffect(() => {
@@ -69,28 +68,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
     : null;
-  const activeProjectDescription = activeProject?.description ?? "";
-  const activeProjectHourlyRateCents = activeProject?.hourlyRateCents;
-  const activeProjectId = activeProject?.id;
-  const activeProjectName = activeProject?.name ?? "";
-
-  useEffect(() => {
-    // Intentional local-database hydration of the editable project draft.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProjectName(activeProjectName);
-    setProjectDescription(activeProjectDescription);
-    setProjectHourlyRate(
-      activeProjectHourlyRateCents == null || activeProjectHourlyRateCents <= 0
-        ? ""
-        : formatSgdHourlyRate(activeProjectHourlyRateCents),
-    );
-  }, [
-    activeProjectDescription,
-    activeProjectHourlyRateCents,
-    activeProjectId,
-    activeProjectName,
-  ]);
-
   async function refreshWorkState() {
     try {
       const store = await getWorkStore(userId);
@@ -194,75 +171,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
     } finally { savingStart.current = false; }
-  }
-
-  async function handleSaveProject() {
-    if (!access.hasCurrentCreateAccess()) {
-      setWorkStatus("Existing projects remain readable. Subscribe to create or edit project records.");
-      return;
-    }
-    try {
-      const store = await getWorkStore(userId);
-      const hourlyRateCents = parseSgdHourlyRateCents(projectHourlyRate);
-      if (getProjectSaveMode(activeProject?.id) === "update" && activeProject) {
-        if (!("updateProject" in store) || typeof store.updateProject !== "function") {
-          throw new Error("Project editing is unavailable in this runtime.");
-        }
-        const updated = await store.updateProject({
-          userId,
-          projectId: activeProject.id,
-          name: projectName,
-          description: projectDescription,
-          hourlyRateCents,
-        });
-        setSelectedProjectId(updated.id);
-        setWorkStatus("Project details saved.");
-        await refreshWorkState();
-        return;
-      }
-
-      if (
-        !("createClient" in store) ||
-        typeof store.createClient !== "function" ||
-        !("createProject" in store) ||
-        typeof store.createProject !== "function"
-      ) {
-        throw new Error("Project editing is unavailable in this runtime.");
-      }
-      const client = await store.createClient({
-        userId,
-        name: "Local Client",
-      });
-      const created = await store.createProject({
-        userId,
-        clientId: client.id,
-        name: projectName,
-        description: projectDescription,
-        hourlyRateCents,
-        currency: "SGD",
-      });
-      setSelectedProjectId(created.id);
-      setWorkStatus(`Project created locally: ${created.name}`);
-      await refreshWorkState();
-    } catch (error) {
-      setWorkStatus(getErrorMessage(error));
-    }
-  }
-
-  function handleStartNewProject() {
-    const result = startNewProjectDraft({
-      hasCreateAccess: access.hasCurrentCreateAccess(),
-      isClockRunning: Boolean(clockInAt && !clockOutAt),
-    });
-    if (!result.ok) {
-      setWorkStatus(result.message);
-      return;
-    }
-    setSelectedProjectId(result.selectedProjectId);
-    setProjectName(result.projectName);
-    setProjectDescription(result.projectDescription);
-    setProjectHourlyRate("");
-    setWorkStatus(result.message);
   }
 
   async function handleLocateMe() {
@@ -440,107 +348,16 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
 
         {detailsExpanded ? <>
 
-        <Text style={styles.inputLabel}>Project</Text>
-        {!access.canCreateRecords ? (
-          <View style={styles.statusCard}>
-            <Text style={styles.statusTitle}>Read-only access</Text>
-            <Text style={styles.statusMessage}>{access.message}</Text>
-          </View>
-        ) : null}
-        <View style={styles.actionRow}>
-          {projects.length ? projects.map((project) => {
-            const selected = project.id === activeProject?.id;
-            const disabled = Boolean(clockInAt && !clockOutAt);
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected, disabled }}
-                disabled={disabled}
-                key={project.id}
-                onPress={() => setSelectedProjectId(project.id)}
-                style={[
-                  selected ? styles.actionButton : styles.actionButtonSecondary,
-                  disabled && styles.disabledButton,
-                ]}
-              >
-                <Text
-                  style={
-                    selected
-                      ? styles.actionButtonText
-                      : styles.actionButtonSecondaryText
-                  }
-                >
-                  {project.name}
-                </Text>
-              </Pressable>
-            );
-          }) : (
-            <Text style={styles.muted}>No project yet. Create one below.</Text>
-          )}
-        </View>
-
-        {projects.length ? (
-          <Pressable
-            accessibilityLabel="Create a new project"
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: Boolean(clockInAt && !clockOutAt) || !access.canCreateRecords,
-            }}
-            disabled={Boolean(clockInAt && !clockOutAt) || !access.canCreateRecords}
-            onPress={handleStartNewProject}
-            style={[
-              styles.actionButtonSecondary,
-              (clockInAt && !clockOutAt || !access.canCreateRecords) && styles.disabledButton,
-            ]}
-          >
-            <Text style={styles.actionButtonSecondaryText}>+ New Project</Text>
-          </Pressable>
-        ) : null}
-
-        <View style={styles.inlineFormPanel}>
-          <Text style={styles.inputLabel}>
-            {activeProject ? "Edit project detail" : "Create project"}
-          </Text>
-          <TextInput
-            accessibilityLabel="Project name"
-            editable={access.canCreateRecords}
-            onChangeText={setProjectName}
-            placeholder="Enter project name"
-            style={styles.textInput}
-            value={projectName}
-          />
-          <TextInput
-            accessibilityLabel="Project description"
-            editable={access.canCreateRecords}
-            multiline
-            onChangeText={setProjectDescription}
-            placeholder="Work scope or reference"
-            style={[styles.textInput, styles.textAreaSmall]}
-            value={projectDescription}
-          />
-          <TextInput
-            accessibilityLabel="Project hourly rate"
-            editable={access.canCreateRecords}
-            inputMode="decimal"
-            keyboardType="decimal-pad"
-            onChangeText={setProjectHourlyRate}
-            placeholder="Optional, e.g. 25.00"
-            style={styles.textInput}
-            value={projectHourlyRate}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !access.canCreateRecords }}
-            disabled={!access.canCreateRecords}
-            onPress={() => void handleSaveProject()}
-            style={[styles.actionButtonSecondary, !access.canCreateRecords && styles.disabledButton]}
-          >
-            <Text style={styles.actionButtonSecondaryText}>
-              {activeProject ? "Save Project Detail" : "Create Project"}
-            </Text>
-          </Pressable>
-          <Text style={styles.muted}>{workStatus}</Text>
-        </View>
+        <Pressable disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={styles.body}>Project: {activeProject?.name ?? "Auto-create Job 1"} ›</Text></Pressable>
+        {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={styles.body}>+ New project</Text></Pressable></View> : null}
+        {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
+          if (!access.canCreateRecords) throw new Error(access.message);
+          const store = await getWorkStore(userId);
+          const clients = await store.listClients(userId);
+          const client = clients[0] ?? await store.createClient({ userId, name: "My client" });
+          const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
+          await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
+        }} /> : null}
 
         <Text style={styles.inputLabel}>Day type</Text>
         <View style={styles.actionRow}>

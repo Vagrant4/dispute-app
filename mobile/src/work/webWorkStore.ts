@@ -8,6 +8,7 @@ import type {
   WorkHomeState,
   WorkClient,
   WorkProject,
+  ProjectSummary,
   CreateClientParams,
   CreateProjectParams,
   UpdateProjectParams,
@@ -21,6 +22,8 @@ import {
   requirePositiveProjectHourlyRateCents,
   normalizeProjectHourlyRateCents,
 } from "./projectRates";
+
+import { readWebWorkHours } from "./webWorkHours";
 
 const STORAGE_KEY = "claimproof-sg-web-work-state";
 
@@ -69,6 +72,35 @@ export const webWorkStore = {
 
   async listProjects(userId = DEFAULT_USER_ID): Promise<WorkProject[]> {
     return readState(userId).projects;
+  },
+
+  async listProjectSummaries(userId: string, weekStart: string): Promise<ProjectSummary[]> {
+    const state = readState(userId);
+    const end = new Date(`${weekStart}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 7);
+    const photos = JSON.parse(globalThis.localStorage?.getItem(`dispute-web-saved-photo-evidence:${encodeURIComponent(userId)}`) || "[]") as Array<{ project_id: string }>;
+    return state.projects.map((project) => {
+      const entries = state.entries.filter((entry) => entry.projectId === project.id).sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
+      const last = entries[0];
+      return { id: project.id, name: project.name, status: project.status,
+        lastSiteAddress: last?.clockOutLocationSource === "gps" && last.clockOutLocationText ? last.clockOutLocationText : last?.clockInLocationSource === "gps" ? last.locationText : null,
+        lastWorkedAt: last?.startTime ?? null,
+        minutesThisWeek: entries.filter((entry) => entry.workDate >= weekStart && entry.workDate < end.toISOString().slice(0, 10)).reduce((sum, entry) => sum + entry.durationMinutes, 0),
+        photoCount: photos.filter((photo) => photo.project_id === project.id).length,
+        isActive: entries.some((entry) => entry.status === "draft" && !entry.endTime) };
+    }).sort((a, b) => (b.lastWorkedAt || "").localeCompare(a.lastWorkedAt || "") || a.name.localeCompare(b.name));
+  },
+
+  async listProjectEntries(userId: string, projectId: string): Promise<WorkEntry[]> {
+    return readState(userId).entries.filter((entry) => entry.projectId === projectId).sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
+  },
+
+  async setProjectStatus(userId: string, projectId: string, status: "active" | "archived"): Promise<void> {
+    const state = readState(userId);
+    const project = state.projects.find((item) => item.id === projectId);
+    if (!project) throw new Error("Project not found.");
+    if (status === "archived" && state.entries.some((entry) => entry.projectId === projectId && entry.status === "draft" && !entry.endTime)) throw new Error("Stop work before finishing this project.");
+    project.status = status;
+    writeState(state, userId);
   },
 
   async createClient(params: CreateClientParams): Promise<WorkClient> {
@@ -307,10 +339,11 @@ export function buildWebWorkProgressClaimSnapshot(params: {
     throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
   }
   const hourlyRateCents = normalizeProjectHourlyRateCents(selectedProject.hourlyRateCents);
+  const preferences = readWebWorkHours(params.userId ?? DEFAULT_USER_ID);
   return buildProgressClaimSnapshot({
     generatedAt: new Date().toISOString(),
     worker: {
-      name: "Local worker",
+      name: preferences.reportName || "Worker",
     },
     client: {
       name: selectedProject.clientName,
@@ -353,12 +386,12 @@ export function buildWebWorkProgressClaimSnapshot(params: {
     pay: {
       currency: selectedProject.currency,
       hourlyRateCents,
-      dailyNormalMinutes: 480,
-      normalWorkStartTime: "08:00",
-      normalWorkEndTime: "17:00",
-      overtimeMultiplier: 1.5,
-      offDayMultiplier: 2,
-      holidayMultiplier: 2,
+      dailyNormalMinutes: preferences.settings.dailyHours * 60,
+      normalWorkStartTime: preferences.settings.normalWorkStartTime,
+      normalWorkEndTime: preferences.settings.normalWorkEndTime,
+      overtimeMultiplier: preferences.settings.overtimeMultiplier,
+      offDayMultiplier: preferences.settings.offDayMultiplier,
+      holidayMultiplier: preferences.settings.holidayMultiplier,
     },
   });
 }

@@ -1,7 +1,7 @@
 export const tabs = [
-  { id: "home", label: "Time", title: "Time in / out" },
-  { id: "evidence", label: "Evidence", title: "Evidence" },
-  { id: "reports", label: "Export", title: "Export" },
+  { id: "home", label: "Today", title: "Today" },
+  { id: "evidence", label: "Photos", title: "Photos" },
+  { id: "reports", label: "Projects", title: "Projects" },
   { id: "settings", label: "Settings", title: "Settings" },
 ] as const;
 

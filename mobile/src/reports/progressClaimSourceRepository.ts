@@ -14,6 +14,7 @@ import type {
 } from "./progressClaimTypes";
 
 type SettingsRow = {
+  report_name?: string | null;
   currency: string;
   daily_hours: number;
   normal_work_start_time: string | null;
@@ -93,7 +94,7 @@ export class ProgressClaimSourceRepository {
     generatedAt?: string;
   }): Promise<ProgressClaimSnapshotInput> {
     const settings = await this.database.getFirstAsync<SettingsRow>(
-      `SELECT currency, daily_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier
+      `SELECT report_name, currency, daily_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier
       FROM app_settings
       WHERE user_id = ?`,
       [params.userId],
@@ -145,7 +146,7 @@ export class ProgressClaimSourceRepository {
     return {
       generatedAt: params.generatedAt,
       claimPeriod: inferClaimPeriod(timeEntries),
-      worker: { name: "Local worker" },
+      worker: { name: settings?.report_name || "Worker" },
       client: {
         name: client?.name ?? "Client not recorded",
         contactName: client?.contact_name ?? null,

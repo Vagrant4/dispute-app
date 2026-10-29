@@ -70,7 +70,7 @@ test("photo capture columns exist in fresh schema and additive migration and rou
   const { BackupRepository } = load("src/backup/backupRepository.ts");
   for (const column of ["capture_source", "capture_time_source"]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(column + " TEXT"));
-    assert.match(LOCAL_MIGRATIONS.at(-1).sql, new RegExp("ALTER TABLE photo_evidence ADD COLUMN " + column));
+    assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 9).sql, new RegExp("ALTER TABLE photo_evidence ADD COLUMN " + column));
   }
   assert.equal(LOCAL_MIGRATIONS.at(-1).version, CURRENT_SCHEMA_VERSION);
   const row = { id: "photo-1", user_id: "u", project_id: "job", local_uri: "file:///photo.jpg", capture_source: "gallery", capture_time_source: "exif", lock_hash: "a".repeat(64), locked_at: "2026-10-29T00:00:00Z" };

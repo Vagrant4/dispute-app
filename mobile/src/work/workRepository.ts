@@ -16,6 +16,11 @@ export type WorkProject = {
   status: string;
 };
 
+export type ProjectSummary = {
+  id: string; name: string; lastSiteAddress: string | null; lastWorkedAt: string | null;
+  minutesThisWeek: number; photoCount: number; isActive: boolean; status: string;
+};
+
 export type WorkClient = {
   id: string;
   name: string;
@@ -429,6 +434,31 @@ ORDER BY updated_at DESC, name ASC
       contactEmail: row.contact_email,
       status: row.status,
     }));
+  }
+
+  async listProjectSummaries(userId: string, weekStart: string): Promise<ProjectSummary[]> {
+    const weekEnd = new Date(`${weekStart}T00:00:00Z`);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    const rows = await this.database.getAllAsync<Omit<ProjectSummary, "isActive"> & { isActive: number }>(`
+SELECT p.id, p.name, p.status,
+ (SELECT CASE WHEN e.clock_out_location_source = 'gps' AND e.clock_out_location_text IS NOT NULL THEN e.clock_out_location_text WHEN e.clock_in_location_source = 'gps' THEN e.location_text END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAddress,
+ (SELECT MAX(e.start_time) FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id) AS lastWorkedAt,
+ COALESCE((SELECT SUM(e.duration_minutes) FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id AND e.work_date >= ? AND e.work_date < ?), 0) AS minutesThisWeek,
+ (SELECT COUNT(*) FROM photo_evidence f WHERE f.user_id = p.user_id AND f.project_id = p.id) AS photoCount,
+ EXISTS(SELECT 1 FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id AND e.status = 'draft' AND e.end_time IS NULL) AS isActive
+FROM projects p WHERE p.user_id = ? ORDER BY lastWorkedAt DESC, p.name`, [weekStart, weekEnd.toISOString().slice(0, 10), userId]);
+    return rows.map((row) => ({ ...row, isActive: Boolean(row.isActive) }));
+  }
+
+  async listProjectEntries(userId: string, projectId: string): Promise<WorkEntry[]> {
+    const rows = await this.database.getAllAsync<EntryRow>(`${baseEntrySelect()} WHERE time_entries.user_id = ? AND time_entries.project_id = ? ORDER BY time_entries.start_time DESC`, [userId, projectId]);
+    return rows.map(mapEntryRow);
+  }
+
+  async setProjectStatus(userId: string, projectId: string, status: "active" | "archived"): Promise<void> {
+    const entries = await this.listProjectEntries(userId, projectId);
+    if (status === "archived" && entries.some((entry) => !entry.endTime && entry.status === "draft")) throw new Error("Stop work before finishing this project.");
+    await this.database.runAsync("UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [status, projectId, userId]);
   }
 
   async listProjects(userId = DEFAULT_USER_ID): Promise<WorkProject[]> {
