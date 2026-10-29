@@ -54,20 +54,20 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
   async function saveName(name: string) { if (!project || !access.canCreateRecords) throw new Error(access.message); const store = await getProjectScreenStore(userId); await store.updateProject({ userId, projectId, name, description: project.description, hourlyRateCents: project.hourlyRateCents }); await refresh(); }
   async function toggleFinished() { try { const store = await getProjectScreenStore(userId); await store.setProjectStatus(userId, projectId, project?.status === "archived" ? "active" : "archived"); await refresh(); } catch (cause) { setError("Could not update project."); } }
   return <>
-    <Pressable onPress={onBack}>
+    <Pressable style={styles.textButton} onPress={onBack}>
       <Text style={styles.body}>‹ Projects</Text>
     </Pressable>
     {error ? <Text style={styles.body}>{error}</Text> : null}
     {project ? <>
       <View style={styles.card}>
         <Text style={styles.heading}>{project.name}</Text>
-        <Text style={styles.muted}>📍 {formatProjectSite(summary)}</Text>
-        <Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
-          <Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>✎ Rename</Text>
+        <Text style={styles.muted}>{formatProjectSite(summary)}</Text>
+        <Pressable style={[styles.textButton, (!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
+          <Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>Rename</Text>
         </Pressable>
         <Text style={styles.metricValue}>{((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)} h</Text>
         <Text style={styles.metricLabel}>This week</Text>
-        <Pressable onPress={() => void toggleFinished()}>
+        <Pressable style={styles.textButton} onPress={() => void toggleFinished()}>
           <Text style={styles.muted}>{project.status === "archived" ? "Reopen" : "Mark finished"}</Text>
         </Pressable>
       </View>
@@ -75,7 +75,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
         <Text style={styles.actionButtonSecondaryText}>Show sessions {sessionsExpanded ? "▲" : "▼"}</Text>
       </Pressable>
       {sessionsExpanded ? <>
-        <Pressable onPress={() => setPaySetupRequest((value) => value + 1)}>
+        <Pressable style={styles.textButton} onPress={() => setPaySetupRequest((value) => value + 1)}>
           <Text style={styles.body}>Pay rate: {project.hourlyRateCents > 0 ? `SGD ${(project.hourlyRateCents / 100).toFixed(2)} / hour` : "Set pay rate"} ›</Text>
         </Pressable>
 
@@ -92,7 +92,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.heading}>Photos · {photos.length}</Text>
-          <Pressable onPress={() => onSeePhotos(projectId)}>
+          <Pressable style={styles.textButton} onPress={() => onSeePhotos(projectId)}>
             <Text style={styles.body}>See all ›</Text>
           </Pressable>
         </View>
@@ -103,9 +103,9 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
           <Text style={styles.actionButtonText}>{"Create & share PDF"}</Text>
         </Pressable> : null}
         <Text style={styles.muted}>Week {currentWeekStart()} – {weekEnd()}</Text>
-        <View style={styles.actionRow}>{!locked ? <Pressable onPress={preview}>
+        <View style={styles.actionRow}>{!locked ? <Pressable style={styles.textButton} onPress={preview}>
           <Text style={styles.body}>Preview</Text>
-        </Pressable> : null}<Pressable style={[(locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
+        </Pressable> : null}<Pressable style={[styles.textButton, (locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
             <Text style={[styles.muted, (locked) && styles.disabledButtonText]}>CSV</Text>
           </Pressable>
         </View>

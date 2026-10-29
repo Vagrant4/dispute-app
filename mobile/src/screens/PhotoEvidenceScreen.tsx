@@ -236,7 +236,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
         {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.name}</Text></Pressable>)}
       </ScrollView>
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
-        <Text style={styles.photoEmptyIcon}>📷</Text>
+        <Text style={styles.photoEmptyIcon}>▧</Text>
         <Text style={styles.heading}>Your proof starts here</Text>
         <Text style={styles.muted}>Keep photo proof of your work on this phone.</Text>
 
@@ -248,7 +248,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
             <View style={styles.photoGridRow}>{item.map((row) => <Pressable key={row.id} accessibilityRole="button" accessibilityLabel={`Open photo: ${photoTimeLabel(row)}`} onPress={() => setDetail(row)} style={styles.photoTile}>
               <Image source={{ uri: row.local_uri }} style={styles.photoTileImage} />
               <Text style={styles.photoBadge}>{photoSealBadge(row)}</Text>
-              <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>📍 {photoAddress(row)}</Text></View>
+              <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>{photoAddress(row)}</Text></View>
             </Pressable>)}</View>
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
@@ -277,7 +277,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           <Image accessibilityLabel="Photo evidence" resizeMode="contain" source={{ uri: detail.local_uri }} style={styles.photoDetailImage} />
           <Text style={styles.heading}>{photoTimeLabel(detail)}</Text>
           <Text style={styles.body}>{detail.captured_at ? new Date(detail.captured_at).toLocaleDateString() : "Capture date unknown"}</Text>
-          <Text style={styles.body}>📍 {photoAddress(detail)}{detail.gps_accuracy_m != null ? ` · ±${Math.round(detail.gps_accuracy_m)} m` : ""}</Text>
+          <Text style={styles.body}>{photoAddress(detail)}{detail.gps_accuracy_m != null ? ` · ±${Math.round(detail.gps_accuracy_m)} m` : ""}</Text>
           <Text style={styles.body}>Type: {formatEvidenceType(detail.evidence_type)}</Text>
           <Text style={styles.body}>Note: {detail.caption || "No note"}</Text>
           <Text style={styles.body}>Project: {projects.find((project) => project.id === detail.project_id)?.name ?? "Project"}</Text>

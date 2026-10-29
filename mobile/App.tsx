@@ -23,7 +23,7 @@ import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSes
 import { loadGuestTrial, saveGuestTrial, startGuestTrial } from "./src/subscription/guestTrial";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
-const tabIcons: Record<TabId, string> = { home: "◷", evidence: "▦", reports: "▤", settings: "⚙" };
+const tabIcons: Record<TabId, string> = { home: "◷", evidence: "▦", reports: "▤", settings: "≡" };
 
 function renderScreen(
   activeTab: TabId,
@@ -100,7 +100,7 @@ export default function App() {
           <View style={styles.header}>
             <View style={styles.brandRow}>
               <View>
-                <Text style={styles.appName}>DISPUTE</Text>
+                <Text style={styles.appName}>Dispute</Text>
               </View>
             </View>
             <Text numberOfLines={1} style={styles.screenTitle}>

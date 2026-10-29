@@ -24,7 +24,7 @@ export function LogoScreen({
       />
 
       <View style={styles.logoHero}>
-        <Text style={styles.logoName}>DISPUTE</Text>
+        <Text style={styles.logoName}>Dispute</Text>
         <Text style={styles.logoTagline}>
           Time records, site photos, and claim reports in one clean field app.
         </Text>

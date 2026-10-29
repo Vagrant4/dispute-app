@@ -31,7 +31,7 @@ test("bottom tabs use stacked glyphs, theme colours, accessible targets and bott
   assert.match(bar, /accessibilityState=\{\{ selected \}\}/);
   assert.match(bar, /edges=\{\["bottom"\]\}/);
   assert.ok(bar.indexOf("{tabIcons[tab.id]}") < bar.lastIndexOf("{tab.label}"));
-  for (const glyph of ["◷", "▦", "▤", "⚙"]) assert.ok(app.includes(glyph));
+  for (const glyph of ["◷", "▦", "▤", "≡"]) assert.ok(app.includes(glyph));
   const styles = source("src/styles.ts");
   assert.match(styles, /bottomTabItem: \{[^\n]*minWidth: 48, minHeight: 48/);
   assert.match(styles, /bottomTabBar: \{[^\n]*borderTopColor: theme.colors.border/);

@@ -75,7 +75,7 @@ test("Project sessions and breakdown start collapsed; each screen has one title"
 test("shared spacing is generous and bottom tabs have no filled background", () => {
   const styles = source("src/styles.ts");
   for (const key of ["card", "clockPanel"]) {
-    assert.match(styles, new RegExp(`  ${key}: \\{[^}]*gap: theme.spacing.lg,[^}]*padding: theme.spacing.lg,`));
+    assert.match(styles, new RegExp(`  ${key}: \\{[^}]*gap: theme.spacing.lg,[^}]*padding: space.md,`));
   }
   for (const key of ["bottomTabItem", "bottomTabActive"]) {
     const block = styles.match(new RegExp(`${key}: \\{([^}]+)\\}`))[1];

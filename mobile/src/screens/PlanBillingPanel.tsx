@@ -28,14 +28,14 @@ export function PlanBillingPanel({
       <Text style={styles.heading}>Plan & billing</Text>
       <View style={styles.row}>
         <Text style={styles.rowLabel}>Plan</Text>
-        <Text style={styles.rowValue}>DISPUTE Basic</Text>
+        <Text style={styles.rowValue}>Dispute Basic</Text>
       </View>
       <View style={styles.row}>
         <Text style={styles.rowLabel}>Price</Text>
         <Text style={styles.rowValue}>{monthlyPrice}</Text>
       </View>
       {exportNote ? (
-        <Text style={styles.muted}>{"\u{1F512} "}{exportNote}</Text>
+        <Text style={styles.muted}>{exportNote}</Text>
       ) : null}
       {action === "subscribe" ? (
         <Pressable
@@ -45,7 +45,7 @@ export function PlanBillingPanel({
         >
           <Text style={styles.actionButtonText}>Subscribe</Text>
           <Text style={styles.actionButtonSubtext}>
-            DISPUTE Basic - {monthlyPrice}
+            Dispute Basic - {monthlyPrice}
           </Text>
         </Pressable>
       ) : null}

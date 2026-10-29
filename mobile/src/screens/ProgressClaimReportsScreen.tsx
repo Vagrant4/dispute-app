@@ -19,7 +19,7 @@ import { expoSharingAdapter } from "../reports/reportSharingExpo";
 import { viewGeneratedDocument } from "../reports/reportViewing";
 import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
 import { progressClaimReportContent } from "../screenContent";
-import { styles } from "../styles";
+import { styles, type, space, radius } from "../styles";
 import {
   fetchSubscriptionStatus,
   formatTrialCountdown,
@@ -431,7 +431,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         <Text style={styles.eyebrow}>Weekly report</Text>
         {exportLocked ? (
           <View accessibilityLabel="Dispute pack locked" style={[styles.statusCard, styles.warningCard]}>
-            <Text style={styles.statusTitle}>{"\u{1F512} "}{disputePackLockContent.title}</Text>
+            <Text style={styles.statusTitle}>{disputePackLockContent.title}</Text>
             {account.isGuest && subscription && !subscription.canCreateRecords ? (
               <Text style={styles.statusMessage}>{disputePackLockContent.guestTrialEnded}</Text>
             ) : null}
@@ -473,7 +473,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           <View style={styles.list}>
             {documents.map((document) => (
               <View key={document.id} style={styles.row}>
-                <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flex: 1, gap: space.xs }}>
                   <Text style={styles.rowLabel}>{document.file_name}</Text>
                   <Text style={styles.muted}>
                     {formatDocumentType(document.document_type)} -{" "}
@@ -481,7 +481,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                     {document.period_end ?? "No end"}
                   </Text>
                 </View>
-                <View style={{ gap: 6 }}>
+                <View style={{ gap: space.xs }}>
                   {document.document_type === "progress_claim_pdf" ? (
                     <Pressable
                       accessibilityRole="button"
@@ -495,7 +495,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                       accessibilityState={{ disabled: exportLocked }}
                       style={[styles.statusPill, exportLocked && styles.disabledButton]}
                     >
-                      <Text style={[styles.statusPillText, (exportLocked) && styles.disabledButtonText]}>{exportLocked ? "\u{1F512} Save to phone" : "Save to phone"}</Text>
+                      <Text style={[styles.statusPillText, (exportLocked) && styles.disabledButtonText]}>{exportLocked ? "Locked · Save to phone" : "Save to phone"}</Text>
                     </Pressable>
                   ) : null}
                   <Pressable
@@ -516,7 +516,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                     accessibilityState={{ disabled: exportLocked }}
                     style={[styles.statusPill, exportLocked && styles.disabledButton]}
                   >
-                  <Text style={[styles.statusPillText, (exportLocked) && styles.disabledButtonText]}>{exportLocked ? "\u{1F512} Share" : "Share"}</Text>
+                  <Text style={[styles.statusPillText, (exportLocked) && styles.disabledButtonText]}>{exportLocked ? "Locked · Share" : "Share"}</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -572,7 +572,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           <View style={styles.list}>
             {reportPreview.dailyWorkLog.map((item) => (
               <View key={item.workDate} style={styles.row}>
-                <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flex: 1, gap: space.xs }}>
                   <Text style={styles.rowLabel}>{item.workDate}</Text>
                   <Text style={styles.body}>{item.activity}</Text>
                   <Text style={styles.muted}>
@@ -595,7 +595,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
                     source={{ uri: photo.localUri }}
                     style={styles.reportPreviewImage}
                   />
-                  <View style={{ flex: 1, gap: 4 }}>
+                  <View style={{ flex: 1, gap: space.xs }}>
                     <Text style={styles.rowLabel}>Photo ID: {photo.id}</Text>
                     <Text style={styles.muted}>
                       Time entry: {photo.timeEntryId ?? "Not linked"}

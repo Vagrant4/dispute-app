@@ -19,7 +19,7 @@ test("Settings main rows are exactly Name, Pay rate, Language, Plan, Support, Mo
   assert.match(source, /styles.settingsChevron\}>›/);
   const styles = read("styles.ts");
   assert.match(styles, /settingsRow: \{ width: "100%", minHeight: (?:[6-9]\d|\d{3,})/);
-  assert.match(styles, /settingsRowLabel: \{[^\n]*fontSize: (?:1[7-9]|[2-9]\d)/);
+  assert.match(styles, /settingsRowLabel: \{[^\n]*\.\.\.type.label/);
 });
 
 test("More keeps referrals, privacy and the wired record copy tools", () => {

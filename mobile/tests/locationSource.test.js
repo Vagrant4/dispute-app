@@ -109,7 +109,7 @@ test("chip covers locating, GPS time/accuracy, approximate and no GPS", () => {
   assert.equal(formatLocationChip(null, true), "Locating…");
   assert.equal(formatLocationChip(null), "No GPS · Turn on location");
   const fix = { source: "gps", address: "Site", accuracy: 51, locatedAt: "2026-10-29T01:00:00Z" };
-  assert.match(formatLocationChip(fix), /📍 Site · ±51 m · approximate · .+ ⟳/);
+  assert.match(formatLocationChip(fix), /Site · ±51 m · approximate · .+ ⟳/);
   assert.doesNotMatch(formatLocationChip({ ...fix, accuracy: 50 }), /approximate/);
 });
 test("GPS captures high accuracy and records sensor accuracy/time without inventing an address", async () => {

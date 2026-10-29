@@ -17,7 +17,7 @@ test("phone app uses the dispute display brand", () => {
   );
 
   assert.equal(appConfig.expo.name, "dispute");
-  assert.match(appSource, />DISPUTE<\/Text>/);
+  assert.match(appSource, />Dispute<\/Text>/);
   assert.doesNotMatch(appSource, />ClaimProof SG<\/Text>/);
   assert.doesNotMatch(
     stylesSource.match(/appName:\s*\{[\s\S]*?\n\s*\},/)?.[0] ?? "",
