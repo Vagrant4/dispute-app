@@ -73,7 +73,10 @@ test("unset pay rates say Not set and saved rates keep their basis", () => {
 test("Settings owns its main heading and sub-panels retain their back row and heading", () => {
   const app = readFileSync(path.join(__dirname, "..", "App.tsx"), "utf8");
   assert.match(app, /!account \|\| \(activeTab !== "settings" && activeTab !== "reports"\) \? <Text/);
-  assert.match(source, /panel === "main" \? <Text style=\{styles.todayTitle\}>Settings<\/Text> : null/);
+  assert.match(source, /<View style=\{styles.todayScreen\}>\s*<View style=\{styles.todayHeader\}>\s*<Text style=\{styles.todayTitle\}>Settings<\/Text>\s*<Text style=\{styles.todayWordmark\}>DISPUTE<\/Text>\s*<\/View>\s*\{panel !== "main"/);
+  const plan = read("screens/PlanBillingPanel.tsx");
+  assert.match(plan, /styles.todayTitle\}>Plan<\/Text>/);
+  assert.doesNotMatch(plan, /Plan & billing/);
   assert.match(source, /panel !== "main" \? \([\s\S]*?insideMore \? "‹ More" : "‹ Settings"/);
   assert.match(source, /panel === "more" \? <Text style=\{styles.todayTitle\}>More<\/Text> : null/);
   assert.match(source, /panel === "pay_rate" \? \([\s\S]*?<Text style=\{styles.todayTitle\}>Pay rate<\/Text>/);

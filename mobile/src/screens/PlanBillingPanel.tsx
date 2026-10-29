@@ -25,7 +25,7 @@ export function PlanBillingPanel({
 
   return (
     <View style={styles.settingsSection}>
-      <Text style={styles.todayTitle}>Plan & billing</Text>
+      <Text style={styles.todayTitle}>Plan</Text>
       <View style={styles.settingsValueRow}>
         <Text style={styles.rowLabel}>Plan</Text>
         <Text style={styles.rowValue}>Dispute Basic</Text>

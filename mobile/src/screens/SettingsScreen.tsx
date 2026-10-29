@@ -188,8 +188,11 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }
 
   return (
-    <>
-      {panel === "main" ? <Text style={styles.todayTitle}>Settings</Text> : null}
+    <View style={styles.todayScreen}>
+      <View style={styles.todayHeader}>
+        <Text style={styles.todayTitle}>Settings</Text>
+        <Text style={styles.todayWordmark}>DISPUTE</Text>
+      </View>
       {panel !== "main" ? (
         <Pressable accessibilityRole="button" onPress={() => setPanel(insideMore ? "more" : "main")} style={styles.settingsBackRow}>
           <Text style={styles.settingsBackText}>{insideMore ? "‹ More" : "‹ Settings"}</Text>
@@ -426,7 +429,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           />
         </>
       ) : null}
-    </>
+    </View>
   );
 }
 

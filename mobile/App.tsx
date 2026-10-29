@@ -83,7 +83,7 @@ export default function App() {
   );
   const photosVisible = !!account && activeTab === "evidence";
   const ScreenContainer = photosVisible ? View : ScrollView;
-  const showHeader = account ? activeTab !== "home" : authMode !== "logo";
+  const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
 
   useEffect(() => {
     void isGuestSessionActive().then((active) => {

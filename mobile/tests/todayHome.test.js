@@ -62,9 +62,9 @@ test("today timer includes completed shifts and only today's part of an overnigh
   assert.equal(workedSecondsToday(30, null, now), 1800);
 });
 
-test("App hides the shared header only on Today and keeps the top safe area", () => {
+test("App hides the shared header on Today and Settings and keeps the top safe area", () => {
   const app = source("App.tsx");
-  assert.match(app, /const showHeader = account \? activeTab !== "home" : authMode !== "logo";/);
+  assert.match(app, /const showHeader = account \? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";/);
   assert.match(app, /\{showHeader \? \(/);
   assert.match(app, /<SafeAreaView style=\{styles.app\} edges=\{account \? \["top", "left", "right"\]/);
 });

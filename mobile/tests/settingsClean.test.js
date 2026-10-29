@@ -33,7 +33,7 @@ test("all six main and three More rows use the supplied PNG line icons", () => {
   assert.match(styles, /todayRowIcon: \{ width: 22, height: 22, tintColor: theme.colors.text/);
 });
 
-test("Settings uses lime only for primary actions", () => {
+test("Settings uses lime only for primary actions and the wordmark", () => {
   // Inspect every referenced style, including shared styles used by these panels.
   for (const file of files) {
     const source = read(`src/screens/${file}.tsx`);
@@ -41,7 +41,7 @@ test("Settings uses lime only for primary actions", () => {
     for (const [, key] of source.matchAll(/styles\.(\w+)/g)) {
       const definition = styles.match(new RegExp(`^  ${key}: \\{[\\s\\S]*?(?=^  \\w+:|^\\}\\);)`, "m"));
       assert.ok(definition, key);
-      if (/theme.colors.primary/.test(definition[0])) assert.equal(key, "actionButton", `${file}: ${key}`);
+      if (/theme.colors.primary/.test(definition[0])) assert.ok(key === "actionButton" || (file === "SettingsScreen" && key === "todayWordmark"), `${file}: ${key}`);
     }
     if (!["SettingsScreen", "PlanBillingPanel"].includes(file)) assert.doesNotMatch(source, /styles.actionButton\b/);
   }
