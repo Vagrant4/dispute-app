@@ -10,7 +10,7 @@ test("guest summary has no email interpolation and describes the existing deleti
   assert.match(deletion, /account.isGuest === true \|\| !account.email.trim\(\)/);
   const guest = deletion.match(/\{isGuest\s*\? "([^"]+)"/)[1];
   assert.doesNotMatch(guest, /for ,|email|\$\{/);
-  assert.match(guest, /without an account/);
+  assert.equal(guest, "You are using DISPUTE without an account. Deleting an account needs a signed-in account. To remove guest projects, time entries, places, photos, reports and settings from this phone, clear DISPUTE storage in phone Settings. You cannot get them back. Copies you saved or shared elsewhere are not removed.");
   assert.match(guest, /clear DISPUTE storage in phone Settings/);
   assert.match(guest, /Copies you saved or shared elsewhere are not removed/);
   assert.match(deletion, /account for \$\{account.email\}/);
@@ -67,7 +67,8 @@ test("guest deletion screen offers only the phone settings button", () => {
   assert.match(guestControls, />Open phone settings<\/Text>/);
   assert.doesNotMatch(guestControls, /TextInput|password|ACCOUNT_DELETION_CONFIRMATION|DELETE|reviewDeletion|permanentlyDeleteAccount|dangerButton|Manage subscription|subscription|statusMessage/);
   const guestTitle = deletion.slice(deletion.indexOf("  return ("), deletion.indexOf("      <Text style={styles.body}>"));
-  assert.match(guestTitle, /!isGuest \? <Text/);
+  assert.match(guestTitle, /<Text style=\{styles.todayTitle\}>Delete account<\/Text>/);
+  assert.doesNotMatch(guestTitle, /isGuest/);
 });
 
 test("signed-in deletion screen retains password, DELETE and danger controls", () => {
