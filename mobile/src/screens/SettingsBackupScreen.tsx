@@ -91,12 +91,12 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
   return (
     <>
       <View style={[styles.card, styles.warningCard]}>
-        <Text style={styles.eyebrow}>Keep a copy of your records</Text>
+        <Text style={styles.heading}>Keep a copy of your records</Text>
         <Text style={styles.body}>{backupWarning}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.heading}>Your records</Text>
+        <Text style={styles.rowLabel}>Your records</Text>
         <Text style={styles.body}>
           Save a copy of your records. {exportOnly
             ? "Read-only mode keeps export and share available without changing records."

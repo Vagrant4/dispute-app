@@ -14,7 +14,7 @@ export function ProfileSettingsPanel({
 }: ProfileSettingsPanelProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Profile</Text>
+      <Text style={styles.heading}>Name</Text>
       <Text style={styles.muted}>{account.isGuest ? "On this phone · no account yet" : `Signed in as ${account.name}`}</Text>
       {account.emailVerified ? <Text style={styles.headerPillText}>Email verified</Text> : null}
       <View style={styles.row}>

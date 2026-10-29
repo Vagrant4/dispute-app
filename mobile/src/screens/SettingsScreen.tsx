@@ -12,6 +12,7 @@ import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
 import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
+  formatTrialCountdown,
   getSubscriptionManagementUrl,
   getSubscriptionSettingsAction,
   purchaseDisputeBasicSubscription,
@@ -30,9 +31,19 @@ type SettingsScreenProps = {
 
 export type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
 
+type SettingsPage = "main" | "name" | "pay_rate" | "language" | "plan" | "support" | "more" | "referrals" | "privacy_data" | "backup";
+
+const INITIAL_PANEL_PAGES: Record<SettingPanel, SettingsPage> = {
+  profile: "name",
+  work_hours: "pay_rate",
+  subscription: "plan",
+  referrals: "referrals",
+  privacy_data: "privacy_data",
+};
+
 export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPanel }: SettingsScreenProps) {
   const userId = account.id ?? account.email.trim().toLowerCase();
-  const [panel, setPanel] = useState<SettingPanel>(initialPanel ?? "profile");
+  const [panel, setPanel] = useState<SettingsPage>(initialPanel ? INITIAL_PANEL_PAGES[initialPanel] : "main");
   const [currency, setCurrency] = useState(DEFAULT_APP_SETTINGS.currency);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [rateBasis, setRateBasis] = useState<AppSettings["rateBasis"]>(
@@ -53,9 +64,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const [holidayMultiplier, setHolidayMultiplier] = useState(
     String(DEFAULT_APP_SETTINGS.holidayMultiplier),
   );
-  const [workHoursStatus, setWorkHoursStatus] = useState(
-    "Normal hours decide when OT starts in reports.",
-  );
+  const [workHoursStatus, setWorkHoursStatus] = useState("");
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
   const {
     subscription,
@@ -66,13 +75,24 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const subscriptionAction = getSubscriptionSettingsAction(subscription);
   const exportNote = getDisputePackBillingNote(account.isGuest === true, subscriptionAction, subscription?.trialEndsAt ?? null);
 
-  const options: { id: SettingPanel; label: string }[] = [
-    { id: "profile", label: "Profile" },
-    { id: "subscription", label: "Plan & billing" },
-    { id: "work_hours", label: "Work & rates" },
-    { id: "referrals", label: "Referrals" },
-    { id: "privacy_data", label: "Privacy & data" },
+  useEffect(() => {
+    setPanel(initialPanel ? INITIAL_PANEL_PAGES[initialPanel] : "main");
+  }, [initialPanel]);
+
+  const mainRows: { id: SettingsPage; label: string; value: string }[] = [
+    { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
+    { id: "pay_rate", label: "Pay rate", value: `${currency} ${baseRate || "0"} / ${rateBasis === "monthly" ? "month" : "day"}` },
+    { id: "language", label: "Language", value: "English" },
+    { id: "plan", label: "Plan", value: subscription?.status === "TRIALING" ? `Free trial · ${formatTrialCountdown(subscription)}` : subscription?.planName || "Checking plan…" },
+    { id: "support", label: "Support", value: "Help and policies" },
+    { id: "more", label: "More", value: "Referrals, privacy, backup" },
   ];
+  const moreRows: { id: SettingsPage; label: string; value: string }[] = [
+    { id: "referrals", label: "Refer a friend", value: "Invite another worker" },
+    { id: "privacy_data", label: "Privacy & data", value: "Your privacy and account" },
+    { id: "backup", label: "Keep a copy", value: "Save or restore your records" },
+  ];
+  const insideMore = panel === "referrals" || panel === "privacy_data" || panel === "backup";
 
   async function handleSubscribe() {
     setSubscriptionActionStatus("Opening store subscription...");
@@ -111,7 +131,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
-      setWorkHoursStatus("Work hours loaded from this phone.");
+      setWorkHoursStatus("");
     } catch (error) {
       setWorkHoursStatus(getErrorMessage(error));
     }
@@ -150,9 +170,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
-      setWorkHoursStatus(
-        `Work hours are saved on your phone. ${settings.currency} ${formatRateAmount(settings.baseRateCents)} ${settings.rateBasis} rate. OT ${settings.overtimeMultiplier}x, off day ${settings.offDayMultiplier}x, holiday ${settings.holidayMultiplier}x.`,
-      );
+      setWorkHoursStatus("Saved");
     } catch (error) {
       setWorkHoursStatus(getErrorMessage(error));
     }
@@ -160,12 +178,37 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   return (
     <>
-      <View style={styles.card}>
-        <Text style={styles.eyebrow}>Settings</Text>
-        <Text style={styles.heading}>Account</Text>
+      {panel !== "main" ? (
+        <Pressable accessibilityRole="button" onPress={() => setPanel(insideMore ? "more" : "main")} style={styles.settingsBackRow}>
+          <Text style={styles.settingsRowLabel}>{insideMore ? "‹ More" : "‹ Settings"}</Text>
+        </Pressable>
+      ) : null}
+      {panel === "main" || panel === "more" ? (
+        <View style={styles.settingsList}>
+          {panel === "more" ? <Text style={styles.heading}>More</Text> : null}
+          {(panel === "main" ? mainRows : moreRows).map((item) => (
+            <Pressable accessibilityRole="button" key={item.id} onPress={() => setPanel(item.id)} style={styles.settingsRow}>
+              <View style={styles.settingsRowContent}>
+                <Text style={styles.settingsRowLabel}>{item.label}</Text>
+                <Text style={styles.muted}>{item.value}</Text>
+              </View>
+              <Text style={styles.settingsChevron}>›</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {panel === "language" ? (
+        <View style={styles.card}>
+          <Text style={styles.heading}>Language</Text>
+          <Text style={styles.body}>English is the only language for now.</Text>
+        </View>
+      ) : null}
+      {panel === "support" ? <PrivacyScreen supportOnly /> : null}
+      {panel === "more" ? (
+        <>
         {isTrialDebugOverrideEnabled() && account.isGuest ? (
           <View style={[styles.card, styles.warningCard]}>
-            <Text style={styles.heading}>Debug: trial clock</Text>
+            <Text style={styles.rowLabel}>Debug: trial clock</Text>
             {[["Set trial start to 31 days ago", 31], ["Set trial start to 25 days ago", 25], ["Reset to now", 0]].map(([label, days]) => (
               <Pressable key={String(label)} accessibilityRole="button" onPress={() => void rewriteGuestTrial(Date.now() - Number(days) * 86400000).then(loadSubscriptionStatus)} style={styles.actionButtonSecondary}>
                 <Text style={styles.actionButtonSecondaryText}>{label}</Text>
@@ -173,37 +216,16 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             ))}
           </View>
         ) : null}
-        <View style={styles.actionRow}>
-          {options.map((item) => (
-            <Pressable
-              accessibilityRole="button"
-              key={item.id}
-              onPress={() => setPanel(item.id)}
-              style={
-                item.id === panel ? styles.actionButton : styles.actionButtonSecondary
-              }
-            >
-              <Text
-                style={
-                  item.id === panel
-                    ? styles.actionButtonText
-                    : styles.actionButtonSecondaryText
-                }
-              >
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+        </>
+      ) : null}
 
-      {panel === "profile" ? (
+      {panel === "name" ? (
         <ProfileSettingsPanel account={account} onLogout={onLogout} />
       ) : null}
 
-      {panel === "work_hours" ? (
+      {panel === "pay_rate" ? (
         <View style={styles.card}>
-          <Text style={styles.heading}>Work hours</Text>
+          <Text style={styles.heading}>Pay rate</Text>
           <Text style={styles.body}>
             Set the normal working time. Normal hours are based on this start/end
             range. OT applies after the normal end time; off day and holiday
@@ -372,13 +394,13 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             onPress={() => void handleSaveWorkHours()}
             style={styles.actionButton}
           >
-            <Text style={styles.actionButtonText}>Save Work Hours</Text>
+            <Text style={styles.actionButtonText}>Save</Text>
           </Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
         </View>
       ) : null}
 
-      {panel === "subscription" ? (
+      {panel === "plan" ? (
         <PlanBillingPanel
           action={subscriptionAction}
           actionStatus={subscriptionActionStatus}
@@ -391,11 +413,13 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
       {panel === "referrals" ? <ReferralScreen /> : null}
 
+      {panel === "backup" ? <SettingsBackupScreen account={account} exportOnly={!hasFullAccess} /> : null}
+
       {panel === "privacy_data" ? (
         <>
           <PrivacyScreen />
-          <SettingsBackupScreen account={account} exportOnly={!hasFullAccess} />
           <DeleteAccountScreen
+            embedded
             account={account}
             onAccountDeleted={onAccountDeleted}
           />

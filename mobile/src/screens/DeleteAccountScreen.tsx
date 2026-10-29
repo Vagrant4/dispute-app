@@ -20,11 +20,13 @@ import { getSubscriptionManagementUrl } from "../subscription/subscriptionClient
 type DeleteAccountScreenProps = {
   account: LocalAccount;
   onAccountDeleted: (message: string) => void;
+  embedded?: boolean;
 };
 
 export function DeleteAccountScreen({
   account,
   onAccountDeleted,
+  embedded = false,
 }: DeleteAccountScreenProps) {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -128,7 +130,7 @@ export function DeleteAccountScreen({
   return (
     <View style={styles.card}>
       <Text style={styles.eyebrow}>Danger zone</Text>
-      <Text style={styles.heading}>Delete account and data</Text>
+      <Text style={embedded ? styles.rowLabel : styles.heading}>Delete account and data</Text>
       <Text style={styles.body}>
         Permanently deletes {account.email}, projects, time entries, locations,
         evidence, reports and login tokens. This cannot be recovered.

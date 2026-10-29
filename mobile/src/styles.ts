@@ -29,6 +29,12 @@ export const theme = {
 };
 
 export const styles = StyleSheet.create({
+  settingsList: { gap: theme.spacing.md },
+  settingsRow: { width: "100%", minHeight: 72, flexDirection: "row", alignItems: "center", gap: theme.spacing.md, padding: theme.spacing.md, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  settingsRowContent: { flex: 1, gap: theme.spacing.xs },
+  settingsRowLabel: { color: theme.colors.text, fontSize: 18, fontWeight: "600" },
+  settingsChevron: { color: theme.colors.primary, fontSize: 28 },
+  settingsBackRow: { minHeight: 56, justifyContent: "center", marginBottom: theme.spacing.sm },
   projectSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.photoScrim },
   projectSheet: { backgroundColor: theme.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14 },
   projectPhoto: { width: 70, height: 70, borderRadius: 10 },

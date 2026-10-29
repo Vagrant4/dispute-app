@@ -111,7 +111,7 @@ test("locked UI: lock card, preview button, create-account or Plan & billing act
   assert.match(reports, /renderActions\(\{ share:.*locked: true/);
   const app = src("App.tsx");
   assert.match(app, /onOpenPlanBilling=\{\(\) => onNavigate\("settings", "subscription"\)\}/);
-  assert.match(src("src/screens/SettingsScreen.tsx"), /useState<SettingPanel>\(initialPanel \?\? "profile"\)/);
+  assert.match(src("src/screens/SettingsScreen.tsx"), /useState<SettingsPage>\(initialPanel \? INITIAL_PANEL_PAGES\[initialPanel\] : "main"\)/);
 });
 
 test("no other screen or module can create, share, download or open pack files", () => {

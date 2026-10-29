@@ -309,7 +309,7 @@ test("settings screen keeps profile read-only and shows only subscribe or manage
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
   assert.match(settingsSource, /getSubscriptionSettingsAction/);
   assert.match(settingsSource, /getSubscriptionManagementUrl/);
-  assert.match(settingsSource, /Plan & billing/);
+  assert.match(settingsSource, /label: "Plan"/);
   assert.match(settingsSource, /PlanBillingPanel/);
   assert.match(settingsSource, /ProfileSettingsPanel/);
   assert.match(planBillingSource, /Manage subscription/);
