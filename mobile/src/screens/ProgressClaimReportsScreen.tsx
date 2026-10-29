@@ -438,12 +438,12 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
             <Text style={styles.statusMessage}>{disputePackLockContent.body}</Text>
             <Text style={styles.muted}>{disputePackLockContent.previewHint}</Text>
             {exportAccess.lock === "guest" ? (
-              <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>{disputePackLockContent.guestButton}</Text>
+              <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButtonSecondary}>
+                <Text style={styles.actionButtonSecondaryText}>{disputePackLockContent.guestButton}</Text>
               </Pressable>
             ) : onOpenPlanBilling ? (
-              <Pressable accessibilityRole="button" onPress={onOpenPlanBilling} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>{disputePackLockContent.subscribeButton}</Text>
+              <Pressable accessibilityRole="button" onPress={onOpenPlanBilling} style={styles.actionButtonSecondary}>
+                <Text style={styles.actionButtonSecondaryText}>{disputePackLockContent.subscribeButton}</Text>
               </Pressable>
             ) : null}
             <Pressable accessibilityRole="button" disabled={!selectedProjectId} onPress={() => void handlePreview()} style={[styles.actionButtonSecondary, !selectedProjectId && styles.disabledButton]}>

@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
   projectPhoto: { width: 70, height: 70, borderRadius: 10 },
 
   photoScreenContainer: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md },
-  photosPage: { flex: 1, gap: 12, paddingBottom: 84 },
+  photosPage: { flex: 1, gap: theme.spacing.lg, paddingBottom: 84 },
   photoList: { flex: 1 },
   photoFilterScroll: { flexGrow: 0, flexShrink: 0 },
   photoFilters: { gap: 8, paddingVertical: 4 },
@@ -218,7 +218,7 @@ export const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 18,
     borderWidth: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
     padding: theme.spacing.lg,
   },
   heroPanel: {
@@ -295,12 +295,14 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  selectedSecondaryText: { color: theme.colors.primary, fontSize: 15, fontWeight: "800" },
+  chipSelected: { backgroundColor: theme.colors.surfaceMuted, borderColor: theme.colors.primary, borderRadius: 999, borderWidth: 1, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
   clockPanel: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: 22,
     borderWidth: 1,
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
     padding: theme.spacing.lg,
   },
   clockHeader: {

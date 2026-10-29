@@ -20,6 +20,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
   const [entries, setEntries] = useState<WorkEntry[]>([]);
   const [photos, setPhotos] = useState<PhotoEvidenceRow[]>([]);
   const [paySetupRequest, setPaySetupRequest] = useState(0);
+  const [sessionsExpanded, setSessionsExpanded] = useState(false);
   const [rename, setRename] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [totals, setTotals] = useState({ totalOvertimeHours: 0, totalClaimAmountCents: 0 });
@@ -64,22 +65,30 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
         <Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
           <Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>✎ Rename</Text>
         </Pressable>
-        <View style={styles.metricGrid}>{[["This week", `${((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)}h`], ["OT", `${totals.totalOvertimeHours.toFixed(1)}h`], ["Est. pay", project.hourlyRateCents > 0 ? `SGD ${(totals.totalClaimAmountCents / 100).toFixed(2)}` : "Set pay rate"]].map(([label, value]) => <Pressable key={label} accessibilityRole={label === "Est. pay" ? "button" : undefined} onPress={label === "Est. pay" ? () => setPaySetupRequest((value) => value + 1) : undefined} style={styles.metricTile}>
-          <Text style={styles.metricLabel}>{label}</Text>
-          <Text style={styles.metricValue}>{value}</Text>
-        </Pressable>)}</View>
-        <Pressable onPress={() => setPaySetupRequest((value) => value + 1)}>
-          <Text style={styles.body}>Pay rate: {project.hourlyRateCents > 0 ? `SGD ${(project.hourlyRateCents / 100).toFixed(2)} / hour` : "Set pay rate"} ›</Text>
-        </Pressable>
+        <Text style={styles.metricValue}>{((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)} h</Text>
+        <Text style={styles.metricLabel}>This week</Text>
         <Pressable onPress={() => void toggleFinished()}>
           <Text style={styles.muted}>{project.status === "archived" ? "Reopen" : "Mark finished"}</Text>
         </Pressable>
       </View>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: sessionsExpanded }} onPress={() => setSessionsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
+        <Text style={styles.actionButtonSecondaryText}>Show sessions {sessionsExpanded ? "▲" : "▼"}</Text>
+      </Pressable>
+      {sessionsExpanded ? <>
+        <Pressable onPress={() => setPaySetupRequest((value) => value + 1)}>
+          <Text style={styles.body}>Pay rate: {project.hourlyRateCents > 0 ? `SGD ${(project.hourlyRateCents / 100).toFixed(2)} / hour` : "Set pay rate"} ›</Text>
+        </Pressable>
+
+        <View style={styles.metricGrid}>{[["This week", `${((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)}h`], ["OT", `${totals.totalOvertimeHours.toFixed(1)}h`], ["Est. pay", project.hourlyRateCents > 0 ? `SGD ${(totals.totalClaimAmountCents / 100).toFixed(2)}` : "Set pay rate"]].map(([label, value]) => <Pressable key={label} accessibilityRole={label === "Est. pay" ? "button" : undefined} onPress={label === "Est. pay" ? () => setPaySetupRequest((value) => value + 1) : undefined} style={styles.metricTile}>
+          <Text style={styles.metricLabel}>{label}</Text>
+          <Text style={styles.metricValue}>{value}</Text>
+        </Pressable>)}</View>
       <View style={styles.card}>
         <Text style={styles.heading}>Sessions</Text>{entries.map((entry) => <Pressable key={entry.id} onPress={() => setExpanded(expanded === entry.id ? null : entry.id)} style={styles.list}>
           <Text style={styles.body}>{entry.workDate} · {time(entry.startTime)} – {entry.endTime ? time(entry.endTime) : "working"} · {(entry.durationMinutes / 60).toFixed(1)}h</Text>
           {expanded === entry.id ? <>{(["start", "stop"] as const).map((phase) => <Text key={phase} style={styles.muted}>{phase}: {formatLocationChip({ phase, source: (phase === "start" ? entry.clockInLocationSource : entry.clockOutLocationSource) ?? "legacy", address: phase === "start" ? entry.locationText : entry.clockOutLocationText ?? null, latitude: phase === "start" ? entry.clockInGpsLatitude : entry.clockOutGpsLatitude, longitude: phase === "start" ? entry.clockInGpsLongitude : entry.clockOutGpsLongitude, accuracy: (phase === "start" ? entry.clockInGpsAccuracyM : entry.clockOutGpsAccuracyM) ?? null, locatedAt: (phase === "start" ? entry.clockInLocatedAt : entry.clockOutLocatedAt) ?? null }, false)}</Text>)}</> : null}
         </Pressable>)}{!entries.length ? <Text style={styles.muted}>No sessions yet.</Text> : null}</View>
+      </> : null}
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.heading}>Photos · {photos.length}</Text>
@@ -90,7 +99,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
         <View style={styles.actionRow}>{photos.slice(0, 4).map((photo) => <Image key={photo.id} source={{ uri: photo.local_uri }} style={styles.projectPhoto} />)}</View>
       </View>
       <ProgressClaimReportsScreen account={account} projectId={projectId} paySetupRequest={paySetupRequest} onPaySaved={() => void refresh()} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} renderActions={({ share, preview, csv, locked }) => <>
-        {!locked ? <Pressable onPress={share} style={styles.actionButton}>
+        {!locked ? <Pressable accessibilityRole="button" onPress={share} style={styles.actionButton}>
           <Text style={styles.actionButtonText}>{"Create & share PDF"}</Text>
         </Pressable> : null}
         <Text style={styles.muted}>Week {currentWeekStart()} – {weekEnd()}</Text>

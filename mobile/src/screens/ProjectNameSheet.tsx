@@ -19,8 +19,8 @@ export function ProjectNameSheet({ name = "", onSave, onClose }: { name?: string
         <Text style={styles.muted}>Just a name. Site and hours fill in when you start work.</Text>
         <TextInput accessibilityLabel="Project name" placeholder="Client or site name" placeholderTextColor={theme.colors.placeholder} value={value} onChangeText={setValue} style={styles.textInput} autoFocus />
         {error ? <Text style={styles.body}>{error}</Text> : null}
-        <Pressable disabled={busy || !value.trim()} onPress={() => void save()} style={[styles.actionButton, (busy || !value.trim()) && styles.disabledButton]}>
-          <Text style={[styles.actionButtonText, ((busy || !value.trim())) && styles.disabledButtonText]}>Save</Text>
+        <Pressable disabled={busy || !value.trim()} onPress={() => void save()} style={[styles.actionButtonSecondary, (busy || !value.trim()) && styles.disabledButton]}>
+          <Text style={[styles.actionButtonSecondaryText, ((busy || !value.trim())) && styles.disabledButtonText]}>Save</Text>
         </Pressable>
         <Pressable onPress={onClose}>
           <Text style={styles.muted}>Cancel</Text>

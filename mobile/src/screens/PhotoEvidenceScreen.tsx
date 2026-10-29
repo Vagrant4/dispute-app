@@ -233,13 +233,13 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       <View style={styles.brandRow}><Text style={styles.statusPillText}>{rows.length} photos</Text></View>
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
-        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipActive : styles.chip}><Text style={filterProjectId === project.id ? styles.chipActiveText : styles.chipText}>{project.name}</Text></Pressable>)}
+        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.name}</Text></Pressable>)}
       </ScrollView>
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
         <Text style={styles.photoEmptyIcon}>📷</Text>
         <Text style={styles.heading}>Your proof starts here</Text>
         <Text style={styles.muted}>Keep photo proof of your work on this phone.</Text>
-        <Pressable disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.actionButton, !canCapture && styles.disabledButton]}><Text style={[styles.actionButtonText, (!canCapture) && styles.disabledButtonText]}>Take first photo</Text></Pressable>
+
       </ScrollView> : <>
         <SectionList style={styles.photoList} scrollEnabled stickySectionHeadersEnabled sections={groups} keyExtractor={(pair) => pair[0].id}
           renderSectionHeader={({ section }) => <View style={styles.photoDayHeader}><Text style={styles.inputLabel}>{section.title}</Text></View>}
@@ -251,8 +251,9 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
               <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>📍 {photoAddress(row)}</Text></View>
             </Pressable>)}</View>
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
-        <Pressable accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.actionButtonText, (!canCapture) && styles.disabledButtonText]}>📷 Take photo</Text></Pressable>
+
       </>}
+        <Pressable accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.actionButtonText, (!canCapture) && styles.disabledButtonText]}>Take photo</Text></Pressable>
       {!projectId ? <Text style={styles.muted}>Start work on Today to create your first project.</Text> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <Modal visible={captureSheetOpen} transparent animationType="slide" onRequestClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
@@ -261,10 +262,10 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           {pendingUri ? <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} /> : null}
           <Text style={styles.muted}>{pendingUri ? photoTimeLabel({ captured_at: pendingCapturedAt, capture_source: captureSource, capture_time_source: captureTimeSource }) : "Choose a photo to save."}</Text>
           <Text style={styles.inputLabel}>Project</Text>
-          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={[project.id === projectId ? styles.chipActive : styles.chip, (saving) && styles.disabledButton]}><Text style={[project.id === projectId ? styles.chipActiveText : styles.chipText, (saving) && styles.disabledButtonText]}>{project.name}</Text></Pressable>)}</View>
-          <View style={styles.chipRow}>{SIMPLE_EVIDENCE_TYPES.map((type) => <Pressable disabled={saving} key={type} onPress={() => setEvidenceType(type)} style={[type === evidenceType ? styles.chipActive : styles.chip, (saving) && styles.disabledButton]}><Text style={[type === evidenceType ? styles.chipActiveText : styles.chipText, (saving) && styles.disabledButtonText]}>{formatEvidenceType(type)}</Text></Pressable>)}</View>
+          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={[project.id === projectId ? styles.chipSelected : styles.chip, (saving) && styles.disabledButton]}><Text style={[project.id === projectId ? styles.selectedSecondaryText : styles.chipText, (saving) && styles.disabledButtonText]}>{project.name}</Text></Pressable>)}</View>
+          <View style={styles.chipRow}>{SIMPLE_EVIDENCE_TYPES.map((type) => <Pressable disabled={saving} key={type} onPress={() => setEvidenceType(type)} style={[type === evidenceType ? styles.chipSelected : styles.chip, (saving) && styles.disabledButton]}><Text style={[type === evidenceType ? styles.selectedSecondaryText : styles.chipText, (saving) && styles.disabledButtonText]}>{formatEvidenceType(type)}</Text></Pressable>)}</View>
           {captureSheetOpen ? <TextInput accessibilityLabel="Photo evidence caption" editable={!saving} multiline onChangeText={setCaption} placeholder="Optional note" placeholderTextColor={theme.colors.placeholder} style={[styles.textInput, styles.textArea]} value={caption} /> : null}
-          <Pressable disabled={saving || !pendingUri || !canCapture} onPress={() => void handleSave()} style={[styles.actionButton, (saving || !pendingUri || !canCapture) && styles.disabledButton]}><Text style={[styles.actionButtonText, ((saving || !pendingUri || !canCapture)) && styles.disabledButtonText]}>{saving ? "Saving…" : "Save"}</Text></Pressable>
+          <Pressable disabled={saving || !pendingUri || !canCapture} onPress={() => void handleSave()} style={[styles.actionButtonSecondary, (saving || !pendingUri || !canCapture) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, ((saving || !pendingUri || !canCapture)) && styles.disabledButtonText]}>{saving ? "Saving…" : "Save"}</Text></Pressable>
           <Pressable disabled={saving} onPress={() => void handlePhotoAction("gallery")} style={[styles.actionButtonSecondary, (saving) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, (saving) && styles.disabledButtonText]}>Import from gallery</Text></Pressable>
           {status ? <Text style={styles.muted}>{status}</Text> : null}
           <Pressable style={[(saving) && styles.disabledButton]} disabled={saving} onPress={() => setCaptureSheetOpen(false)}><Text style={[styles.muted, (saving) && styles.disabledButtonText]}>Cancel</Text></Pressable>

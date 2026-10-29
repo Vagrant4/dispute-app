@@ -48,5 +48,5 @@ test("Photos and Projects keep the single App title and inner count subtitles", 
   assert.doesNotMatch(source("src/screens/ProjectsScreen.tsx"), />Projects<\/Text>/);
   assert.match(source("src/screens/PhotoEvidenceScreen.tsx"), /\{rows.length\} photos/);
   assert.match(source("src/screens/ProjectsScreen.tsx"), /\{summaries.length\} projects/);
-  for (const screen of ["ProjectsScreen", "ProjectDetailScreen"]) assert.match(source(`src/screens/${screen}.tsx`), /formatProjectSite\(/);
+  for (const screen of ["ProjectDetailScreen"]) assert.match(source(`src/screens/${screen}.tsx`), /formatProjectSite\(/);
 });

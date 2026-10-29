@@ -39,8 +39,8 @@ export function ProjectPayCard({ name, settings, rateCents, onSave }: { name: st
         <TextInput placeholderTextColor={theme.colors.placeholder} keyboardType="decimal-pad" value={multipliers[key]} onChangeText={(text) => setMultipliers({ ...multipliers, [key]: text })} style={styles.textInput} />
       </View>)}</View> : null}
     {error ? <Text style={styles.body}>{error}</Text> : null}
-    <Pressable disabled={busy} onPress={() => void save()} style={[styles.actionButton, busy && styles.disabledButton]}>
-      <Text style={[styles.actionButtonText, (busy) && styles.disabledButtonText]}>Save &amp; continue</Text>
+    <Pressable disabled={busy} onPress={() => void save()} style={[styles.actionButtonSecondary, busy && styles.disabledButton]}>
+      <Text style={[styles.actionButtonSecondaryText, (busy) && styles.disabledButtonText]}>Save &amp; continue</Text>
     </Pressable>
   </View>;
 }

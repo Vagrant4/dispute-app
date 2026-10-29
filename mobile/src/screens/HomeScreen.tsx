@@ -246,10 +246,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     <>
       <View style={styles.clockPanel}>
         <View style={styles.clockHeader}>
-          <View>
-            <Text style={styles.eyebrow}>Today</Text>
-            <Text style={styles.heading}>Work today</Text>
-          </View>
           <View style={styles.clockBadge}>
             <Text style={styles.clockBadgeText}>{clockStatus}</Text>
           </View>
@@ -262,12 +258,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
             </Text>
             <Text style={styles.metricLabel}>today</Text>
           </View>
-          <View style={styles.metricTile}>
-            <Text style={styles.metricValue}>
-              {clockInAt ? formatTime(clockInAt) : "--:--"}
-            </Text>
-            <Text style={styles.metricLabel}>started</Text>
-          </View>
         </View>
 
         <Pressable
@@ -278,32 +268,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         >
           <Text style={[styles.actionButtonText, (!clockInAt && !access.canCreateRecords) && styles.disabledButtonText]}>{clockInAt && !clockOutAt ? "Stop work" : "Start work"}</Text>
         </Pressable>
-        <Text style={styles.inputLabel}>Day type</Text>
-        <View style={styles.dayTypeRow}>
-          {DAY_TYPE_OPTIONS.map((option) => {
-            const selected = option.id === dayType;
-            const disabled = Boolean(clockInAt && !clockOutAt);
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected, disabled }}
-                disabled={disabled}
-                key={option.id}
-                onPress={() => setDayType(option.id)}
-                style={[
-                  selected ? styles.actionButton : styles.actionButtonSecondary,
-                  styles.dayTypeSegment,
-                  disabled && styles.disabledButton,
-                ]}
-              >
-                <Text style={[selected ? styles.actionButtonText : styles.actionButtonSecondaryText, (disabled) && styles.disabledButtonText]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {clockInAt && !clockOutAt ? <Text style={styles.muted}>Day type can be changed after stopping.</Text> : null}
         {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
         <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh GPS location" disabled={locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))} onPress={() => void handleLocateMe()} style={[styles.locationChip, (locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))) && styles.disabledButton]}>
@@ -325,14 +289,43 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
               ? "Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
               : "Subscribe in Settings > Plan & billing to continue logging and exporting. All your records stay viewable."}</Text>
             {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Stop work to finish the current shift.</Text> : null}
-            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButton}><Text style={styles.actionButtonText}>Create account</Text></Pressable> : null}
+            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Create account</Text></Pressable> : null}
           </View>
         ) : null}
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} onPress={() => setDetailsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
-          <Text style={styles.actionButtonSecondaryText}>Project &amp; day details {detailsExpanded ? "▲" : "▼"}</Text>
+          <Text style={styles.actionButtonSecondaryText}>Details {detailsExpanded ? "▲" : "▼"}</Text>
         </Pressable>
 
-        {detailsExpanded ? <>
+      </View>
+      {detailsExpanded ? <>
+      <View style={styles.card}>
+        <Text style={styles.muted}>Started: {clockInAt ? formatTime(clockInAt) : "--:--"} · Stopped: {clockOutAt ? formatTime(clockOutAt) : "--:--"}</Text>
+        <Text style={styles.inputLabel}>Day type</Text>
+        <View style={styles.dayTypeRow}>
+          {DAY_TYPE_OPTIONS.map((option) => {
+            const selected = option.id === dayType;
+            const disabled = Boolean(clockInAt && !clockOutAt);
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled }}
+                disabled={disabled}
+                key={option.id}
+                onPress={() => setDayType(option.id)}
+                style={[
+                  styles.actionButtonSecondary,
+                  styles.dayTypeSegment,
+                  disabled && styles.disabledButton,
+                ]}
+              >
+                <Text style={[selected ? styles.selectedSecondaryText : styles.actionButtonSecondaryText, (disabled) && styles.disabledButtonText]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {clockInAt && !clockOutAt ? <Text style={styles.muted}>Day type can be changed after stopping.</Text> : null}
 
         <Pressable style={[(Boolean(clockInAt && !clockOutAt)) && styles.disabledButton]} disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={[styles.body, (Boolean(clockInAt && !clockOutAt)) && styles.disabledButtonText]}>Project: {activeProject?.name ?? "Auto-create Job 1"} ›</Text></Pressable>
         {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
@@ -344,7 +337,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
           await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
         }} /> : null}
-        </> : null}
       </View>
 
       <View style={styles.card}>
@@ -406,6 +398,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           </Text>
         )}
       </View>
+      </> : null}
 
     </>
   );
