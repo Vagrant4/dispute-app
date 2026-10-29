@@ -67,7 +67,7 @@ test("Project sessions and breakdown start collapsed; each screen has one title"
   const details = detail.slice(detail.indexOf("{sessionsExpanded ? <>"));
   for (const content of ["totalOvertimeHours", "totalClaimAmountCents", "entries.map", "Pay rate:", "clockOutLocationSource"]) assert.ok(details.includes(content));
   assert.doesNotMatch(screen("Home"), /styles.eyebrow|>Work today<|>Today</);
-  assert.doesNotMatch(screen("Projects"), />Projects<\/Text>/);
+  assert.match(screen("Projects"), /styles.screenTitle\}>Projects<\/Text>/);
   assert.doesNotMatch(screen("PhotoEvidence"), />Photos<\/Text>/);
   assert.equal((detail.match(/>\{project.name\}<\/Text>/g) || []).length, 1);
 });

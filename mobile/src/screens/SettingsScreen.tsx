@@ -81,7 +81,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
-    { id: "pay_rate", label: "Pay rate", value: `${currency} ${baseRate || "0"} / ${rateBasis === "monthly" ? "month" : "day"}` },
+    { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : "day"}` : "Not set" },
     { id: "language", label: "Language", value: "English" },
     { id: "plan", label: "Plan", value: subscription?.status === "TRIALING" ? `Free trial · ${formatTrialCountdown(subscription)}` : subscription?.planName || "Checking plan…" },
     { id: "support", label: "Support", value: "Help and policies" },
@@ -178,6 +178,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   return (
     <>
+      {panel === "main" ? <Text style={styles.screenTitle}>Settings</Text> : null}
       {panel !== "main" ? (
         <Pressable accessibilityRole="button" onPress={() => setPanel(insideMore ? "more" : "main")} style={styles.settingsBackRow}>
           <Text style={styles.settingsRowLabel}>{insideMore ? "‹ More" : "‹ Settings"}</Text>

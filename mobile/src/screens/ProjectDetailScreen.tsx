@@ -62,13 +62,13 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
       <View style={styles.card}>
         <Text style={styles.heading}>{project.name}</Text>
         <Text style={styles.muted}>{formatProjectSite(summary)}</Text>
-        <Pressable style={[styles.textButton, (!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
-          <Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>Rename</Text>
+        <Pressable accessibilityRole="button" style={[styles.actionButtonSecondary, (!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
+          <Text style={[styles.actionButtonSecondaryText, (!access.canCreateRecords) && styles.disabledButtonText]}>Rename</Text>
         </Pressable>
         <Text style={styles.metricValue}>{((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)} h</Text>
         <Text style={styles.metricLabel}>This week</Text>
-        <Pressable style={styles.textButton} onPress={() => void toggleFinished()}>
-          <Text style={styles.muted}>{project.status === "archived" ? "Reopen" : "Mark finished"}</Text>
+        <Pressable accessibilityRole="button" style={styles.actionButtonSecondary} onPress={() => void toggleFinished()}>
+          <Text style={styles.actionButtonSecondaryText}>{project.status === "archived" ? "Reopen" : "Mark finished"}</Text>
         </Pressable>
       </View>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: sessionsExpanded }} onPress={() => setSessionsExpanded((value) => !value)} style={styles.actionButtonSecondary}>

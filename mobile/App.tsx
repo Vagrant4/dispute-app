@@ -103,7 +103,7 @@ export default function App() {
                 <Text style={styles.appName}>Dispute</Text>
               </View>
             </View>
-            <Text numberOfLines={1} style={styles.screenTitle}>
+            {!account || (activeTab !== "settings" && activeTab !== "reports") ? <Text numberOfLines={1} style={styles.screenTitle}>
               {account
                 ? activeTitle
                 : authMode === "create"
@@ -113,7 +113,7 @@ export default function App() {
                     : authMode === "forgot"
                       ? "Reset password"
                     : "Login"}
-            </Text>
+            </Text> : null}
           </View>
         ) : null}
 

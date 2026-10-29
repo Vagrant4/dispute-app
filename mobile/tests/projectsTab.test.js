@@ -162,3 +162,21 @@ test("native report source uses the saved report name and project archives filte
   assert.deepEqual(rows.map((row) => row.id), ["doc-0"]);
   assert.equal((await repository.listRecentGeneratedDocuments({ userId: "other", projectId, limit: 1 })).length, 0);
 });
+
+test("project count uses singular only for one project", () => {
+  const projects = source("src/screens/ProjectsScreen.tsx");
+  const expression = projects.match(/\{(summaries.length === 1 \? "project" : "projects")\}/)[1];
+  const noun = new Function("summaries", `return ${expression};`);
+  for (const count of [0, 1, 2]) assert.equal(`${count} ${noun({ length: count })}`, `${count} ${count === 1 ? "project" : "projects"}`);
+});
+
+test("Projects main title is skipped for detail and detail actions use secondary controls", () => {
+  const projects = source("src/screens/ProjectsScreen.tsx");
+  assert.ok(projects.indexOf("if (openProjectId) return <ProjectDetailScreen") < projects.indexOf(">Projects</Text>"));
+  assert.match(projects, /<Text style=\{styles.screenTitle\}>Projects<\/Text>/);
+  const detail = source("src/screens/ProjectDetailScreen.tsx");
+  assert.match(detail, />‹ Projects<\/Text>[\s\S]*?styles.heading\}>\{project.name\}/);
+  assert.doesNotMatch(detail, /styles.screenTitle/);
+  assert.match(detail, /styles.actionButtonSecondary[^\n]*setRename\(true\)/);
+  assert.match(detail, /styles.actionButtonSecondary\} onPress=\{\(\) => void toggleFinished\(\)/);
+});

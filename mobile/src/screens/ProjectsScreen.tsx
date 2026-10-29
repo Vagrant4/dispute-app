@@ -32,8 +32,9 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
     <Text style={styles.muted}>{(project.minutesThisWeek / 60).toFixed(1)} h this week</Text>
   </Pressable>;
   return <>
+    <Text style={styles.screenTitle}>Projects</Text>
     <View style={styles.row}>
-      <Text style={styles.muted}>{summaries.length} projects</Text>
+      <Text style={styles.muted}>{summaries.length} {summaries.length === 1 ? "project" : "projects"}</Text>
       <Pressable disabled={!access.canCreateRecords} onPress={() => setCreating(true)} style={[styles.actionButtonSecondary, !access.canCreateRecords && styles.disabledButton]}>
         <Text style={[styles.actionButtonSecondaryText, (!access.canCreateRecords) && styles.disabledButtonText]}>New project</Text>
       </Pressable>

@@ -61,3 +61,20 @@ test("Language stays English-only and Support reuses policy and deletion links",
   assert.match(source, /<ProfileSettingsPanel account=\{account\} onLogout=\{onLogout\}/);
   assert.match(read("screens/ProfileSettingsPanel.tsx"), />Logout<\/Text>/);
 });
+
+test("unset pay rates say Not set and saved rates keep their basis", () => {
+  const expression = mainRows.match(/label: "Pay rate", value: (.+) \},/)[1];
+  const value = (baseRate, rateBasis) => new Function("baseRate", "rateBasis", "currency", `return ${expression};`)(baseRate, rateBasis, "SGD");
+  for (const rate of ["", "0", "0.00"]) assert.equal(value(rate, "daily"), "Not set");
+  assert.equal(value("150", "daily"), "SGD 150 / day");
+  assert.equal(value("3000", "monthly"), "SGD 3000 / month");
+});
+
+test("Settings owns its main heading and sub-panels retain their back row and heading", () => {
+  const app = readFileSync(path.join(__dirname, "..", "App.tsx"), "utf8");
+  assert.match(app, /!account \|\| \(activeTab !== "settings" && activeTab !== "reports"\) \? <Text/);
+  assert.match(source, /panel === "main" \? <Text style=\{styles.screenTitle\}>Settings<\/Text> : null/);
+  assert.match(source, /panel !== "main" \? \([\s\S]*?insideMore \? "‹ More" : "‹ Settings"/);
+  assert.match(source, /panel === "more" \? <Text style=\{styles.heading\}>More<\/Text> : null/);
+  assert.match(source, /panel === "pay_rate" \? \([\s\S]*?<Text style=\{styles.heading\}>Pay rate<\/Text>/);
+});

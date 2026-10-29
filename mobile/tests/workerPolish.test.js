@@ -39,14 +39,14 @@ test("bottom tabs use stacked glyphs, theme colours, accessible targets and bott
   for (const key of ["bottomTabIcon", "bottomTabLabel"]) assert.match(styles, new RegExp(key + ': \\{ color: theme.colors.textMuted'));
 });
 
-test("Photos and Projects keep the single App title and inner count subtitles", () => {
+test("Photos and Projects keep one title and inner count subtitles", () => {
   const app = source("App.tsx");
   assert.equal((app.match(/\? activeTitle/g) || []).length, 1);
   const { tabs } = createLoader()("src/screenContent.ts");
   for (const title of ["Photos", "Projects"]) assert.equal(tabs.filter((tab) => tab.title === title).length, 1);
   assert.doesNotMatch(source("src/screens/PhotoEvidenceScreen.tsx"), />Photos<\/Text>/);
-  assert.doesNotMatch(source("src/screens/ProjectsScreen.tsx"), />Projects<\/Text>/);
+  assert.match(source("src/screens/ProjectsScreen.tsx"), /styles.screenTitle\}>Projects<\/Text>/);
   assert.match(source("src/screens/PhotoEvidenceScreen.tsx"), /\{rows.length\} photos/);
-  assert.match(source("src/screens/ProjectsScreen.tsx"), /\{summaries.length\} projects/);
+  assert.match(source("src/screens/ProjectsScreen.tsx"), /\{summaries.length\} \{summaries.length === 1 \? "project" : "projects"\}/);
   for (const screen of ["ProjectDetailScreen"]) assert.match(source(`src/screens/${screen}.tsx`), /formatProjectSite\(/);
 });
