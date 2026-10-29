@@ -812,8 +812,8 @@ export const styles = StyleSheet.create({
   },
   dangerButton: {
     alignItems: "stretch",
-    backgroundColor: theme.colors.warningBorder,
-    borderColor: theme.colors.warningBorder,
+    backgroundColor: theme.colors.danger,
+    borderColor: theme.colors.danger,
     borderRadius: control.radius,
     borderWidth: 1,
     height: control.height,
@@ -822,13 +822,13 @@ export const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   dangerButtonText: {
-    color: theme.colors.ink,
+    color: theme.colors.onDanger,
     ...type.label,
     },
   dangerButtonSecondary: {
     alignItems: "stretch",
-    backgroundColor: theme.colors.warningSurface,
-    borderColor: theme.colors.warningBorder,
+    backgroundColor: theme.colors.dangerHalo,
+    borderColor: theme.colors.danger,
     borderRadius: control.radius,
     borderWidth: 1,
     height: control.height,

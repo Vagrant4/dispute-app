@@ -40,3 +40,18 @@ test("permanent confirm uses danger red and white text", () => {
   assert.doesNotMatch(button, /primary/);
   assert.match(styles, /accountDeletionConfirmButtonText: \{\s*color: "#FFFFFF"/);
 });
+
+test("danger buttons use red danger tokens and readable text", () => {
+  const styles = read("styles.ts");
+  const block = (name) => styles.slice(styles.indexOf(`  ${name}: {`)).match(/^[\s\S]*?\n  \}/)[0];
+  assert.match(block("dangerButton"), /backgroundColor: theme.colors.danger,/);
+  assert.match(block("dangerButton"), /borderColor: theme.colors.danger,/);
+  assert.match(block("dangerButtonSecondary"), /backgroundColor: theme.colors.dangerHalo,/);
+  assert.match(block("dangerButtonSecondary"), /borderColor: theme.colors.danger,/);
+  assert.match(block("dangerButtonText"), /color: theme.colors.onDanger,/);
+  assert.match(styles, /onDanger: "#FFFFFF"/);
+  assert.match(block("dangerButtonSecondaryText"), /color: theme.colors.text,/);
+  for (const name of ["dangerButton", "dangerButtonSecondary", "dangerButtonText", "dangerButtonSecondaryText"]) {
+    assert.doesNotMatch(block(name), /warningBorder|warningSurface|primary/);
+  }
+});
