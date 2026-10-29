@@ -81,8 +81,13 @@ export const webWorkStore = {
     return state.projects.map((project) => {
       const entries = state.entries.filter((entry) => entry.projectId === project.id).sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
       const last = entries[0];
+      const stopFix = last?.clockOutGpsLatitude != null && last?.clockOutGpsLongitude != null;
+      const startFix = last?.clockInGpsLatitude != null && last?.clockInGpsLongitude != null;
       return { id: project.id, name: project.name, status: project.status,
-        lastSiteAddress: last?.clockOutLocationSource === "gps" && last.clockOutLocationText ? last.clockOutLocationText : last?.clockInLocationSource === "gps" ? last.locationText : null,
+        lastSiteAddress: stopFix ? last.clockOutLocationText ?? null : startFix ? last.locationText : null,
+        lastSiteLatitude: stopFix ? last.clockOutGpsLatitude : startFix ? last.clockInGpsLatitude : null,
+        lastSiteLongitude: stopFix ? last.clockOutGpsLongitude : startFix ? last.clockInGpsLongitude : null,
+        lastSiteAccuracyM: (stopFix ? last.clockOutGpsAccuracyM : startFix ? last.clockInGpsAccuracyM : null) ?? null,
         lastWorkedAt: last?.startTime ?? null,
         minutesThisWeek: entries.filter((entry) => entry.workDate >= weekStart && entry.workDate < end.toISOString().slice(0, 10)).reduce((sum, entry) => sum + entry.durationMinutes, 0),
         photoCount: photos.filter((photo) => photo.project_id === project.id).length,

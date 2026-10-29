@@ -18,6 +18,7 @@ export type WorkProject = {
 
 export type ProjectSummary = {
   id: string; name: string; lastSiteAddress: string | null; lastWorkedAt: string | null;
+  lastSiteLatitude: number | null; lastSiteLongitude: number | null; lastSiteAccuracyM: number | null;
   minutesThisWeek: number; photoCount: number; isActive: boolean; status: string;
 };
 
@@ -441,7 +442,10 @@ ORDER BY updated_at DESC, name ASC
     weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
     const rows = await this.database.getAllAsync<Omit<ProjectSummary, "isActive"> & { isActive: number }>(`
 SELECT p.id, p.name, p.status,
- (SELECT CASE WHEN e.clock_out_location_source = 'gps' AND e.clock_out_location_text IS NOT NULL THEN e.clock_out_location_text WHEN e.clock_in_location_source = 'gps' THEN e.location_text END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAddress,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_location_text WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.location_text END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAddress,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_latitude WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_latitude END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteLatitude,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_longitude WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_longitude END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteLongitude,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_accuracy_m WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_accuracy_m END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAccuracyM,
  (SELECT MAX(e.start_time) FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id) AS lastWorkedAt,
  COALESCE((SELECT SUM(e.duration_minutes) FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id AND e.work_date >= ? AND e.work_date < ?), 0) AS minutesThisWeek,
  (SELECT COUNT(*) FROM photo_evidence f WHERE f.user_id = p.user_id AND f.project_id = p.id) AS photoCount,

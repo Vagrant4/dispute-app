@@ -230,7 +230,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   }
   return (
     <View style={styles.photosPage}>
-      <View style={styles.brandRow}><Text style={styles.heading}>Photos</Text><Text style={styles.statusPillText}>{rows.length} photos</Text></View>
+      <View style={styles.brandRow}><Text style={styles.statusPillText}>{rows.length} photos</Text></View>
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
         {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipActive : styles.chip}><Text style={filterProjectId === project.id ? styles.chipActiveText : styles.chipText}>{project.name}</Text></Pressable>)}

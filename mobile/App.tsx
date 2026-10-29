@@ -23,6 +23,8 @@ import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSes
 import { loadGuestTrial, saveGuestTrial, startGuestTrial } from "./src/subscription/guestTrial";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
+const tabIcons: Record<TabId, string> = { home: "◷", evidence: "▦", reports: "▤", settings: "⚙" };
+
 function renderScreen(
   activeTab: TabId,
   onNavigate: (tab: TabId, settingsPanel?: SettingPanel) => void,
@@ -92,7 +94,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.app} edges={["top", "left", "right", "bottom"]}>
+      <SafeAreaView style={styles.app} edges={account ? ["top", "left", "right"] : ["top", "left", "right", "bottom"]}>
         <StatusBar style="light" />
         {showHeader ? (
           <View style={styles.header}>
@@ -214,7 +216,7 @@ export default function App() {
           )}
         </ScreenContainer>
         {account ? (
-          <View style={styles.tabRow}>
+          <SafeAreaView style={styles.bottomTabBar} edges={["bottom"]}>
             {tabs.map((tab) => {
               const selected = tab.id === activeTab;
               return (
@@ -226,12 +228,14 @@ export default function App() {
                     setSettingsInitialPanel(undefined);
                     setActiveTab(tab.id);
                   }}
-                  style={[styles.tabButton, selected && styles.tabButtonActive]}
+                  accessibilityLabel={tab.label}
+                  style={styles.bottomTabItem}
                 >
+                  <Text accessible={false} style={[styles.bottomTabIcon, selected && styles.bottomTabActive]}>{tabIcons[tab.id]}</Text>
                   <Text
                     style={[
-                      styles.tabButtonText,
-                      selected && styles.tabButtonTextActive,
+                      styles.bottomTabLabel,
+                      selected && styles.bottomTabActive,
                     ]}
                   >
                     {tab.label}
@@ -239,7 +243,7 @@ export default function App() {
                 </Pressable>
               );
             })}
-          </View>
+          </SafeAreaView>
         ) : null}
 
       </SafeAreaView>

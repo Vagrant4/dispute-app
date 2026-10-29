@@ -9,6 +9,7 @@ import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import { loadWorkHours } from "../work/workHoursSettings";
 import { buildProjectWeekReport } from "../reports/projectWeekReport";
 import { styles } from "../styles";
+import { formatProjectSite } from "../work/projectSite";
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
 export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccount, onOpenPlanBilling, onSeePhotos }: { account: LocalAccount; projectId: string; onBack: () => void; onCreateAccount: () => void; onOpenPlanBilling?: () => void; onSeePhotos: (projectId: string) => void }) {
@@ -59,7 +60,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
     {project ? <>
       <View style={styles.card}>
         <Text style={styles.heading}>{project.name}</Text>
-        <Text style={styles.muted}>📍 {summary?.lastSiteAddress ?? "No GPS site recorded"}</Text>
+        <Text style={styles.muted}>📍 {formatProjectSite(summary)}</Text>
         <Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
           <Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>✎ Rename</Text>
         </Pressable>

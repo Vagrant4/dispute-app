@@ -5,6 +5,7 @@ import type { ProjectSummary } from "../work/workRepository";
 import { currentWeekStart, getProjectScreenStore } from "../work/projectScreenStore";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import { styles } from "../styles";
+import { formatProjectSite } from "../work/projectSite";
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProjectDetailScreen } from "./ProjectDetailScreen";
 export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, onSeePhotos }: { account: LocalAccount; onCreateAccount: () => void; onOpenPlanBilling?: () => void; onSeePhotos: (projectId: string) => void }) {
@@ -29,13 +30,13 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
   const card = (project: ProjectSummary) => <Pressable key={project.id} onPress={() => setOpenProjectId(project.id)} style={styles.card} accessibilityRole="button">
     <View style={styles.row}>
       <Text style={styles.heading}>{project.name}</Text>{project.isActive ? <Text style={styles.statusPillText}>● Working</Text> : null}</View>
-    <Text style={styles.muted}>📍 {project.lastSiteAddress ?? "No GPS site recorded"}</Text>
+    <Text style={styles.muted}>📍 {formatProjectSite(project)}</Text>
     <Text style={styles.muted}>Last worked: {project.lastWorkedAt ? new Date(project.lastWorkedAt).toLocaleDateString() : "No sessions yet"}</Text>
     <Text style={styles.body}>{Math.floor(project.minutesThisWeek / 60)}h {project.minutesThisWeek % 60}m this week · {project.photoCount} photos · Open ›</Text>
   </Pressable>;
   return <>
     <View style={styles.row}>
-      <Text style={styles.heading}>Projects</Text>
+      <Text style={styles.muted}>{summaries.length} projects</Text>
       <Pressable disabled={!access.canCreateRecords} onPress={() => setCreating(true)} style={[styles.actionButton, !access.canCreateRecords && styles.disabledButton]}>
         <Text style={[styles.actionButtonText, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New</Text>
       </Pressable>

@@ -106,6 +106,11 @@ export const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     width: "100%",
   },
+  bottomTabBar: { flexDirection: "row", backgroundColor: theme.colors.surface, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: theme.spacing.xs },
+  bottomTabItem: { flex: 1, minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 2, paddingBottom: theme.spacing.xs },
+  bottomTabIcon: { color: theme.colors.textMuted, fontSize: 24, lineHeight: 28 },
+  bottomTabLabel: { color: theme.colors.textMuted, fontSize: 12, fontWeight: "700" },
+  bottomTabActive: { color: theme.colors.primary },
   tabScroller: {
     maxHeight: 58,
   },
