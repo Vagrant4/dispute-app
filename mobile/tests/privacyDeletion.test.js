@@ -55,3 +55,30 @@ test("danger buttons use red danger tokens and readable text", () => {
     assert.doesNotMatch(block(name), /warningBorder|warningSurface|primary/);
   }
 });
+
+// Keep all account-only controls inside the signed-in side of this render branch.
+const guestControls = deletion.split("      {isGuest ? (")[1].split("      ) : (")[0];
+const signedInControls = deletion.split("      {isGuest ? (")[1].slice(deletion.split("      {isGuest ? (")[1].indexOf("      ) : (") + "      ) : (".length);
+
+test("guest deletion screen offers only the phone settings button", () => {
+  assert.equal((guestControls.match(/<Pressable/g) || []).length, 1);
+  assert.match(guestControls, /onPress=\{\(\) => void Linking.openSettings\(\)\}/);
+  assert.match(guestControls, /style=\{styles.actionButtonSecondary\}/);
+  assert.match(guestControls, />Open phone settings<\/Text>/);
+  assert.doesNotMatch(guestControls, /TextInput|password|ACCOUNT_DELETION_CONFIRMATION|DELETE|reviewDeletion|permanentlyDeleteAccount|dangerButton|Manage subscription|subscription|statusMessage/);
+  const guestTitle = deletion.slice(deletion.indexOf("  return ("), deletion.indexOf("      <Text style={styles.body}>"));
+  assert.match(guestTitle, /!isGuest \? <Text/);
+});
+
+test("signed-in deletion screen retains password, DELETE and danger controls", () => {
+  assert.equal((signedInControls.match(/<TextInput/g) || []).length, 2);
+  assert.match(signedInControls, /accessibilityLabel="Account deletion current password"/);
+  assert.match(signedInControls, /secureTextEntry/);
+  assert.match(signedInControls, /Type \{ACCOUNT_DELETION_CONFIRMATION\} to confirm/);
+  assert.match(signedInControls, /onPress=\{reviewDeletion\}/);
+  assert.match(signedInControls, /styles.dangerButtonSecondary/);
+  assert.match(signedInControls, /onPress=\{\(\) => void permanentlyDeleteAccount\(\)\}/);
+  assert.match(signedInControls, /styles.accountDeletionConfirmButton/);
+  assert.match(signedInControls, />Manage subscription<\/Text>/);
+  assert.match(signedInControls, /styles.statusMessage/);
+});

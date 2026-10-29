@@ -130,12 +130,22 @@ export function DeleteAccountScreen({
 
   return (
     <View style={embedded ? styles.settingsSection : styles.card}>
-      <Text style={styles.todayTitle}>Delete account</Text>
+      {!isGuest ? <Text style={styles.todayTitle}>Delete account</Text> : null}
       <Text style={styles.body}>
         {isGuest
           ? "You are using DISPUTE without an account. This form needs a signed-in account and password. To remove guest projects, time entries, places, photos, reports and settings from this phone, clear DISPUTE storage in phone Settings. You cannot get them back. Copies you saved or shared elsewhere are not removed."
           : `Permanently deletes the account for ${account.email}, projects, time entries, places, evidence, reports and saved sign-in access. This removes the account data DISPUTE keeps and its data on this phone. You cannot get it back.`}
       </Text>
+      {isGuest ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void Linking.openSettings()}
+          style={styles.actionButtonSecondary}
+        >
+          <Text style={styles.actionButtonSecondaryText}>Open phone settings</Text>
+        </Pressable>
+      ) : (
+        <>
       {!isGuest ? <Text style={styles.body}>
         DISPUTE keeps a short record with no personal details that a deletion was asked for: a request number, the time, and whether clean-up finished. Google Play or our payment partner may keep their own payment records.
       </Text> : null}
@@ -203,6 +213,8 @@ export function DeleteAccountScreen({
         </View>
       )}
       <Text style={styles.statusMessage}>{status}</Text>
+        </>
+      )}
     </View>
   );
 }
