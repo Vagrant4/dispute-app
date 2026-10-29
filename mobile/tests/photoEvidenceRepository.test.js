@@ -132,6 +132,10 @@ test("PhotoEvidenceRepository inserts owned photo evidence SQL parameters", asyn
     "Location attached by device permission.",
     null,
     "draft",
+    null,
+    null,
+    null,
+    null,
   ]);
 });
 

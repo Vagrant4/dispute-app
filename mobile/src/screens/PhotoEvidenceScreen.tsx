@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
-import { Image, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from "react-native";
 
 import {
   buildEvidencePhotoPath,
@@ -11,7 +11,8 @@ import { getOptionalPhotoGps } from "../photos/photoGps";
 import type { PhotoEvidenceRow } from "../photos/photoEvidenceRepository";
 import { type PhotoEvidenceType, type PhotoGpsResult } from "../photos/photoEvidenceTypes";
 import { photoEvidenceContent } from "../screenContent";
-import { styles } from "../styles";
+import { photoCaptureMetadata, photoSealBadge, photoTimeLabel, sealPhoto } from "../photos/photoSeal";
+import { styles, theme } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
 import type { LocalAccount } from "../auth/localAuth";
@@ -28,7 +29,7 @@ const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
-  const [status, setStatus] = useState(photoEvidenceContent.localStorageBody);
+  const [status, setStatus] = useState("");
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [projectId, setProjectId] = useState("");
   const [caption, setCaption] = useState("");
@@ -37,6 +38,12 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pendingCapturedAt, setPendingCapturedAt] = useState<string | null>(null);
   const [pendingGps, setPendingGps] = useState<PhotoGpsResult | null>(null);
+  const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
+  const [detail, setDetail] = useState<PhotoEvidenceRow | null>(null);
+  const [filterProjectId, setFilterProjectId] = useState("");
+  const [captureSource, setCaptureSource] = useState<PhotoAction>("camera");
+  const [captureTimeSource, setCaptureTimeSource] = useState<"device_clock" | "exif" | "unknown">("device_clock");
+  const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<PhotoEvidenceRow[]>([]);
 
   useEffect(() => {
@@ -48,7 +55,8 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       const { webWorkStore } = await import("../work/webWorkStore");
       const nextProjects = await webWorkStore.listProjects(userId);
       setProjects(nextProjects);
-      setProjectId((current) => current || nextProjects[0]?.id || "");
+      const home = await webWorkStore.getHomeState(userId);
+      setProjectId((current) => home.activeEntry?.projectId || current || readWebPhotoEvidenceRows(userId)[0]?.project_id || home.recentEntries[0]?.projectId || nextProjects[0]?.id || "");
       setRows(readWebPhotoEvidenceRows(userId));
       return;
     }
@@ -59,7 +67,8 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
         repositories.photoEvidence.listRecentPhotoEvidence({ userId }),
       ]);
       setProjects(nextProjects);
-      setProjectId((current) => current || nextProjects[0]?.id || "");
+      const home = await repositories.work.getHomeState(userId);
+      setProjectId((current) => home.activeEntry?.projectId || current || nextRows[0]?.project_id || home.recentEntries[0]?.projectId || nextProjects[0]?.id || "");
       setRows(nextRows);
     } catch (error) {
       setStatus(getErrorMessage(error));
@@ -79,13 +88,14 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       }
       const result = action === "camera"
         ? await ImagePicker.launchCameraAsync({ quality: 0.85 })
-        : await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.85, exif: true });
       if (result.canceled || result.assets.length === 0) {
         setStatus("No photo selected. Nothing was saved.");
         return;
       }
       const selected = result.assets[0];
       const capturedAt = new Date();
+      const metadata = photoCaptureMetadata(action, selected.exif, capturedAt.toISOString());
       const photoId = `photo-${capturedAt.getTime()}`;
       const destinationUri = buildEvidencePhotoPath({
         userId,
@@ -97,12 +107,17 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       const imported = await importEvidencePhotoFile({ sourceUri: selected.uri, destinationUri });
       const gps: PhotoGpsResult = action === "camera"
         ? await getOptionalPhotoGps()
-        : { coordinates: null, message: "Gallery · time unknown", blocked: false };
+        : { coordinates: null, message: "Gallery import: no GPS attached", blocked: false };
       setPendingId(photoId);
       setPendingUri(imported.localUri);
-      setPendingCapturedAt(capturedAt.toISOString());
+      setPendingCapturedAt(metadata.capturedAt);
+      setCaptureSource(metadata.captureSource);
+      setCaptureTimeSource(metadata.captureTimeSource);
+      setEvidenceType("DURING_WORK");
+      setCaption("");
+      setCaptureSheetOpen(true);
       setPendingGps(gps);
-      setStatus(`${imported.message} Review the details, then save evidence. ${gps.message}`);
+      setStatus("");
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
@@ -121,6 +136,9 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       setStatus("Take a photo or choose one from the gallery first.");
       return;
     }
+    if (saving) return;
+    setSaving(true);
+    const seal = await sealPhoto({ localUri: pendingUri, capturedAt: pendingCapturedAt, gps: pendingGps });
     if (Platform.OS === "web") {
       const row = buildWebPhotoEvidenceRow({
         userId,
@@ -130,8 +148,12 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
         caption,
         evidenceType,
         gps: pendingGps,
+        capturedAt: pendingCapturedAt,
+        captureSource,
+        captureTimeSource,
+        ...seal,
       });
-      const nextRows = [row, ...readWebPhotoEvidenceRows(userId)].slice(0, 20);
+      const nextRows = [row, ...readWebPhotoEvidenceRows(userId)];
       writeWebPhotoEvidenceRows(nextRows, userId);
       setRows(nextRows);
       setPendingUri(null);
@@ -139,7 +161,9 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       setPendingCapturedAt(null);
       setPendingGps(null);
       setCaption("");
-      setStatus("Photo evidence saved in this phone preview. Device app builds save into local SQLite.");
+      setStatus("Photo saved.");
+      setCaptureSheetOpen(false);
+      setSaving(false);
       return;
     }
     try {
@@ -152,7 +176,10 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
         caption,
         evidenceType,
         gps: pendingGps,
-        timestamp: pendingCapturedAt ?? undefined,
+        timestamp: pendingCapturedAt,
+        captureSource,
+        captureTimeSource,
+        ...seal,
         status: "finalized",
       });
       setPendingUri(null);
@@ -160,110 +187,106 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
       setPendingCapturedAt(null);
       setPendingGps(null);
       setCaption("");
-      setStatus("Photo evidence saved locally and is ready for progress claims.");
+      setStatus("Photo saved.");
+      setCaptureSheetOpen(false);
       await refresh();
     } catch (error) {
       setStatus(getErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDelete(row: PhotoEvidenceRow) {
     try {
       if (!access.hasCurrentCreateAccess()) throw new Error("Expired access is read-only. Existing evidence cannot be changed.");
+      setDetail(null);
       if (Platform.OS === "web") {
         const nextRows = readWebPhotoEvidenceRows(userId).filter((item) => item.id !== row.id);
         writeWebPhotoEvidenceRows(nextRows, userId);
         setRows(nextRows);
-        setStatus("Saved photo removed from this phone preview.");
+        setStatus("Photo deleted.");
         return;
       }
       const repositories = await getNativeRepositories(userId);
       await repositories.photoEvidence.deletePhotoEvidence({ id: row.id, userId });
-      const fileResult = await deleteEvidencePhotoFile(row.local_uri);
-      setStatus(`Evidence row deleted. ${fileResult.message}`);
+      await deleteEvidencePhotoFile(row.local_uri);
+      setStatus("Photo deleted.");
       await refresh();
     } catch (error) {
       setStatus(getErrorMessage(error));
     }
   }
 
+  const groups = groupPhotos(rows.filter((row) => !filterProjectId || row.project_id === filterProjectId));
+  const canCapture = !!projectId && access.canCreateRecords;
+  function confirmDelete(row: PhotoEvidenceRow) {
+    if (Platform.OS === "web") {
+      if (globalThis.confirm("Delete this photo? This cannot be undone.")) void handleDelete(row);
+    } else Alert.alert("Delete this photo?", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => void handleDelete(row) },
+    ]);
+  }
   return (
-    <>
-      <View style={styles.card}>
-        <Text style={styles.eyebrow}>Evidence</Text>
-        <Text style={styles.heading}>Add photo proof</Text>
-        <Text style={styles.muted}>Shoot, describe, save.</Text>
-        {!access.canCreateRecords ? (
-          <View style={styles.statusCard}>
-            <Text style={styles.statusTitle}>Read-only access</Text>
-            <Text style={styles.statusMessage}>{access.message}</Text>
-          </View>
-        ) : null}
-        <Text style={styles.inputLabel}>Project</Text>
-        <View style={styles.actionRow}>
-          {projects.length ? projects.map((project) => (
-            <Pressable key={project.id} onPress={() => setProjectId(project.id)} style={project.id === projectId ? styles.actionButton : styles.actionButtonSecondary}>
-              <Text style={project.id === projectId ? styles.actionButtonText : styles.actionButtonSecondaryText}>{project.name}</Text>
-            </Pressable>
-          )) : (
-            <Text style={styles.muted}>No project yet. Create one on the Time page first.</Text>
-          )}
-        </View>
-        <Text style={styles.inputLabel}>Type</Text>
-        <View style={styles.chipRow}>
-          {SIMPLE_EVIDENCE_TYPES.map((type) => (
-            <Pressable key={type} onPress={() => setEvidenceType(type)} style={type === evidenceType ? styles.chipActive : styles.chip}>
-              <Text style={type === evidenceType ? styles.chipActiveText : styles.chipText}>{formatEvidenceType(type)}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.inputLabel}>Note</Text>
-        <TextInput accessibilityLabel="Photo evidence caption" multiline onChangeText={setCaption} placeholder="What does this photo prove?" style={[styles.textInput, styles.textArea]} value={caption} />
-        <View style={styles.clockButtonRow}>
-          <Pressable
-            accessibilityState={{ disabled: !projectId || !access.canCreateRecords }}
-            disabled={!projectId || !access.canCreateRecords}
-            onPress={() => void handlePhotoAction("camera")}
-            style={[styles.actionButton, (!projectId || !access.canCreateRecords) && styles.disabledButton]}
-          >
-            <Text style={styles.actionButtonText}>Take photo</Text>
-          </Pressable>
-          <Pressable
-            accessibilityState={{ disabled: !projectId || !access.canCreateRecords }}
-            disabled={!projectId || !access.canCreateRecords}
-            onPress={() => void handlePhotoAction("gallery")}
-            style={[styles.actionButtonSecondary, (!projectId || !access.canCreateRecords) && styles.disabledButton]}
-          >
-            <Text style={styles.actionButtonSecondaryText}>Gallery</Text>
-          </Pressable>
-        </View>
-        {pendingUri ? (
-          <View style={styles.previewPanel}>
-            <Text style={styles.inputLabel}>Preview before saving</Text>
-            <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} />
-            <Pressable accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => void handleSave()} style={[styles.actionButton, !access.canCreateRecords && styles.disabledButton]}>
-              <Text style={styles.actionButtonText}>Save Evidence</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.previewPanel}>
-            <Text style={styles.muted}>Take a photo or choose from Gallery. The Save Evidence button appears after a photo is selected.</Text>
-          </View>
-        )}
-        <Text style={styles.muted}>{status}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.heading}>Saved photos</Text>
-        {rows.length ? rows.map((row) => (
-          <View key={row.id} style={styles.row}>
-            <Image source={{ uri: row.local_uri }} style={{ width: 64, height: 64, borderRadius: 8 }} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={styles.rowLabel}>{formatEvidenceType(row.evidence_type)}</Text><Text style={styles.body}>{row.caption || "No caption"}</Text>{row.gps_latitude != null && row.gps_longitude != null ? <Text style={styles.statusPillText}>GPS{row.gps_accuracy_m != null ? ` ±${Math.round(row.gps_accuracy_m)} m` : ""}</Text> : null}<Text style={styles.muted}>{row.gps_message === "Gallery · time unknown" ? "Gallery · time unknown" : new Date(row.captured_at).toLocaleString()}</Text></View>
-            <Pressable disabled={!access.canCreateRecords} onPress={() => void handleDelete(row)} style={[styles.statusPill, !access.canCreateRecords && styles.disabledButton]}><Text style={styles.statusPillText}>Delete</Text></Pressable>
-          </View>
-        )) : <Text style={styles.muted}>No photo evidence saved on this device yet.</Text>}
-      </View>
-    </>
+    <View style={styles.photosPage}>
+      <View style={styles.brandRow}><Text style={styles.heading}>Photos</Text><Text style={styles.statusPillText}>{rows.length} photos</Text></View>
+      {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
+      <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
+        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipActive : styles.chip}><Text style={filterProjectId === project.id ? styles.chipActiveText : styles.chipText}>{project.name}</Text></Pressable>)}
+      </ScrollView>
+      {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
+        <Text style={styles.photoEmptyIcon}>📷</Text>
+        <Text style={styles.heading}>Your proof starts here</Text>
+        <Text style={styles.muted}>Keep photo proof of your work on this phone.</Text>
+        <Pressable disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.actionButton, !canCapture && styles.disabledButton]}><Text style={styles.actionButtonText}>Take first photo</Text></Pressable>
+      </ScrollView> : <>
+        <SectionList style={styles.photoList} scrollEnabled stickySectionHeadersEnabled sections={groups} keyExtractor={(pair) => pair[0].id}
+          renderSectionHeader={({ section }) => <View style={styles.photoDayHeader}><Text style={styles.inputLabel}>{section.title}</Text></View>}
+          renderItem={({ item }) => <View>
+            {item[0].id === groups.flatMap((group) => group.data).find((pair) => pair[0].project_id === item[0].project_id && photoDay(pair[0]) === photoDay(item[0]))?.[0].id ? <Text style={styles.photoProjectLabel}>{projects.find((project) => project.id === item[0].project_id)?.name ?? "Project"}</Text> : null}
+            <View style={styles.photoGridRow}>{item.map((row) => <Pressable key={row.id} accessibilityRole="button" accessibilityLabel={`Open photo: ${photoTimeLabel(row)}`} onPress={() => setDetail(row)} style={styles.photoTile}>
+              <Image source={{ uri: row.local_uri }} style={styles.photoTileImage} />
+              <Text style={styles.photoBadge}>{photoSealBadge(row)}</Text>
+              <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>📍 {photoAddress(row)}</Text></View>
+            </Pressable>)}</View>
+          </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
+        <Pressable accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={styles.actionButtonText}>📷 Take photo</Text></Pressable>
+      </>}
+      {!projectId ? <Text style={styles.muted}>Start work on Today to create your first project.</Text> : null}
+      {status ? <Text style={styles.muted}>{status}</Text> : null}
+      <Modal visible={captureSheetOpen} transparent animationType="slide" onRequestClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
+        <View style={styles.photoSheetBackdrop}><ScrollView style={styles.photoSheet} contentContainerStyle={styles.photoSheetContent} keyboardShouldPersistTaps="handled">
+          <Text style={styles.heading}>Photo proof</Text>
+          {pendingUri ? <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} /> : null}
+          <Text style={styles.muted}>{pendingUri ? photoTimeLabel({ captured_at: pendingCapturedAt, capture_source: captureSource, capture_time_source: captureTimeSource }) : "Choose a photo to save."}</Text>
+          <Text style={styles.inputLabel}>Project</Text>
+          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={project.id === projectId ? styles.chipActive : styles.chip}><Text style={project.id === projectId ? styles.chipActiveText : styles.chipText}>{project.name}</Text></Pressable>)}</View>
+          <View style={styles.chipRow}>{SIMPLE_EVIDENCE_TYPES.map((type) => <Pressable disabled={saving} key={type} onPress={() => setEvidenceType(type)} style={type === evidenceType ? styles.chipActive : styles.chip}><Text style={type === evidenceType ? styles.chipActiveText : styles.chipText}>{formatEvidenceType(type)}</Text></Pressable>)}</View>
+          {captureSheetOpen ? <TextInput accessibilityLabel="Photo evidence caption" editable={!saving} multiline onChangeText={setCaption} placeholder="Optional note" placeholderTextColor={theme.colors.placeholder} style={[styles.textInput, styles.textArea]} value={caption} /> : null}
+          <Pressable disabled={saving || !pendingUri || !canCapture} onPress={() => void handleSave()} style={[styles.actionButton, (saving || !pendingUri || !canCapture) && styles.disabledButton]}><Text style={styles.actionButtonText}>{saving ? "Saving…" : "Save"}</Text></Pressable>
+          <Pressable disabled={saving} onPress={() => void handlePhotoAction("gallery")} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Import from gallery</Text></Pressable>
+          {status ? <Text style={styles.muted}>{status}</Text> : null}
+          <Pressable disabled={saving} onPress={() => setCaptureSheetOpen(false)}><Text style={styles.muted}>Cancel</Text></Pressable>
+        </ScrollView></View>
+      </Modal>
+      <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)}>
+        {detail ? <ScrollView style={styles.photoDetail} contentContainerStyle={styles.photoSheetContent}>
+          <Pressable onPress={() => setDetail(null)}><Text style={styles.body}>Close</Text></Pressable>
+          <Image accessibilityLabel="Photo evidence" resizeMode="contain" source={{ uri: detail.local_uri }} style={styles.photoDetailImage} />
+          <Text style={styles.heading}>{photoTimeLabel(detail)}</Text>
+          <Text style={styles.body}>{detail.captured_at ? new Date(detail.captured_at).toLocaleDateString() : "Capture date unknown"}</Text>
+          <Text style={styles.body}>📍 {photoAddress(detail)}{detail.gps_accuracy_m != null ? ` · ±${Math.round(detail.gps_accuracy_m)} m` : ""}</Text>
+          <Text style={styles.body}>Type: {formatEvidenceType(detail.evidence_type)}</Text>
+          <Text style={styles.body}>Note: {detail.caption || "No note"}</Text>
+          <Text style={styles.body}>Project: {projects.find((project) => project.id === detail.project_id)?.name ?? "Project"}</Text>
+          <Text style={styles.body}>{photoSealBadge(detail)}</Text>
+          <Text style={styles.muted}>Source: {detail.capture_source ?? "Not recorded (older record)"} · Time source: {detail.capture_time_source ?? "unknown"}</Text>
+          <Text style={styles.muted}>Seal: {detail.lock_hash ?? "Unavailable"}{detail.locked_at ? ` · ${new Date(detail.locked_at).toLocaleString()}` : ""}</Text>
+          <Pressable disabled={!access.canCreateRecords} onPress={() => confirmDelete(detail)} style={[styles.actionButtonSecondary, !access.canCreateRecords && styles.disabledButton]}><Text style={styles.actionButtonSecondaryText}>Delete</Text></Pressable>
+        </ScrollView> : null}
+      </Modal>
+    </View>
   );
 }
 
@@ -293,6 +316,11 @@ function buildWebPhotoEvidenceRow(params: {
   caption: string;
   evidenceType: PhotoEvidenceType;
   gps: PhotoGpsResult | null;
+  capturedAt: string | null;
+  captureSource: PhotoAction;
+  captureTimeSource: string;
+  lockHash: string | null;
+  lockedAt: string | null;
 }): PhotoEvidenceRow {
   return {
     id: params.id,
@@ -302,11 +330,15 @@ function buildWebPhotoEvidenceRow(params: {
     local_uri: params.localUri,
     caption: params.caption.trim() || null,
     evidence_type: params.evidenceType,
-    captured_at: new Date().toISOString(),
-    gps_latitude: params.gps?.coordinates?.latitude ?? null,
-    gps_longitude: params.gps?.coordinates?.longitude ?? null,
-    gps_message: params.gps?.message ?? null,
-    gps_accuracy_m: params.gps?.coordinates?.accuracy ?? null,
+    captured_at: params.capturedAt,
+    capture_source: params.captureSource,
+    capture_time_source: params.captureTimeSource,
+    lock_hash: params.lockHash,
+    locked_at: params.lockedAt,
+    gps_latitude: (params.captureSource === "gallery" ? null : params.gps)?.coordinates?.latitude ?? null,
+    gps_longitude: (params.captureSource === "gallery" ? null : params.gps)?.coordinates?.longitude ?? null,
+    gps_message: params.captureSource === "gallery" ? "Gallery import: no GPS attached" : params.gps?.message ?? null,
+    gps_accuracy_m: (params.captureSource === "gallery" ? null : params.gps)?.coordinates?.accuracy ?? null,
     status: "finalized",
   };
 }
@@ -334,4 +366,26 @@ function writeWebPhotoEvidenceRows(rows: PhotoEvidenceRow[], userId: string): vo
 
 function getWebPhotoStorageKey(userId: string): string {
   return `${WEB_PHOTO_STORAGE_KEY}:${encodeURIComponent(userId)}`;
+}
+
+function photoAddress(row: PhotoEvidenceRow): string {
+  return row.gps_latitude != null && row.gps_longitude != null ? row.gps_message?.startsWith("GPS address: ") ? row.gps_message.slice("GPS address: ".length) : "GPS point (no street name)" : "Location unknown";
+}
+function photoDay(row: PhotoEvidenceRow): string {
+  return row.captured_at ? new Date(row.captured_at).toLocaleDateString() : "Capture date unknown";
+}
+function groupPhotos(rows: PhotoEvidenceRow[]) {
+  const days = new Map<string, Map<string, PhotoEvidenceRow[]>>();
+  for (const row of [...rows].sort((a, b) => (b.captured_at ?? "").localeCompare(a.captured_at ?? ""))) {
+    const day = photoDay(row);
+    if (!days.has(day)) days.set(day, new Map());
+    const projects = days.get(day)!;
+    if (!projects.has(row.project_id)) projects.set(row.project_id, []);
+    projects.get(row.project_id)!.push(row);
+  }
+  return [...days].map(([title, projects]) => ({ title, data: [...projects.values()].flatMap((photos) => {
+    const pairs: PhotoEvidenceRow[][] = [];
+    for (let i = 0; i < photos.length; i += 2) pairs.push(photos.slice(i, i + 2));
+    return pairs;
+  }) }));
 }

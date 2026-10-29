@@ -119,6 +119,8 @@ function sanitizeRestoredRow(
     const id = typeof row.id === "string" ? row.id : "restored-photo";
     return {
       ...ownedRow,
+      capture_source: row.capture_source ?? null,
+      capture_time_source: row.capture_time_source ?? null,
       local_uri: `backup-metadata-only://${encodeURIComponent(id)}`,
     };
   }

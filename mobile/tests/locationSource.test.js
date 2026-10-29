@@ -82,7 +82,7 @@ test("fresh schema and every migration have matching columns; legacy and backup 
   assert.deepEqual(columns(fresh), columns(migrated));
   for (const column of ["clock_out_location_text", "clock_in_location_source", "clock_out_location_source", "clock_in_gps_accuracy_m", "clock_out_gps_accuracy_m", "clock_in_located_at", "clock_out_located_at", "location_note", "location_history_json"]) {
     assert.ok(columns(fresh).includes(column));
-    assert.match(schema.LOCAL_MIGRATIONS.at(-1).sql, new RegExp(column));
+    assert.match(schema.LOCAL_MIGRATIONS.find((migration) => migration.name === "location_evidence").sql, new RegExp(column));
   }
   const { database, store, userId, projectId } = await fixture();
   const entry = await store.clockIn({ userId, projectId, clockInAt: new Date(Date.now() - 60_000), locationText: "Site", gpsLatitude: 1, gpsLongitude: 2, gpsAccuracyM: 9 });

@@ -70,6 +70,9 @@ type PhotoEvidenceRow = {
   caption: string | null;
   evidence_type: string | null;
   captured_at: string | null;
+  capture_source: string | null;
+  capture_time_source: string | null;
+  lock_hash: string | null;
 };
 
 export class ProgressClaimSourceRepository {
@@ -131,7 +134,7 @@ export class ProgressClaimSourceRepository {
         [project.id, params.userId],
       ),
       this.database.getAllAsync<PhotoEvidenceRow>(
-        `SELECT id, time_entry_id, local_uri, caption, evidence_type, captured_at
+        `SELECT id, time_entry_id, local_uri, caption, evidence_type, captured_at, capture_source, capture_time_source, lock_hash
         FROM photo_evidence
         WHERE project_id = ? AND user_id = ?
         ORDER BY COALESCE(captured_at, created_at) ASC, id ASC`,
@@ -220,5 +223,8 @@ function mapPhotoEvidence(rows: PhotoEvidenceRow[]): PhotoEvidenceSnapshotInput[
     caption: row.caption,
     evidenceType: row.evidence_type,
     capturedAt: row.captured_at,
+    captureSource: row.capture_source,
+    captureTimeSource: row.capture_time_source,
+    lockHash: row.lock_hash,
   }));
 }

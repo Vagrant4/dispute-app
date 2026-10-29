@@ -60,12 +60,12 @@ function createTsLoader() {
   return load;
 }
 
-test("schema version 8 keeps rate settings and adds location evidence", () => {
+test("schema version 9 keeps rate and location settings and adds photo provenance", () => {
   const { CURRENT_SCHEMA_VERSION, LOCAL_MIGRATIONS, MOBILE_SCHEMA_SQL } = createTsLoader()(
     "src/db/schema.ts",
   );
 
-  assert.equal(CURRENT_SCHEMA_VERSION, 8);
+  assert.equal(CURRENT_SCHEMA_VERSION, 9);
   for (const field of [
     "break_minutes",
     "location_text",
@@ -81,9 +81,9 @@ test("schema version 8 keeps rate settings and adds location evidence", () => {
   ]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
-  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 8);
-  assert.match(LOCAL_MIGRATIONS.at(-2).sql, /rate_basis/);
-  assert.match(LOCAL_MIGRATIONS.at(-2).sql, /base_rate_cents/);
+  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 9);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /rate_basis/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /base_rate_cents/);
 });
 
 test("WorkRepository starts empty until the user creates a project", async () => {

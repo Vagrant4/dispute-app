@@ -24,13 +24,19 @@ export async function getOptionalPhotoGps(): Promise<PhotoGpsResult> {
     }
 
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    let address: string | null = null;
+    try {
+      const results = await Location.reverseGeocodeAsync({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      const place = results[0];
+      if (place) address = [place.streetNumber, place.street, place.postalCode].filter(Boolean).join(" ") || null;
+    } catch { /* Coordinates still provide evidence without a street name. */ }
     return {
       coordinates: {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
       },
-      message: "Location attached by device permission.",
+      message: address ? `GPS address: ${address}` : "GPS point (no street name)",
       blocked: false,
     };
   } catch (error) {

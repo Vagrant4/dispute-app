@@ -32,7 +32,11 @@ export type BuildPhotoEvidenceInputParams = {
   localUri: string;
   caption?: string | null;
   evidenceType?: PhotoEvidenceType;
-  timestamp?: string;
+  timestamp?: string | null;
+  captureSource?: "camera" | "gallery";
+  captureTimeSource?: "device_clock" | "exif" | "unknown";
+  lockHash?: string | null;
+  lockedAt?: string | null;
   gps?: PhotoGpsResult | null;
   status?: "draft" | "active" | "finalized";
 };
@@ -46,7 +50,11 @@ export type PhotoEvidenceInput = {
   localUri: string;
   caption: string | null;
   evidenceType: PhotoEvidenceType;
-  capturedAt: string;
+  capturedAt: string | null;
+  captureSource?: "camera" | "gallery";
+  captureTimeSource?: "device_clock" | "exif" | "unknown";
+  lockHash?: string | null;
+  lockedAt?: string | null;
   gpsLatitude: number | null;
   gpsLongitude: number | null;
   gpsMessage: string | null;
@@ -94,11 +102,15 @@ export function buildPhotoEvidenceInput(
     localUri,
     caption: normalizeOptionalText(params.caption),
     evidenceType,
-    capturedAt: params.timestamp ?? new Date().toISOString(),
-    gpsLatitude: params.gps?.coordinates?.latitude ?? null,
-    gpsLongitude: params.gps?.coordinates?.longitude ?? null,
-    gpsMessage: normalizeOptionalText(params.gps?.message),
-    gpsAccuracyM: params.gps?.coordinates?.accuracy ?? null,
+    capturedAt: params.captureSource === "gallery" ? params.timestamp ?? null : params.timestamp ?? new Date().toISOString(),
+    captureSource: params.captureSource,
+    captureTimeSource: params.captureTimeSource,
+    lockHash: params.lockHash ?? null,
+    lockedAt: params.lockedAt ?? null,
+    gpsLatitude: (params.captureSource === "gallery" ? null : params.gps)?.coordinates?.latitude ?? null,
+    gpsLongitude: (params.captureSource === "gallery" ? null : params.gps)?.coordinates?.longitude ?? null,
+    gpsMessage: params.captureSource === "gallery" ? "Gallery import: no GPS attached" : normalizeOptionalText(params.gps?.message),
+    gpsAccuracyM: (params.captureSource === "gallery" ? null : params.gps)?.coordinates?.accuracy ?? null,
     status: params.status ?? "draft",
   };
 }

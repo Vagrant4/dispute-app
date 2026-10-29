@@ -13,7 +13,9 @@ export type PhotoEvidenceRow = {
   local_uri: string;
   caption: string | null;
   evidence_type: string;
-  captured_at: string;
+  captured_at: string | null;
+  capture_source?: string | null;
+  capture_time_source?: string | null;
   gps_latitude: number | null;
   gps_longitude: number | null;
   gps_message: string | null;
@@ -48,8 +50,12 @@ export class PhotoEvidenceRepository {
         gps_longitude,
         gps_message,
         gps_accuracy_m,
-        status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        status,
+        capture_source,
+        capture_time_source,
+        lock_hash,
+        locked_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.id,
         input.userId,
@@ -64,6 +70,10 @@ export class PhotoEvidenceRepository {
         input.gpsMessage,
         input.gpsAccuracyM ?? null,
         input.status,
+        input.captureSource ?? null,
+        input.captureTimeSource ?? null,
+        input.lockHash ?? null,
+        input.lockedAt ?? null,
       ],
     );
   }
@@ -72,7 +82,7 @@ export class PhotoEvidenceRepository {
     userId: string;
     limit?: number;
   }): Promise<PhotoEvidenceRow[]> {
-    const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
+    const limit = params.limit == null ? -1 : Math.max(1, Math.min(params.limit, 100));
 
     return this.database.getAllAsync<PhotoEvidenceRow>(
       `SELECT
@@ -89,6 +99,8 @@ export class PhotoEvidenceRepository {
         gps_message,
         gps_accuracy_m,
         status,
+        capture_source,
+        capture_time_source,
         lock_hash,
         locked_at,
         created_at,
@@ -120,6 +132,10 @@ function validatePhotoEvidenceInput(input: PhotoEvidenceInput): PhotoEvidenceInp
     caption: input.caption,
     evidenceType: input.evidenceType,
     timestamp: input.capturedAt,
+    captureSource: input.captureSource,
+    captureTimeSource: input.captureTimeSource,
+    lockHash: input.lockHash,
+    lockedAt: input.lockedAt,
     gps: {
       coordinates:
         input.gpsLatitude == null || input.gpsLongitude == null

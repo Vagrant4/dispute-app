@@ -161,7 +161,10 @@ function buildPhotoEvidenceCards(snapshot: ProgressClaimSnapshot): string {
         ["Linked time entry", photo.timeEntryId],
         ["Type", photo.evidenceType],
         ["Caption", photo.caption],
-        ["Captured at", photo.capturedAt],
+        ["Captured at", photo.capturedAt ?? "Time unknown"],
+        ["Source", photo.captureSource ?? "Source not recorded (older record)"],
+        ["Time source", photo.captureTimeSource ?? "unknown"],
+        ["Seal hash (first 12 hex)", photo.lockHash?.slice(0, 12) ?? "Unavailable"],
         ["Local reference", photoReferenceLabel(photo.localUri)],
       ])}</div></div></div>`;
     })

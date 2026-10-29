@@ -70,6 +70,8 @@ export default function App() {
     () => tabs.find((tab) => tab.id === activeTab)?.title ?? "dispute",
     [activeTab],
   );
+  const photosVisible = !!account && activeTab === "evidence";
+  const ScreenContainer = photosVisible ? View : ScrollView;
   const showHeader = account || authMode !== "logo";
 
   useEffect(() => {
@@ -146,10 +148,9 @@ export default function App() {
           </View>
         ) : null}
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentInner}
-          showsVerticalScrollIndicator={false}
+        <ScreenContainer
+          style={photosVisible ? [styles.content, styles.photoScreenContainer] : styles.content}
+          {...(photosVisible ? {} : { contentContainerStyle: styles.contentInner, showsVerticalScrollIndicator: false })}
         >
           {account ? (
             renderScreen(
@@ -242,7 +243,7 @@ export default function App() {
               />
             </>
           )}
-        </ScrollView>
+        </ScreenContainer>
       </SafeAreaView>
     </SafeAreaProvider>
   );

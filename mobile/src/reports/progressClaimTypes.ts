@@ -55,6 +55,9 @@ export type PhotoEvidenceSnapshotInput = {
   timeEntryId?: string | null;
   localUri: string;
   printUri?: string | null;
+  captureSource?: string | null;
+  captureTimeSource?: string | null;
+  lockHash?: string | null;
   caption?: string | null;
   evidenceType?: string | null;
   capturedAt?: string | null;
