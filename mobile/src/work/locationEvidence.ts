@@ -37,7 +37,7 @@ export function formatLocationChip(reading: LocationReading | null, locating = f
   if (!reading || reading.source !== "gps") return "No GPS · Turn on location";
   const accuracy = reading.accuracy == null ? "accuracy unknown" : `±${Math.round(reading.accuracy)} m`;
   const time = reading.locatedAt ? new Date(reading.locatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "time unknown";
-  return `${reading.address || "GPS point (no street name)"} · ${accuracy}${reading.accuracy != null && reading.accuracy > 50 ? " · approximate" : ""} · ${time} ⟳`;
+  return `${reading.address || "Location saved"} · ${accuracy}${reading.accuracy != null && reading.accuracy > 50 ? " · approximate" : ""} · ${time} ⟳`;
 }
 export function assertRefreshPhase(entry: { endTime: string | null }, phase: "start" | "stop", now = Date.now()): void {
   if (entry.endTime ? phase !== "stop" || now - new Date(entry.endTime).getTime() > 10 * 60_000 : phase !== "start") {

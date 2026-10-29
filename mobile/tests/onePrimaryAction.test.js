@@ -6,9 +6,9 @@ const primary = (text) => text.match(/styles\.(?:actionButton|photoFab|chipActiv
 
 test("Today reserves filled lime for Start / Stop, including expired access", () => {
   const home = screen("Home");
-  assert.equal(primary(home).length, 1);
+  assert.equal((home.match(/styles.todayRoundButton/g) || []).length, 1);
   assert.match(home, /handleClockOut\(\) : handleClockIn\(\)/);
-  assert.match(home, /"Stop work" : "Start work"/);
+  assert.match(home, /"Clock out" : "Clock in"/);
   assert.match(home, /onPress=\{onCreateAccount\} style=\{styles.actionButtonSecondary\}/);
   assert.match(home, /startDisabled && styles.disabledButtonText/);
 });
@@ -53,7 +53,7 @@ test("Today shows one summary and a direct project picker without Details", () =
   const home = screen("Home");
   assert.doesNotMatch(home, /detailsExpanded|DAY_TYPE_OPTIONS|Recent time|Started:|Stopped:/);
   assert.match(home, /setProjectPickerOpen/);
-  assert.equal((home.match(/styles.metricValue/g) || []).length, 1);
+  assert.equal((home.match(/styles.todayClock/g) || []).length, 1);
 });
 
 test("Project sessions and breakdown start collapsed; each screen has one title", () => {
@@ -63,7 +63,7 @@ test("Project sessions and breakdown start collapsed; each screen has one title"
   assert.match(detail, />Show sessions \{sessionsExpanded/);
   const details = detail.slice(detail.indexOf("{sessionsExpanded ? <>"));
   for (const content of ["totalOvertimeHours", "totalClaimAmountCents", "entries.map", "Pay rate:", "clockOutLocationSource"]) assert.ok(details.includes(content));
-  assert.doesNotMatch(screen("Home"), /styles.eyebrow|>Work today<|>Today</);
+  assert.doesNotMatch(screen("Home"), /styles.eyebrow|>Work today</);
   assert.match(screen("Projects"), /styles.screenTitle\}>Projects<\/Text>/);
   assert.doesNotMatch(screen("PhotoEvidence"), />Photos<\/Text>/);
   assert.equal((detail.match(/>\{project.name\}<\/Text>/g) || []).length, 1);

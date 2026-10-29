@@ -1,6 +1,7 @@
 import { defaultDayType } from "../work/defaultDayType";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Image,
   Platform,
   Pressable,
   Text,
@@ -12,8 +13,9 @@ import { ProjectNameSheet } from "./ProjectNameSheet";
 import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
-import { formatLocationChip, locationReading, type LocationReading } from "../work/locationEvidence";
+import { locationReading, type LocationReading } from "../work/locationEvidence";
 import { getWorkLocationWithTimeout } from "../work/workLocation";
+import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime, formatLocationRow } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
 
@@ -43,31 +45,23 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    const timer = setInterval(() => setNow(new Date()), clockInAt && !clockOutAt ? 1000 : 15_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [clockInAt, clockOutAt]);
 
   useEffect(() => {
     void refreshWorkState();
   }, []);
 
-  const elapsedMinutes = useMemo(() => {
-    if (!clockInAt) {
-      return 0;
-    }
-
-    const end = clockOutAt ?? now;
-    return Math.max(0, Math.floor((end.getTime() - clockInAt.getTime()) / 60000));
-  }, [clockInAt, clockOutAt, now]);
-
-  const clockStatus = clockInAt && !clockOutAt ? "Working" : "Not started";
-  const trackedTodayMinutes = homeState?.totalMinutesToday ?? 0;
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
     : null;
   const isRunning = Boolean(clockInAt && !clockOutAt);
   const readiness = startReadiness({ hasLocation: locationFix?.source === "gps", hasProject: Boolean(activeProject) });
-  const startDisabled = !isRunning && (!readiness.enabled || !access.canCreateRecords);
+  const startDisabled = isRunning ? stopping : !access.canCreateRecords;
+  const idleClock = formatIdleClock(now);
+  const workedSeconds = workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now);
+  const locationRow = formatLocationRow(locationFix, { working: isRunning, locating, locationOff });
   const trialDaysLeft = account.isGuest ? access.trialDaysLeft : access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? Math.ceil((Date.parse(access.subscription.trialEndsAt) - now.getTime()) / 86400000) : null;
   async function refreshWorkState() {
@@ -121,7 +115,13 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   }
 
   async function handleClockIn() {
-    if (savingStart.current || !readiness.enabled) return;
+    if (savingStart.current) return;
+    if (readiness.missing === "location" || readiness.missing === "both") {
+      if (locationOff) void Linking.openSettings();
+      else await handleLocateMe();
+      return;
+    }
+    if (readiness.missing === "project") { setProjectPickerOpen(true); return; }
     if (!access.hasCurrentCreateAccess()) {
       setWorkStatus("An active trial or subscription is required to create new time records.");
       return;
@@ -140,12 +140,11 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       savingStart.current = false;
       setLocationEntryId(entry.id);
       setLocationPhase("start");
-      setLocationFix(null);
       setLocating(true);
       setClockInAt(nextClockIn);
       setClockOutAt(null);
       setNow(nextClockIn);
-      setWorkStatus(`Started at ${formatTime(nextClockIn)}.`);
+      setWorkStatus("");
       await refreshWorkState();
       try {
         const location = await getWorkLocationWithTimeout(20_000);
@@ -159,7 +158,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   }
 
   async function handleLocateMe() {
-    if (locating || stopping) return;
+    if (isRunning || locating || stopping) return;
     const request = ++locationRequest.current;
     setLocating(true);
     try {
@@ -207,7 +206,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       setClockOutAt(nextClockOut);
       setDayType(defaultDayType(nextClockOut));
       setNow(nextClockOut);
-      setWorkStatus(`Stopped at ${formatTime(nextClockOut)}.`);
+      setWorkStatus("");
       await refreshWorkState();
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
@@ -216,32 +215,44 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
 
   return (
     <View style={styles.todayScreen}>
-      <View style={styles.clockPanel}>
-        <View style={styles.clockHeader}>
-          <View style={styles.clockBadge}>
-            <Text style={styles.clockBadgeText}>{clockStatus}</Text>
-          </View>
+      <View style={styles.todayHeader}>
+        <Text style={styles.todayTitle}>Today</Text>
+        <Text style={styles.todayWordmark}>DISPUTE</Text>
+      </View>
+      <View style={styles.todayHero}>
+        <View style={styles.todayStatus}>
+          <View style={styles.todayStatusDot} />
+          <Text style={styles.todayStatusText}>{isRunning && clockInAt ? `Working · since ${formatClockTime(clockInAt)}` : "Not clocked in"}</Text>
         </View>
-
-        <View style={styles.metricGrid}>
-          <View style={styles.metricTile}>
-            <Text style={styles.metricValue}>
-              {formatElapsed(trackedTodayMinutes || elapsedMinutes)}
-            </Text>
-            <Text style={styles.metricLabel}>today</Text>
-          </View>
+        <Text style={styles.todayClock}>{isRunning ? formatWorkedClock(workedSeconds) : idleClock.time}{!isRunning ? <Text style={styles.todayPeriod}> {idleClock.period}</Text> : null}</Text>
+        <Text style={styles.todayCaption}>{isRunning ? "hours worked today" : now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long" })}</Text>
+        {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
+        <View style={[styles.todayHalo, isRunning && styles.todayStopHalo]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayRoundButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
+            <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
+          </Pressable>
         </View>
-
-        <Pressable accessibilityRole="button" accessibilityLabel="Get location" disabled={locating || stopping} onPress={() => void handleLocateMe()} style={[styles.locationChip, styles.todayLocationRow, (locating || stopping) && styles.disabledButton]}>
-          <Text accessible={false} style={styles.locationChipText}>⌖</Text>
-          <Text style={[styles.locationChipText, (locating || stopping) && styles.disabledButtonText]}>{locating || locationFix?.source === "gps" ? formatLocationChip(locationFix, locating) : "Tap for location"}</Text>
+      </View>
+      <View style={styles.todayRows}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Get location" accessibilityState={{ disabled: isRunning || locating || stopping }} disabled={isRunning || locating || stopping} onPress={() => { if (locationOff) void Linking.openSettings(); else void handleLocateMe(); }} style={styles.todayEvidenceRow}>
+          <View style={styles.todayIconTile}><Image source={require("../../assets/icons/pin.png")} style={styles.todayRowIcon} /></View>
+          <View style={styles.todayRowContent}>
+            <Text numberOfLines={1} style={styles.todayRowTitle}>{locationRow.title}</Text>
+            <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{locationRow.subtitle}</Text></View>
+          </View>
+          {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
         </Pressable>
-        {locationOff ? <View>
-          <Text style={styles.muted}>Location is off for DISPUTE. Turn it on in your phone settings.</Text>
-          <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}><Text style={styles.actionButtonSecondaryText}>Open settings</Text></Pressable>
-        </View> : null}
-        <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} style={[(Boolean(clockInAt && !clockOutAt)) && styles.disabledButton]} disabled={Boolean(clockInAt && !clockOutAt)} onPress={() => setProjectPickerOpen(!projectPickerOpen)}><Text style={[styles.body, (Boolean(clockInAt && !clockOutAt)) && styles.disabledButtonText]}>{activeProject?.name ?? "Choose a project"} ›</Text></Pressable>
-        {projectPickerOpen ? <View style={styles.card}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
+          <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
+          <View style={styles.todayRowContent}>
+            <Text numberOfLines={1} style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
+            <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
+          </View>
+          {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
+        </Pressable>
+      </View>
+      <View>
+        {projectPickerOpen ? <View style={styles.todayPicker}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
         {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
           if (!access.canCreateRecords) throw new Error(access.message);
           const store = await getWorkStore(userId);
@@ -251,29 +262,16 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
         }} /> : null}
         {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
-        {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.muted}>{trialDaysLeft} days left in your free trial</Text> : null}
         {access.subscription && !access.canCreateRecords ? (
-          <View style={[styles.card, styles.warningCard]}>
+          <View style={styles.todayPicker}>
             <Text style={styles.heading}>{account.isGuest ? "Your 30-day free trial has ended." : "Your trial or subscription is not active."}</Text>
             <Text style={styles.body}>{account.isGuest
               ? "Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
               : "Subscribe in Settings > Plan & billing to continue logging and exporting. All your records stay viewable."}</Text>
-            {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Stop work to finish the current shift.</Text> : null}
+            {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Clock out to finish the current shift.</Text> : null}
             {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Create account</Text></Pressable> : null}
           </View>
         ) : null}
-      </View>
-      <View style={styles.todayBottomAction}>
-        {!isRunning && readiness.hint ? <Text style={styles.muted}>{readiness.hint}</Text> : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: startDisabled }}
-          disabled={startDisabled}
-          onPress={() => void (clockInAt && !clockOutAt ? handleClockOut() : handleClockIn())}
-          style={[styles.actionButton, startDisabled && styles.disabledButton]}
-        >
-          <Text style={[styles.actionButtonText, startDisabled && styles.disabledButtonText]}>{clockInAt && !clockOutAt ? "Stop work" : "Start work"}</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -288,19 +286,6 @@ async function getWorkStore(userId: string) {
   const { getLocalRepositories } = await import("../db/repositories");
   const repositories = await getLocalRepositories(userId);
   return repositories.work;
-}
-
-function formatElapsed(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return `${hours}h ${String(remainder).padStart(2, "0")}m`;
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function parseBreakMinutes(value: string): number {

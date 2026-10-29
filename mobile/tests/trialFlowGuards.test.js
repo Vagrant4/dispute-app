@@ -86,9 +86,9 @@ test("mid-shift exemption: TIME OUT has no entitlement check and stays enabled d
   const body = home.slice(start, end);
   assert.ok(start > 0);
   assert.doesNotMatch(body, /access\.|hasCurrentCreateAccess|canCreateRecords/);
-  assert.match(home, /const startDisabled = !isRunning && \(!readiness.enabled \|\| !access.canCreateRecords\)/);
+  assert.match(home, /const startDisabled = isRunning \? stopping : !access.canCreateRecords/);
   assert.match(home, /disabled=\{startDisabled\}/);
-  assert.match(home, /clockInAt && !clockOutAt \? handleClockOut\(\) : handleClockIn\(\)/);
+  assert.match(home, /isRunning \? handleClockOut\(\) : handleClockIn\(\)/);
   const repo = src("src/work/workRepository.ts");
   const clockOut = repo.slice(repo.indexOf("async clockOut("), repo.indexOf("async clockOut(") + 2500);
   assert.doesNotMatch(clockOut, /entitlement|subscription|canCreate/i);

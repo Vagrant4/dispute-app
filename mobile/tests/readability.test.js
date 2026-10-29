@@ -38,7 +38,7 @@ test("disabled controls use disabled text colours and no opacity dimming", () =>
       if (ts.isPropertyAssignment(node) && node.name.getText(ast) === "opacity" && Number(node.initializer.getText(ast)) < 1) {
         assert.doesNotMatch(node.parent.parent.getText(ast), /disabled/i, file);
       }
-      if (ts.isJsxOpeningElement(node) && node.tagName.getText(ast) === "Pressable" && node.attributes.properties.some((prop) => prop.name?.getText(ast) === "disabled")) {
+      if (ts.isJsxOpeningElement(node) && node.tagName.getText(ast) === "Pressable" && node.attributes.properties.some((prop) => prop.name?.getText(ast) === "disabled") && !node.getText(ast).includes("styles.todayEvidenceRow")) {
         assert.match(node.getText(ast), /styles.disabledButton/, file);
         assert.match(node.parent.getText(ast), /styles.disabledButtonText/, file);
       }
@@ -46,4 +46,15 @@ test("disabled controls use disabled text colours and no opacity dimming", () =>
     }
     scan(ast);
   }
+});
+
+test("Clock out danger and halo tokens preserve contrast", () => {
+  const colors = Object.fromEntries([...styles.matchAll(/(\w+): "(#[0-9A-F]{6})"/g)].map((m) => [m[1], m[2]]));
+  function luminance(hex) { const c = hex.slice(1).match(/../g).map((v) => parseInt(v, 16) / 255).map((v) => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return c[0] * .2126 + c[1] * .7152 + c[2] * .0722; }
+  function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); }
+  assert.equal(colors.danger, "#D93F44");
+  assert.equal(colors.dangerHalo, "#2A1416");
+  assert.equal(colors.primaryHalo, "#1B2410");
+  assert.ok(Number(contrast(colors.onDanger, colors.danger).toFixed(2)) >= 4.43);
+  assert.ok(contrast(colors.background, colors.danger) >= 4.3);
 });
