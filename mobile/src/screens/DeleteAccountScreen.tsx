@@ -28,6 +28,7 @@ export function DeleteAccountScreen({
   onAccountDeleted,
   embedded = false,
 }: DeleteAccountScreenProps) {
+  const isGuest = account.isGuest === true || !account.email.trim();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [finalConfirmationVisible, setFinalConfirmationVisible] = useState(false);
@@ -129,12 +130,15 @@ export function DeleteAccountScreen({
 
   return (
     <View style={embedded ? styles.settingsSection : styles.card}>
-      {!embedded ? <Text style={styles.eyebrow}>Danger zone</Text> : null}
-      <Text style={embedded ? styles.rowLabel : styles.heading}>Delete account and data</Text>
+      <Text style={styles.todayTitle}>Delete account</Text>
       <Text style={styles.body}>
-        Permanently deletes the account for {account.email}, projects, time entries, places,
-        evidence, reports and saved sign-in access. This removes the account data DISPUTE keeps and its data on this phone. You cannot get it back.
+        {isGuest
+          ? "You are using DISPUTE without an account. This form needs a signed-in account and password. To remove guest projects, time entries, places, photos, reports and settings from this phone, clear DISPUTE storage in phone Settings. You cannot get them back. Copies you saved or shared elsewhere are not removed."
+          : `Permanently deletes the account for ${account.email}, projects, time entries, places, evidence, reports and saved sign-in access. This removes the account data DISPUTE keeps and its data on this phone. You cannot get it back.`}
       </Text>
+      {!isGuest ? <Text style={styles.body}>
+        DISPUTE keeps a short record with no personal details that a deletion was asked for: a request number, the time, and whether clean-up finished. Google Play or our payment partner may keep their own payment records.
+      </Text> : null}
       <View style={embedded ? styles.settingsSection : styles.deletionWarningCard}>
         <Text style={styles.warningText}>
           Deleting DISPUTE does not cancel an active Google Play or App Store
@@ -190,9 +194,9 @@ export function DeleteAccountScreen({
             accessibilityState={{ disabled: deleting }}
             disabled={deleting}
             onPress={() => void permanentlyDeleteAccount()}
-            style={[styles.dangerButton, (deleting) && styles.disabledButton]}
+            style={[styles.accountDeletionConfirmButton, (deleting) && styles.disabledButton]}
           >
-            <Text style={[styles.dangerButtonText, (deleting) && styles.disabledButtonText]}>
+            <Text style={[styles.accountDeletionConfirmButtonText, (deleting) && styles.disabledButtonText]}>
               {deleting ? "Deleting permanently..." : "Delete account permanently"}
             </Text>
           </Pressable>

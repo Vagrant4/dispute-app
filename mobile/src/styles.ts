@@ -797,6 +797,19 @@ export const styles = StyleSheet.create({
     color: theme.colors.text,
     ...type.caption,
     },
+  accountDeletionConfirmButton: {
+    backgroundColor: theme.colors.danger,
+    borderColor: theme.colors.danger,
+    borderRadius: control.radius,
+    borderWidth: 1,
+    height: control.height,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.md,
+  },
+  accountDeletionConfirmButtonText: {
+    color: "#FFFFFF",
+    ...type.label,
+  },
   dangerButton: {
     alignItems: "stretch",
     backgroundColor: theme.colors.warningBorder,

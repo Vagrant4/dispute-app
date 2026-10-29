@@ -28,7 +28,7 @@ test("More keeps referrals, privacy and the wired record copy tools", () => {
   assert.match(source, /panel === "privacy_data"/);
   assert.match(source, /<DeleteAccountScreen\s+embedded/);
   assert.match(source, /panel === "backup" \? <SettingsBackupScreen account=\{account\} exportOnly=\{!hasFullAccess\}/);
-  assert.match(source, /setPanel\(insideMore \? "more" : "main"\)/);
+  assert.match(source, /setPanel\(panel === "delete_account" \? "privacy_data" : insideMore \? "more" : "main"\)/);
 });
 
 test("main list uses plain wording and no segmented Account menu", () => {

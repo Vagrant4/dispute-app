@@ -82,7 +82,7 @@ test("phone app has separate create account and login pages before main tabs", (
   assert.match(loginSource, /saveSavedLoginDetails/);
   assert.match(loginSource, /New user\? Create account/);
   assert.match(settingsSource, /Privacy & data/);
-  assert.match(deleteAccountSource, /Delete account and data/);
+  assert.match(deleteAccountSource, /styles.todayTitle}>Delete account</);
   assert.match(deleteAccountSource, /Manage subscription/);
   assert.match(remoteAuthSource, /ACCOUNT_DELETION_CONFIRMATION = "DELETE"/);
   assert.match(deleteAccountSource, /Type \{ACCOUNT_DELETION_CONFIRMATION\} to confirm/);

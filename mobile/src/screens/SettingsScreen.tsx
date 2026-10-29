@@ -31,7 +31,7 @@ type SettingsScreenProps = {
 
 export type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
 
-type SettingsPage = "main" | "name" | "pay_rate" | "language" | "plan" | "support" | "more" | "referrals" | "privacy_data" | "backup";
+type SettingsPage = "main" | "name" | "pay_rate" | "language" | "plan" | "support" | "more" | "referrals" | "privacy_data" | "backup" | "delete_account";
 
 const INITIAL_PANEL_PAGES: Record<SettingPanel, SettingsPage> = {
   profile: "name",
@@ -196,8 +196,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         </View>
       ) : null}
       {panel !== "main" ? (
-        <Pressable accessibilityRole="button" onPress={() => setPanel(insideMore ? "more" : "main")} style={styles.settingsBackRow}>
-          <Text style={styles.settingsBackText}>{insideMore ? "‹ More" : "‹ Settings"}</Text>
+        <Pressable accessibilityRole="button" onPress={() => setPanel(panel === "delete_account" ? "privacy_data" : insideMore ? "more" : "main")} style={styles.settingsBackRow}>
+          <Text style={styles.settingsBackText}>{panel === "delete_account" ? "‹ Privacy & data" : insideMore ? "‹ More" : "‹ Settings"}</Text>
         </Pressable>
       ) : null}
       {panel === "more" ? <Text style={styles.todayTitle}>More</Text> : null}
@@ -425,12 +425,20 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       {panel === "privacy_data" ? (
         <>
           <PrivacyScreen />
+          <Pressable accessibilityRole="button" onPress={() => setPanel("delete_account")} style={styles.settingsRow}>
+            <View style={styles.settingsRowContent}>
+              <Text style={styles.settingsRowLabel}>Delete account</Text>
+            </View>
+            <Text style={styles.settingsChevron}>›</Text>
+          </Pressable>
+        </>
+      ) : null}
+      {panel === "delete_account" ? (
           <DeleteAccountScreen
             embedded
             account={account}
             onAccountDeleted={onAccountDeleted}
           />
-        </>
       ) : null}
     </View>
   );
