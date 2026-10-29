@@ -17,6 +17,7 @@ export type PhotoEvidenceRow = {
   gps_latitude: number | null;
   gps_longitude: number | null;
   gps_message: string | null;
+  gps_accuracy_m?: number | null;
   status: string;
   lock_hash?: string | null;
   locked_at?: string | null;
@@ -46,8 +47,9 @@ export class PhotoEvidenceRepository {
         gps_latitude,
         gps_longitude,
         gps_message,
+        gps_accuracy_m,
         status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.id,
         input.userId,
@@ -60,6 +62,7 @@ export class PhotoEvidenceRepository {
         input.gpsLatitude,
         input.gpsLongitude,
         input.gpsMessage,
+        input.gpsAccuracyM ?? null,
         input.status,
       ],
     );
@@ -84,6 +87,7 @@ export class PhotoEvidenceRepository {
         gps_latitude,
         gps_longitude,
         gps_message,
+        gps_accuracy_m,
         status,
         lock_hash,
         locked_at,
@@ -123,6 +127,7 @@ function validatePhotoEvidenceInput(input: PhotoEvidenceInput): PhotoEvidenceInp
           : {
               latitude: input.gpsLatitude,
               longitude: input.gpsLongitude,
+              accuracy: input.gpsAccuracyM ?? null,
             },
       message: input.gpsMessage ?? "",
       blocked: false,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -10,13 +10,16 @@ import {
 import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
-import { getOptionalWorkLocationAddress } from "../work/workLocation";
+import { formatLocationChip, locationReading, type LocationReading } from "../work/locationEvidence";
+import { getWorkLocationWithTimeout } from "../work/workLocation";
 import { buildAutomaticProjectName, getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
 import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialCountdown } from "../subscription/subscriptionClient";
 
 export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount; onCreateAccount: () => void }) {
+  const locationRequest = useRef(0);
+  const savingStart = useRef(false);
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [clockInAt, setClockInAt] = useState<Date | null>(null);
@@ -26,11 +29,13 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [workStatus, setWorkStatus] = useState("Loading local work records...");
-  const [locationText, setLocationText] = useState("");
-  const [locationGps, setLocationGps] = useState<{
-    latitude: number | null;
-    longitude: number | null;
-  }>({ latitude: null, longitude: null });
+  const [locationFix, setLocationFix] = useState<LocationReading | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [noteExpanded, setNoteExpanded] = useState(false);
+  const [workerNote, setWorkerNote] = useState("");
+  const [locationEntryId, setLocationEntryId] = useState<string | null>(null);
+  const [locationPhase, setLocationPhase] = useState<"start" | "stop">("start");
+  const [stopping, setStopping] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectHourlyRate, setProjectHourlyRate] = useState("");
@@ -40,7 +45,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
   const [legacyDataAvailable, setLegacyDataAvailable] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const [noGpsWarning, setNoGpsWarning] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -100,15 +104,32 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         setSelectedProjectId(nextState.activeEntry.projectId);
         setClockInAt(new Date(nextState.activeEntry.startTime));
         setClockOutAt(null);
-        setLocationText(nextState.activeEntry.locationText ?? "");
-        setLocationGps({
-          latitude: nextState.activeEntry.clockInGpsLatitude,
-          longitude: nextState.activeEntry.clockInGpsLongitude,
+        setLocationEntryId(nextState.activeEntry.id);
+        setLocationPhase("start");
+        const entry = nextState.activeEntry;
+        const history = JSON.parse(entry.locationHistoryJson || "[]") as LocationReading[];
+        setLocationFix(history.filter((fix) => fix.phase === "start").at(-1) ?? {
+          phase: "start", source: entry.clockInLocationSource ?? "legacy", address: entry.locationText,
+          latitude: entry.clockInGpsLatitude, longitude: entry.clockInGpsLongitude,
+          accuracy: entry.clockInGpsAccuracyM ?? null, locatedAt: entry.clockInLocatedAt ?? null,
         });
+        setWorkerNote(entry.locationNote ?? "");
       } else {
-        setClockInAt(null);
-        setClockOutAt(null);
-        setLocationGps({ latitude: null, longitude: null });
+        const recent = nextState.recentEntries[0];
+        if (recent?.endTime && Date.now() - new Date(recent.endTime).getTime() <= 600_000) {
+          setLocationEntryId(recent.id);
+          setLocationPhase("stop");
+          setClockInAt(recent.startTime ? new Date(recent.startTime) : null);
+          setClockOutAt(new Date(recent.endTime));
+          const history = JSON.parse(recent.locationHistoryJson || "[]") as LocationReading[];
+          setLocationFix(history.filter((fix) => fix.phase === "stop").at(-1) ?? { phase: "stop", source: recent.clockOutLocationSource ?? "legacy", address: recent.clockOutLocationText ?? null, latitude: recent.clockOutGpsLatitude, longitude: recent.clockOutGpsLongitude, accuracy: recent.clockOutGpsAccuracyM ?? null, locatedAt: recent.clockOutLocatedAt ?? null });
+          setWorkerNote(recent.locationNote ?? "");
+        } else {
+          setClockInAt(null);
+          setClockOutAt(null);
+          setLocationEntryId(null);
+          setLocationFix(null);
+        }
         setSelectedProjectId((current) =>
           nextProjects.some((project) => project.id === current)
             ? current
@@ -135,10 +156,13 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   }
 
   async function handleClockIn() {
+    if (savingStart.current) return;
     if (!access.hasCurrentCreateAccess()) {
       setWorkStatus("An active trial or subscription is required to create new time records.");
       return;
     }
+    savingStart.current = true;
+    const request = ++locationRequest.current;
     const nextClockIn = new Date();
     try {
       const store = await getWorkStore(userId);
@@ -150,31 +174,26 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         projectId = project.id;
         setSelectedProjectId(project.id);
       }
-      setWorkStatus("Saving time-in and getting location...");
-      const location = await Promise.race([
-        getOptionalWorkLocationAddress(),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
-      ]);
-      const gps = location && location.latitude != null ? location : null;
-      setNoGpsWarning(!gps);
-      if (location?.address) setLocationText(location.address);
-      await store.clockIn({
-        userId,
-        projectId,
-        clockInAt: nextClockIn,
-        dayType,
-        locationText: location?.address ?? locationText,
-        gpsLatitude: gps?.latitude ?? null,
-        gpsLongitude: gps?.longitude ?? null,
-      });
+      const entry = await store.clockIn({ userId, projectId, clockInAt: nextClockIn, dayType });
+      savingStart.current = false;
+      setLocationEntryId(entry.id);
+      setLocationPhase("start");
+      setLocationFix(null);
+      setLocating(true);
       setClockInAt(nextClockIn);
       setClockOutAt(null);
       setNow(nextClockIn);
       setWorkStatus("Clock-in saved to local device storage.");
       await refreshWorkState();
+      try {
+        const location = await getWorkLocationWithTimeout(20_000);
+        const params = { userId, entryId: entry.id, phase: "start" as const, locationText: location?.address ?? undefined, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
+        if (request !== locationRequest.current) return;
+        if (await store.completeStartLocation(params)) setLocationFix(locationReading(params, "start"));
+      } finally { if (request === locationRequest.current) setLocating(false); }
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
-    }
+    } finally { savingStart.current = false; }
   }
 
   async function handleSaveProject() {
@@ -247,54 +266,63 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   }
 
   async function handleLocateMe() {
+    if (!locationEntryId || locating || stopping) return;
+    const request = ++locationRequest.current;
+    setLocating(true);
     try {
-      const location = await getOptionalWorkLocationAddress();
-      if (location.address) {
-        setLocationText(location.address);
-        setLocationGps({
-          latitude: location.latitude,
-          longitude: location.longitude,
-        });
-        setWorkStatus(`${location.message} You can still edit the address manually.`);
-      } else {
-        setWorkStatus(location.message);
-      }
-    } catch (error) {
-      setWorkStatus(getErrorMessage(error));
-    }
+      const location = await getWorkLocationWithTimeout(20_000);
+      if (request !== locationRequest.current) return;
+      const store = await getWorkStore(userId);
+      const params = { userId, entryId: locationEntryId, phase: locationPhase, locationText: location?.address ?? undefined, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
+      await store.refreshLocation(params);
+      setLocationFix(locationReading(params, locationPhase));
+    } catch (error) { setWorkStatus(getErrorMessage(error)); }
+    finally { if (request === locationRequest.current) setLocating(false); }
+  }
+
+  async function handleSaveLocationNote() {
+    if (!locationEntryId) return;
+    try {
+      const store = await getWorkStore(userId);
+      await store.saveLocationNote({ userId, entryId: locationEntryId, note: workerNote });
+      setNoteExpanded(false);
+    } catch (error) { setWorkStatus(getErrorMessage(error)); }
   }
 
   async function handleClockOut() {
-    if (!clockInAt || clockOutAt || !homeState?.activeEntry) {
+    if (stopping || !clockInAt || clockOutAt || !homeState?.activeEntry) {
       return;
     }
 
+    ++locationRequest.current;
+    setStopping(true);
     const nextClockOut = new Date();
     try {
       const store = await getWorkStore(userId);
       setWorkStatus("Saving time-out and getting location...");
-      const location = await Promise.race([
-        getOptionalWorkLocationAddress({ prompt: false }),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
-      ]);
-      if (!location || location.latitude == null) setNoGpsWarning(true);
+      setLocating(true);
+      const location = await getWorkLocationWithTimeout(10_000, { prompt: false });
       await store.clockOut({
         userId,
         entryId: homeState.activeEntry.id,
         clockOutAt: nextClockOut,
         breakMinutes: parseBreakMinutes(breakMinutes),
         activity: activityText,
-        locationText: location?.address ?? locationText,
-        gpsLatitude: location?.latitude ?? locationGps.latitude,
-        gpsLongitude: location?.longitude ?? locationGps.longitude,
+        clockOutLocationText: location?.address ?? undefined,
+        gpsAccuracyM: location?.accuracy ?? null,
+        locatedAt: location?.timestamp ?? null,
+        gpsLatitude: location?.latitude ?? null,
+        gpsLongitude: location?.longitude ?? null,
       });
+      setLocationPhase("stop");
+      setLocationFix(locationReading({ locationText: location?.address ?? undefined, gpsLatitude: location?.latitude, gpsLongitude: location?.longitude, gpsAccuracyM: location?.accuracy, locatedAt: location?.timestamp }, "stop"));
       setClockOutAt(nextClockOut);
       setNow(nextClockOut);
       setWorkStatus("Clock-out saved. The entry is now available for reports.");
       await refreshWorkState();
     } catch (error) {
       setWorkStatus(getErrorMessage(error));
-    }
+    } finally { setLocating(false); setStopping(false); }
   }
 
   async function handleDeleteEntry(entryId: string) {
@@ -384,12 +412,16 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         </Pressable>
         <Text style={styles.muted}>{workStatus}</Text>
         <Text style={styles.muted}>Project: {activeProject?.name ?? "Auto-create Job 1"} · {formatDayType(dayType)}</Text>
-        <Text style={styles.muted}>Location: {locationText || (noGpsWarning ? "Not captured (no GPS)" : "Captured automatically at TIME IN")}</Text>
-        {noGpsWarning ? (
-          <Pressable accessibilityRole="button" onPress={() => setDetailsExpanded(true)} style={[styles.card, styles.warningCard]}>
-            <Text style={styles.body}>⚠ No GPS for this time-{clockInAt && !clockOutAt ? "in" : "out"} – location services off or denied. Add a site note.</Text>
-          </Pressable>
-        ) : null}
+        <Pressable accessibilityRole="button" accessibilityLabel="Refresh GPS location" disabled={locating || stopping || !locationEntryId || (locationPhase === "stop" && (!clockOutAt || now.getTime() - clockOutAt.getTime() > 600_000))} onPress={() => void handleLocateMe()} style={styles.locationChip}>
+          <Text style={styles.locationChipText}>{formatLocationChip(locationFix, locating)}</Text>
+        </Pressable>
+        {!locationFix || locationFix.source !== "gps" ? <Pressable accessibilityRole="button" onPress={() => setNoteExpanded((value) => !value)}><Text style={styles.muted}>Add a note</Text></Pressable> : null}
+        {workerNote ? <Text style={styles.muted}>Note (typed by you): {workerNote}</Text> : null}
+        {noteExpanded ? <View>
+          <Text style={styles.inputLabel}>Note (typed by you)</Text>
+          <TextInput accessibilityLabel="Worker note" value={workerNote} onChangeText={setWorkerNote} style={styles.textInput} placeholder="Optional worker note" />
+          <Pressable accessibilityRole="button" onPress={() => void handleSaveLocationNote()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save note</Text></Pressable>
+        </View> : null}
         {account.isGuest && access.trialDaysLeft != null ? <Text style={styles.muted}>Free trial · {access.trialDaysLeft} day{access.trialDaysLeft === 1 ? "" : "s"} left</Text> : null}
         {!account.isGuest && formatTrialCountdown(access.subscription) ? <Text style={styles.muted}>{formatTrialCountdown(access.subscription)}</Text> : null}
         {access.subscription && !access.canCreateRecords ? (
@@ -482,7 +514,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
             editable={access.canCreateRecords}
             multiline
             onChangeText={setProjectDescription}
-            placeholder="Site address, work scope, or reference"
+            placeholder="Work scope or reference"
             style={[styles.textInput, styles.textAreaSmall]}
             value={projectDescription}
           />
@@ -509,31 +541,6 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           </Pressable>
           <Text style={styles.muted}>{workStatus}</Text>
         </View>
-
-        <Text style={styles.inputLabel}>Location</Text>
-        <View style={styles.locationInputRow}>
-          <TextInput
-            accessibilityLabel="Location note"
-            onChangeText={setLocationText}
-            placeholder="Tap Locate or type site address manually"
-            style={[styles.textInput, styles.locationTextInput]}
-            value={locationText}
-          />
-          <Pressable
-            accessibilityLabel="Locate me"
-            accessibilityRole="button"
-            onPress={() => void handleLocateMe()}
-            style={styles.locationIconButton}
-          >
-            <Text style={styles.locationIconText}>⌖</Text>
-            <Text style={styles.locationIconLabel}>Locate</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.muted}>
-          {locationGps.latitude != null && locationGps.longitude != null
-            ? `GPS attached: ${locationGps.latitude.toFixed(5)}, ${locationGps.longitude.toFixed(5)}`
-            : "Manual address is accepted when GPS is unavailable or not needed."}
-        </Text>
 
         <Text style={styles.inputLabel}>Day type</Text>
         <View style={styles.actionRow}>

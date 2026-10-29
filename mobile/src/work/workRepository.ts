@@ -1,3 +1,4 @@
+import { locationReading, appendLocationHistory, assertRefreshPhase, type LocationSource, type LocationParams } from "./locationEvidence";
 import { calculateTotalHours } from "@claimproof/shared";
 
 import type { LocalDatabase } from "../db/localDatabase";
@@ -36,6 +37,16 @@ export type WorkEntry = {
   activity: string;
   dayType: WorkDayType;
   locationText: string | null;
+  clockOutLocationText?: string | null;
+  clockInLocationSource?: LocationSource;
+  clockOutLocationSource?: LocationSource;
+  clockInGpsAccuracyM?: number | null;
+  clockOutGpsAccuracyM?: number | null;
+  clockInLocatedAt?: string | null;
+  clockOutLocatedAt?: string | null;
+  locationNote?: string | null;
+  locationHistoryJson?: string | null;
+
   clockInGpsLatitude: number | null;
   clockInGpsLongitude: number | null;
   clockOutGpsLatitude: number | null;
@@ -52,7 +63,7 @@ export type WorkHomeState = {
   totalMinutesToday: number;
 };
 
-export type ClockInParams = {
+export type ClockInParams = LocationParams & {
   userId?: string;
   projectId?: string;
   clockInAt?: Date;
@@ -62,7 +73,7 @@ export type ClockInParams = {
   gpsLongitude?: number | null;
 };
 
-export type ClockOutParams = {
+export type ClockOutParams = LocationParams & {
   userId?: string;
   entryId: string;
   clockOutAt?: Date;
@@ -128,6 +139,16 @@ type EntryRow = {
   activity: string;
   day_type: WorkDayType | null;
   location_text: string | null;
+  clock_out_location_text: string | null;
+  clock_in_location_source: LocationSource;
+  clock_out_location_source: LocationSource;
+  clock_in_gps_accuracy_m: number | null;
+  clock_out_gps_accuracy_m: number | null;
+  clock_in_located_at: string | null;
+  clock_out_located_at: string | null;
+  location_note: string | null;
+  location_history_json: string | null;
+
   clock_in_gps_latitude: number | null;
   clock_in_gps_longitude: number | null;
   clock_out_gps_latitude: number | null;
@@ -196,6 +217,7 @@ export class WorkRepository {
     }
     const clockInAt = params.clockInAt ?? new Date();
     const id = createLocalId("time");
+    const reading = locationReading(params, "start");
 
     await this.database.runAsync(
       `
@@ -213,8 +235,8 @@ INSERT INTO time_entries (
   duration_minutes,
   activity,
   day_type,
-  status
-) VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, 0, ?, ?, 'draft')
+  status, clock_in_location_source, clock_in_gps_accuracy_m, clock_in_located_at, location_note, clock_out_location_source
+) VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, 0, ?, ?, 'draft', ?, ?, ?, ?, 'none')
 `,
       [
         id,
@@ -222,11 +244,15 @@ INSERT INTO time_entries (
         project.id,
         dateOnly(clockInAt),
         clockInAt.toISOString(),
-        normalizeOptionalText(params.locationText),
-        params.gpsLatitude ?? null,
-        params.gpsLongitude ?? null,
+        reading.address,
+        reading.latitude,
+        reading.longitude,
         "Clocked in on site.",
         normalizeDayType(params.dayType),
+        reading.source,
+        reading.accuracy,
+        reading.locatedAt,
+        params.locationNote?.trim() || null,
       ],
     );
 
@@ -243,6 +269,7 @@ INSERT INTO time_entries (
       return existing;
     }
 
+    const reading = locationReading(params, "stop");
     const clockOutAt = params.clockOutAt ?? new Date();
     const breakMinutes = Math.max(0, Math.floor(params.breakMinutes ?? 0));
     const totalHours = calculateTotalHours(
@@ -260,28 +287,68 @@ INSERT INTO time_entries (
 UPDATE time_entries
 SET end_time = ?,
     break_minutes = ?,
-    location_text = COALESCE(NULLIF(location_text, ''), ?),
+    clock_out_location_text = ?,
     clock_out_gps_latitude = ?,
     clock_out_gps_longitude = ?,
     duration_minutes = ?,
     activity = ?,
+    clock_out_location_source = ?,
+    clock_out_gps_accuracy_m = ?,
+    clock_out_located_at = ?,
+    location_note = COALESCE(?, location_note),
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND user_id = ? AND end_time IS NULL
 `,
       [
         clockOutAt.toISOString(),
         breakMinutes,
-        normalizeOptionalText(params.locationText),
-        params.gpsLatitude ?? null,
-        params.gpsLongitude ?? null,
+        reading.address,
+        reading.latitude,
+        reading.longitude,
         durationMinutes,
         activity,
+        reading.source,
+        reading.accuracy,
+        reading.locatedAt,
+        params.locationNote?.trim() || null,
         params.entryId,
         userId,
       ],
     );
 
     return this.getEntryOrThrow(userId, params.entryId);
+  }
+
+  async completeStartLocation(params: LocationParams & { userId: string; entryId: string }): Promise<boolean> {
+    const reading = locationReading(params, "start");
+    const result = await this.database.runAsync(
+      `UPDATE time_entries SET location_text = ?, clock_in_location_source = ?, clock_in_gps_latitude = ?, clock_in_gps_longitude = ?, clock_in_gps_accuracy_m = ?, clock_in_located_at = ? WHERE id = ? AND user_id = ? AND end_time IS NULL AND clock_in_location_source = 'none'`,
+      [reading.address, reading.source, reading.latitude, reading.longitude, reading.accuracy, reading.locatedAt, params.entryId, params.userId],
+    );
+    return result.changes > 0;
+  }
+
+  async refreshLocation(params: LocationParams & { userId: string; entryId: string; phase: "start" | "stop" }): Promise<void> {
+    // A SQLite write transaction prevents concurrent refreshes from dropping history.
+    await this.database.execAsync("BEGIN IMMEDIATE TRANSACTION;");
+    try {
+      const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+      assertRefreshPhase(entry, params.phase);
+      const reading = locationReading(params, params.phase);
+      const history = appendLocationHistory(entry.locationHistoryJson, reading);
+      await this.database.runAsync(
+        `UPDATE time_entries SET location_history_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`,
+        [history, params.entryId, params.userId],
+      );
+      await this.database.execAsync("COMMIT;");
+    } catch (error) {
+      await this.database.execAsync("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  async saveLocationNote(params: { userId: string; entryId: string; note: string }): Promise<void> {
+    await this.database.runAsync(`UPDATE time_entries SET location_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`, [params.note.trim() || null, params.entryId, params.userId]);
   }
 
   async createManualEntry(params: CreateManualEntryParams): Promise<WorkEntry> {
@@ -613,6 +680,16 @@ SELECT time_entries.id,
        time_entries.activity,
        time_entries.day_type,
        time_entries.location_text,
+       time_entries.clock_out_location_text,
+       time_entries.clock_in_location_source,
+       time_entries.clock_out_location_source,
+       time_entries.clock_in_gps_accuracy_m,
+       time_entries.clock_out_gps_accuracy_m,
+       time_entries.clock_in_located_at,
+       time_entries.clock_out_located_at,
+       time_entries.location_note,
+       time_entries.location_history_json,
+
        time_entries.clock_in_gps_latitude,
        time_entries.clock_in_gps_longitude,
        time_entries.clock_out_gps_latitude,
@@ -637,6 +714,16 @@ function mapEntryRow(row: EntryRow): WorkEntry {
     activity: row.activity,
     dayType: normalizeDayType(row.day_type),
     locationText: row.location_text,
+    clockOutLocationText: row.clock_out_location_text,
+    clockInLocationSource: row.clock_in_location_source,
+    clockOutLocationSource: row.clock_out_location_source,
+    clockInGpsAccuracyM: row.clock_in_gps_accuracy_m,
+    clockOutGpsAccuracyM: row.clock_out_gps_accuracy_m,
+    clockInLocatedAt: row.clock_in_located_at,
+    clockOutLocatedAt: row.clock_out_located_at,
+    locationNote: row.location_note,
+    locationHistoryJson: row.location_history_json,
+
     clockInGpsLatitude: row.clock_in_gps_latitude,
     clockInGpsLongitude: row.clock_in_gps_longitude,
     clockOutGpsLatitude: row.clock_out_gps_latitude,

@@ -4,6 +4,8 @@ export type WorkLocationResult = {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  accuracy: number | null;
+  timestamp: string | null;
   message: string;
   blocked: boolean;
 };
@@ -14,7 +16,7 @@ export async function getOptionalWorkLocationAddress(
   try {
     if (!Location.requestForegroundPermissionsAsync) {
       return nonBlockingLocationResult(
-        "Location services are unavailable in this runtime. Enter the site address manually.",
+        "Location services are unavailable in this runtime. Turn on location.",
       );
     }
 
@@ -25,22 +27,24 @@ export async function getOptionalWorkLocationAddress(
         : await Location.requestForegroundPermissionsAsync();
     if (permission.status !== Location.PermissionStatus.GRANTED) {
       return nonBlockingLocationResult(
-        "Location permission was not granted. Enter the site address manually.",
+        "Location permission was not granted. Turn on location.",
       );
     }
 
     if (!Location.getCurrentPositionAsync) {
       return nonBlockingLocationResult(
-        "Location services are unavailable in this runtime. Enter the site address manually.",
+        "Location services are unavailable in this runtime. Turn on location.",
       );
     }
 
-    const position = await Location.getCurrentPositionAsync({});
+    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
     const address = await reverseGeocodeAddress(latitude, longitude);
     return {
-      address: address ?? `GPS ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+      address,
+      accuracy: position.coords.accuracy,
+      timestamp: new Date(position.timestamp).toISOString(),
       latitude,
       longitude,
       message: address
@@ -52,7 +56,7 @@ export async function getOptionalWorkLocationAddress(
     return nonBlockingLocationResult(
       error instanceof Error
         ? `Location unavailable: ${error.message}`
-        : "Location unavailable. Enter the site address manually.",
+        : "Location unavailable. Turn on location.",
     );
   }
 }
@@ -90,10 +94,22 @@ async function reverseGeocodeAddress(
 
 function nonBlockingLocationResult(message: string): WorkLocationResult {
   return {
+    accuracy: null,
+    timestamp: null,
     address: null,
     latitude: null,
     longitude: null,
     message,
     blocked: false,
   };
+}
+
+export async function getWorkLocationWithTimeout(milliseconds: number, options: { prompt?: boolean } = {}): Promise<WorkLocationResult | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getOptionalWorkLocationAddress(options),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), milliseconds); }),
+    ]);
+  } finally { if (timer) clearTimeout(timer); }
 }

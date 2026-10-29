@@ -218,6 +218,7 @@ model TimeEntry {
   overtimeHours   Float
   workDescription String
   manualEntryFlag Boolean         @default(false)
+  locationSource  String          @default("typed")
   locationText    String
   clockInGpsLat   Float?
   clockInGpsLng   Float?

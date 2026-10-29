@@ -1,3 +1,4 @@
+import type { LocationSource } from "../work/locationEvidence";
 import type { LocalDatabase } from "../db/localDatabase";
 import {
   PAY_REPORT_HOURLY_RATE_ERROR,
@@ -46,6 +47,16 @@ type TimeEntryRow = {
   activity: string;
   day_type: "normal" | "off_day" | "holiday" | null;
   location_text: string | null;
+  clock_out_location_text: string | null;
+  clock_in_location_source: LocationSource;
+  clock_out_location_source: LocationSource;
+  clock_in_gps_accuracy_m: number | null;
+  clock_out_gps_accuracy_m: number | null;
+  clock_in_located_at: string | null;
+  clock_out_located_at: string | null;
+  location_note: string | null;
+  location_history_json: string | null;
+
   clock_in_gps_latitude: number | null;
   clock_in_gps_longitude: number | null;
   clock_out_gps_latitude: number | null;
@@ -113,7 +124,7 @@ export class ProgressClaimSourceRepository {
         [project.client_id, params.userId],
       ),
       this.database.getAllAsync<TimeEntryRow>(
-        `SELECT id, work_date, start_time, end_time, duration_minutes, activity, day_type, location_text, clock_in_gps_latitude, clock_in_gps_longitude, clock_out_gps_latitude, clock_out_gps_longitude
+        `SELECT id, work_date, start_time, end_time, duration_minutes, activity, day_type, location_text, clock_out_location_text, clock_in_location_source, clock_out_location_source, clock_in_gps_accuracy_m, clock_out_gps_accuracy_m, clock_in_located_at, clock_out_located_at, location_note, location_history_json, clock_in_gps_latitude, clock_in_gps_longitude, clock_out_gps_latitude, clock_out_gps_longitude
         FROM time_entries
         WHERE project_id = ? AND user_id = ?
         ORDER BY work_date ASC, id ASC`,
@@ -184,6 +195,16 @@ function mapTimeEntries(rows: TimeEntryRow[]): TimeEntrySnapshotInput[] {
     activity: row.activity,
     dayType: row.day_type,
     locationText: row.location_text,
+    clockOutLocationText: row.clock_out_location_text,
+    clockInLocationSource: row.clock_in_location_source,
+    clockOutLocationSource: row.clock_out_location_source,
+    clockInGpsAccuracyM: row.clock_in_gps_accuracy_m,
+    clockOutGpsAccuracyM: row.clock_out_gps_accuracy_m,
+    clockInLocatedAt: row.clock_in_located_at,
+    clockOutLocatedAt: row.clock_out_located_at,
+    locationNote: row.location_note,
+    locationHistoryJson: row.location_history_json,
+
     clockInGpsLatitude: row.clock_in_gps_latitude,
     clockInGpsLongitude: row.clock_in_gps_longitude,
     clockOutGpsLatitude: row.clock_out_gps_latitude,

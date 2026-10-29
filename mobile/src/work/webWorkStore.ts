@@ -1,3 +1,4 @@
+import { locationReading, appendLocationHistory, assertRefreshPhase, type LocationParams } from "./locationEvidence";
 import { buildProgressClaimSnapshot } from "../reports/progressClaimSnapshot";
 import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
 import type {
@@ -33,6 +34,33 @@ type WebWorkState = {
 export const webWorkStore = {
   async getHomeState(userId = DEFAULT_USER_ID): Promise<WorkHomeState> {
     return toHomeState(readState(userId));
+  },
+
+  async completeStartLocation(params: LocationParams & { userId: string; entryId: string }): Promise<boolean> {
+    const state = readState(params.userId);
+    const entry = state.entries.find((item) => item.id === params.entryId);
+    if (!entry || entry.endTime || entry.clockInLocationSource !== "none") return false;
+    const reading = locationReading(params, "start");
+    Object.assign(entry, { locationText: reading.address, clockInLocationSource: reading.source, clockInGpsLatitude: reading.latitude, clockInGpsLongitude: reading.longitude, clockInGpsAccuracyM: reading.accuracy, clockInLocatedAt: reading.locatedAt });
+    writeState(state, params.userId);
+    return true;
+  },
+
+  async refreshLocation(params: LocationParams & { userId: string; entryId: string; phase: "start" | "stop" }): Promise<void> {
+    const state = readState(params.userId);
+    const entry = state.entries.find((item) => item.id === params.entryId);
+    if (!entry) throw new Error("Time entry not found.");
+    assertRefreshPhase(entry, params.phase);
+    entry.locationHistoryJson = appendLocationHistory(entry.locationHistoryJson, locationReading(params, params.phase));
+    writeState(state, params.userId);
+  },
+
+  async saveLocationNote(params: { userId: string; entryId: string; note: string }): Promise<void> {
+    const state = readState(params.userId);
+    const entry = state.entries.find((item) => item.id === params.entryId);
+    if (!entry) throw new Error("Time entry not found.");
+    entry.locationNote = params.note.trim() || null;
+    writeState(state, params.userId);
   },
 
   async listClients(userId = DEFAULT_USER_ID): Promise<WorkClient[]> {
@@ -138,6 +166,7 @@ export const webWorkStore = {
     if (!project) {
       throw new Error("Create a project before Time In.");
     }
+    const reading = locationReading(params, "start");
     const entry: WorkEntry = {
       id: createLocalId("web-time"),
       projectId: project.id,
@@ -150,9 +179,15 @@ export const webWorkStore = {
       durationMinutes: 0,
       activity: "Clocked in on site.",
       dayType: params.dayType ?? "normal",
-      locationText: normalizeOptionalText(params.locationText),
-      clockInGpsLatitude: params.gpsLatitude ?? null,
-      clockInGpsLongitude: params.gpsLongitude ?? null,
+      locationText: reading.address,
+      clockInLocationSource: reading.source,
+      clockOutLocationSource: "none",
+      clockInGpsAccuracyM: reading.accuracy,
+      clockInLocatedAt: reading.locatedAt,
+      locationNote: params.locationNote?.trim() || null,
+      locationHistoryJson: "[]",
+      clockInGpsLatitude: reading.latitude,
+      clockInGpsLongitude: reading.longitude,
       clockOutGpsLatitude: null,
       clockOutGpsLongitude: null,
       status: "draft",
@@ -217,6 +252,7 @@ export const webWorkStore = {
   async clockOut(params: ClockOutParams): Promise<WorkEntry> {
     const userId = params.userId ?? DEFAULT_USER_ID;
     const state = readState(userId);
+    const reading = locationReading(params, "stop");
     const clockOutAt = params.clockOutAt ?? new Date();
     const breakMinutes = Math.max(0, Math.floor(params.breakMinutes ?? 0));
     let updated: WorkEntry | null = null;
@@ -239,8 +275,12 @@ export const webWorkStore = {
         activity:
           normalizeOptionalText(params.activity) ??
           `Worked at ${entry.locationText || entry.projectName}.`,
-        clockOutGpsLatitude: params.gpsLatitude ?? entry.clockInGpsLatitude ?? null,
-        clockOutGpsLongitude: params.gpsLongitude ?? entry.clockInGpsLongitude ?? null,
+        clockOutLocationText: reading.address,
+        clockOutLocationSource: reading.source,
+        clockOutGpsAccuracyM: reading.accuracy,
+        clockOutLocatedAt: reading.locatedAt,
+        clockOutGpsLatitude: reading.latitude,
+        clockOutGpsLongitude: reading.longitude,
       };
       return updated;
     });
@@ -295,6 +335,16 @@ export function buildWebWorkProgressClaimSnapshot(params: {
         activity: entry.activity,
         dayType: entry.dayType,
         locationText: entry.locationText,
+        clockOutLocationText: entry.clockOutLocationText,
+        clockInLocationSource: entry.clockInLocationSource,
+        clockOutLocationSource: entry.clockOutLocationSource,
+        clockInGpsAccuracyM: entry.clockInGpsAccuracyM,
+        clockOutGpsAccuracyM: entry.clockOutGpsAccuracyM,
+        clockInLocatedAt: entry.clockInLocatedAt,
+        clockOutLocatedAt: entry.clockOutLocatedAt,
+        locationNote: entry.locationNote,
+        locationHistoryJson: entry.locationHistoryJson,
+
         clockInGpsLatitude: entry.clockInGpsLatitude,
         clockInGpsLongitude: entry.clockInGpsLongitude,
         clockOutGpsLatitude: entry.clockOutGpsLatitude,

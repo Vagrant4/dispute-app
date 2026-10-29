@@ -127,6 +127,6 @@ test("debug trial-clock panel renders only with the device-test flag", () => {
 test("TIME OUT never re-prompts for location permission", () => {
   const home = src("src/screens/HomeScreen.tsx");
   const out = home.slice(home.indexOf("Saving time-out"));
-  assert.match(out, /getOptionalWorkLocationAddress\(\{ prompt: false \}\)/);
+  assert.match(out, /getWorkLocationWithTimeout\(10_000, \{ prompt: false \}\)/);
   assert.match(src("src/work/workLocation.ts"), /getForegroundPermissionsAsync/);
 });

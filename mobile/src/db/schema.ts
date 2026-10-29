@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -188,9 +188,22 @@ ALTER TABLE app_settings ADD COLUMN rate_basis TEXT NOT NULL DEFAULT 'daily';
 ALTER TABLE app_settings ADD COLUMN base_rate_cents INTEGER NOT NULL DEFAULT 0;
 `;
 
+export const LOCATION_EVIDENCE_MIGRATION_SQL = `
+ALTER TABLE time_entries ADD COLUMN clock_out_location_text TEXT;
+ALTER TABLE time_entries ADD COLUMN clock_in_location_source TEXT NOT NULL DEFAULT 'legacy';
+ALTER TABLE time_entries ADD COLUMN clock_out_location_source TEXT NOT NULL DEFAULT 'legacy';
+ALTER TABLE time_entries ADD COLUMN clock_in_gps_accuracy_m REAL;
+ALTER TABLE time_entries ADD COLUMN clock_out_gps_accuracy_m REAL;
+ALTER TABLE time_entries ADD COLUMN clock_in_located_at TEXT;
+ALTER TABLE time_entries ADD COLUMN clock_out_located_at TEXT;
+ALTER TABLE time_entries ADD COLUMN location_note TEXT;
+ALTER TABLE time_entries ADD COLUMN location_history_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE photo_evidence ADD COLUMN gps_accuracy_m REAL;
+`;
+
 export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  end_time TEXT,\n  duration_minutes INTEGER NOT NULL,",
-  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  duration_minutes INTEGER NOT NULL,",
+  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  clock_out_location_text TEXT,\n  clock_in_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_out_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_in_gps_accuracy_m REAL,\n  clock_out_gps_accuracy_m REAL,\n  clock_in_located_at TEXT,\n  clock_out_located_at TEXT,\n  location_note TEXT,\n  location_history_json TEXT NOT NULL DEFAULT '[]',\n  duration_minutes INTEGER NOT NULL,",
 ).replace(
   "  activity TEXT NOT NULL,\n  status TEXT NOT NULL DEFAULT 'draft',",
   "  activity TEXT NOT NULL,\n  day_type TEXT NOT NULL DEFAULT 'normal',\n  status TEXT NOT NULL DEFAULT 'draft',",
@@ -199,7 +212,7 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  status TEXT NOT NULL DEFAULT 'active',",
 ).replace(
   "  caption TEXT,\n  captured_at TEXT,",
-  "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,",
+  "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,\n  gps_accuracy_m REAL,",
 ).replace(
   "  local_uri TEXT,\n  period_start TEXT,",
   "  local_uri TEXT,\n  file_hash TEXT,\n  metadata_json TEXT,\n  snapshot_json TEXT,\n  period_start TEXT,",
@@ -252,4 +265,5 @@ export const LOCAL_MIGRATIONS = [
     name: "phase_10_rate_entry_settings",
     sql: RATE_ENTRY_SETTINGS_PHASE_10_MIGRATION_SQL,
   },
+  { version: 8, name: "location_evidence", sql: LOCATION_EVIDENCE_MIGRATION_SQL },
 ] as const;

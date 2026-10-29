@@ -23,11 +23,12 @@ export async function getOptionalPhotoGps(): Promise<PhotoGpsResult> {
       );
     }
 
-    const position = await Location.getCurrentPositionAsync({});
+    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     return {
       coordinates: {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
       },
       message: "Location attached by device permission.",
       blocked: false,

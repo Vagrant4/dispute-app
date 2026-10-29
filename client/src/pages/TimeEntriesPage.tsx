@@ -164,7 +164,7 @@ export function TimeEntriesPage() {
             />
           </label>
           <label>
-            Location note
+            Note (typed)
             <input value={form.locationText} onChange={(event) => updateField('locationText', event.target.value)} />
           </label>
           <label className="span-full">
@@ -214,7 +214,7 @@ export function TimeEntriesPage() {
                   <dd>{formatHours(entry.overtimeHours)}</dd>
                 </div>
                 <div>
-                  <dt>Location</dt>
+                  <dt>Note (typed)</dt>
                   <dd>{entry.locationText || 'Not recorded'}</dd>
                 </div>
                 <div>

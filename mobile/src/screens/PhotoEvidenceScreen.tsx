@@ -95,7 +95,9 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
         extension: getExtension(selected.uri),
       });
       const imported = await importEvidencePhotoFile({ sourceUri: selected.uri, destinationUri });
-      const gps = await getOptionalPhotoGps();
+      const gps: PhotoGpsResult = action === "camera"
+        ? await getOptionalPhotoGps()
+        : { coordinates: null, message: "Gallery · time unknown", blocked: false };
       setPendingId(photoId);
       setPendingUri(imported.localUri);
       setPendingCapturedAt(capturedAt.toISOString());
@@ -256,7 +258,7 @@ export function PhotoEvidenceScreen({ account }: { account: LocalAccount }) {
         {rows.length ? rows.map((row) => (
           <View key={row.id} style={styles.row}>
             <Image source={{ uri: row.local_uri }} style={{ width: 64, height: 64, borderRadius: 8 }} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={styles.rowLabel}>{formatEvidenceType(row.evidence_type)}</Text><Text style={styles.body}>{row.caption || "No caption"}</Text><Text style={styles.muted}>{new Date(row.captured_at).toLocaleString()}</Text></View>
+            <View style={{ flex: 1, gap: 4 }}><Text style={styles.rowLabel}>{formatEvidenceType(row.evidence_type)}</Text><Text style={styles.body}>{row.caption || "No caption"}</Text>{row.gps_latitude != null && row.gps_longitude != null ? <Text style={styles.statusPillText}>GPS{row.gps_accuracy_m != null ? ` ±${Math.round(row.gps_accuracy_m)} m` : ""}</Text> : null}<Text style={styles.muted}>{row.gps_message === "Gallery · time unknown" ? "Gallery · time unknown" : new Date(row.captured_at).toLocaleString()}</Text></View>
             <Pressable disabled={!access.canCreateRecords} onPress={() => void handleDelete(row)} style={[styles.statusPill, !access.canCreateRecords && styles.disabledButton]}><Text style={styles.statusPillText}>Delete</Text></Pressable>
           </View>
         )) : <Text style={styles.muted}>No photo evidence saved on this device yet.</Text>}
@@ -304,6 +306,7 @@ function buildWebPhotoEvidenceRow(params: {
     gps_latitude: params.gps?.coordinates?.latitude ?? null,
     gps_longitude: params.gps?.coordinates?.longitude ?? null,
     gps_message: params.gps?.message ?? null,
+    gps_accuracy_m: params.gps?.coordinates?.accuracy ?? null,
     status: "finalized",
   };
 }

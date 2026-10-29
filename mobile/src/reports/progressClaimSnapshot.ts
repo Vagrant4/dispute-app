@@ -196,6 +196,7 @@ function buildDailyWorkLog(
         holidayHours: minutesToHours(holidayMinutes),
         dayTypes,
         locations,
+        locationEntries: entries,
         durationMinutes,
         photoEvidenceIds,
       };
@@ -206,28 +207,30 @@ function buildLocations(entries: TimeEntrySnapshotInput[]): WorkLocationSnapshot
   const seen = new Set<string>();
   const locations: WorkLocationSnapshot[] = [];
 
-  for (const entry of entries) {
-    const address = entry.locationText?.trim();
-    const latitude = entry.clockInGpsLatitude ?? entry.clockOutGpsLatitude ?? null;
-    const longitude = entry.clockInGpsLongitude ?? entry.clockOutGpsLongitude ?? null;
-    if (!address && (latitude == null || longitude == null)) {
-      continue;
-    }
-    const displayAddress =
-      address ||
-      (latitude != null && longitude != null
-        ? `GPS ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-        : "");
-    const key = `${displayAddress}|${latitude ?? ""}|${longitude ?? ""}`;
-    if (seen.has(key)) {
-      continue;
-    }
+  function add(address: string, latitude: number | null, longitude: number | null, source: WorkLocationSnapshot["source"], accuracy?: number | null, locatedAt?: string | null, phase?: string) {
+    const label = source === "gps" ? `${address || "GPS point (no street name)"} · GPS ${accuracy == null ? "accuracy unknown" : `±${Math.round(accuracy)} m`}${accuracy != null && accuracy > 50 ? " · approximate" : ""}${locatedAt ? ` · ${locatedAt}` : ""}`
+      : source === "none" ? "No GPS fix (location off)"
+      : `${address ? `${address} · ` : ""}Source not recorded (older record)`;
+    const key = `${address}|${latitude ?? ""}|${longitude ?? ""}|${source ?? ""}${phase?.endsWith("refresh") ? `|${locatedAt}` : ""}`;
+    if (seen.has(key)) return;
     seen.add(key);
-    locations.push({
-      address: displayAddress,
-      latitude,
-      longitude,
-    });
+    locations.push({ address: label, latitude, longitude, source, accuracy, locatedAt, phase });
+  }
+  for (const entry of entries) {
+    const phases = [
+      { address: entry.locationText, latitude: entry.clockInGpsLatitude, longitude: entry.clockInGpsLongitude, source: entry.clockInLocationSource, accuracy: entry.clockInGpsAccuracyM, locatedAt: entry.clockInLocatedAt, phase: "start" },
+      { address: entry.clockOutLocationText, latitude: entry.clockOutGpsLatitude, longitude: entry.clockOutGpsLongitude, source: entry.clockOutLocationSource, accuracy: entry.clockOutGpsAccuracyM, locatedAt: entry.clockOutLocatedAt, phase: "stop" },
+    ];
+    for (const fix of phases) {
+      if (!fix.source && !fix.address && fix.latitude == null && fix.longitude == null) continue;
+      add(fix.address?.trim() || "", fix.latitude ?? null, fix.longitude ?? null, fix.source ?? "legacy", fix.accuracy, fix.locatedAt, fix.phase);
+    }
+    if (!phases.some((fix) => fix.source || fix.address || fix.latitude != null)) add("", null, null, "legacy");
+    if (entry.locationHistoryJson) {
+      const history = JSON.parse(entry.locationHistoryJson) as import("../work/locationEvidence").LocationReading[];
+      for (const fix of history) add(fix.address || "", fix.latitude, fix.longitude, fix.source, fix.accuracy, fix.locatedAt, `${fix.phase} refresh`);
+    }
+    if (entry.locationNote?.trim()) locations.push({ address: `Typed by worker, not GPS: ${entry.locationNote.trim()}`, latitude: null, longitude: null });
   }
 
   return locations;

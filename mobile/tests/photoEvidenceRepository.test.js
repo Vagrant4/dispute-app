@@ -64,7 +64,8 @@ function createFakeDatabase(rows = []) {
           gps_latitude: params[8],
           gps_longitude: params[9],
           gps_message: params[10],
-          status: params[11],
+          gps_accuracy_m: params[11],
+          status: params[12],
         });
       }
       if (sql.startsWith("DELETE FROM photo_evidence")) {
@@ -129,6 +130,7 @@ test("PhotoEvidenceRepository inserts owned photo evidence SQL parameters", asyn
     1.3,
     103.8,
     "Location attached by device permission.",
+    null,
     "draft",
   ]);
 });

@@ -14,6 +14,7 @@ export type PhotoEvidenceType = (typeof EVIDENCE_TYPES)[number];
 export type PhotoGpsCoordinates = {
   latitude: number;
   longitude: number;
+  accuracy?: number | null;
 };
 
 export type PhotoGpsResult = {
@@ -49,6 +50,7 @@ export type PhotoEvidenceInput = {
   gpsLatitude: number | null;
   gpsLongitude: number | null;
   gpsMessage: string | null;
+  gpsAccuracyM?: number | null;
   status: "draft" | "active" | "finalized";
 };
 
@@ -96,6 +98,7 @@ export function buildPhotoEvidenceInput(
     gpsLatitude: params.gps?.coordinates?.latitude ?? null,
     gpsLongitude: params.gps?.coordinates?.longitude ?? null,
     gpsMessage: normalizeOptionalText(params.gps?.message),
+    gpsAccuracyM: params.gps?.coordinates?.accuracy ?? null,
     status: params.status ?? "draft",
   };
 }

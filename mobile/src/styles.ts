@@ -27,6 +27,8 @@ export const theme = {
 };
 
 export const styles = StyleSheet.create({
+  locationChip: { backgroundColor: theme.colors.surfaceMuted, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10 },
+  locationChipText: { color: theme.colors.text, fontSize: 13 },
   app: {
     flex: 1,
     backgroundColor: theme.colors.background,

@@ -1,3 +1,4 @@
+import type { LocationSource } from "../work/locationEvidence";
 export const PROGRESS_CLAIM_DISCLAIMER =
   "This app helps you record work, time, pay, and evidence for reference. It does not replace legal, accounting, or MOM advice.";
 
@@ -33,6 +34,16 @@ export type TimeEntrySnapshotInput = {
   activity: string;
   dayType?: "normal" | "off_day" | "holiday" | null;
   locationText?: string | null;
+  clockOutLocationText?: string | null;
+  clockInLocationSource?: LocationSource;
+  clockOutLocationSource?: LocationSource;
+  clockInGpsAccuracyM?: number | null;
+  clockOutGpsAccuracyM?: number | null;
+  clockInLocatedAt?: string | null;
+  clockOutLocatedAt?: string | null;
+  locationNote?: string | null;
+  locationHistoryJson?: string | null;
+
   clockInGpsLatitude?: number | null;
   clockInGpsLongitude?: number | null;
   clockOutGpsLatitude?: number | null;
@@ -85,11 +96,16 @@ export type DailyWorkLogItem = {
   holidayHours: number;
   dayTypes: string[];
   locations: WorkLocationSnapshot[];
+  locationEntries?: TimeEntrySnapshotInput[];
   durationMinutes: number;
   photoEvidenceIds: string[];
 };
 
 export type WorkLocationSnapshot = {
+  source?: LocationSource;
+  accuracy?: number | null;
+  locatedAt?: string | null;
+  phase?: string;
   address: string;
   latitude: number | null;
   longitude: number | null;

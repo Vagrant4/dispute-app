@@ -60,12 +60,12 @@ function createTsLoader() {
   return load;
 }
 
-test("schema version 7 adds rate entry settings", () => {
+test("schema version 8 keeps rate settings and adds location evidence", () => {
   const { CURRENT_SCHEMA_VERSION, LOCAL_MIGRATIONS, MOBILE_SCHEMA_SQL } = createTsLoader()(
     "src/db/schema.ts",
   );
 
-  assert.equal(CURRENT_SCHEMA_VERSION, 7);
+  assert.equal(CURRENT_SCHEMA_VERSION, 8);
   for (const field of [
     "break_minutes",
     "location_text",
@@ -81,9 +81,9 @@ test("schema version 7 adds rate entry settings", () => {
   ]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
-  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 7);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /rate_basis/);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /base_rate_cents/);
+  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 8);
+  assert.match(LOCAL_MIGRATIONS.at(-2).sql, /rate_basis/);
+  assert.match(LOCAL_MIGRATIONS.at(-2).sql, /base_rate_cents/);
 });
 
 test("WorkRepository starts empty until the user creates a project", async () => {
@@ -444,6 +444,10 @@ class FakeWorkDatabase {
         clock_out_gps_latitude: null,
         clock_out_gps_longitude: null,
         duration_minutes: 0,
+        clock_in_location_source: params[10],
+        clock_in_gps_accuracy_m: params[11],
+        clock_in_located_at: params[12],
+        location_note: params[13],
         activity: params[8],
         day_type: params[9],
         status: "draft",
@@ -454,15 +458,19 @@ class FakeWorkDatabase {
 
     if (/UPDATE time_entries/i.test(sql)) {
       const entry = this.timeEntries.find(
-        (row) => row.id === params[7] && row.user_id === params[8],
+        (row) => row.id === params[11] && row.user_id === params[12],
       );
       entry.end_time = params[0];
       entry.break_minutes = params[1];
-      entry.location_text = params[2] ?? entry.location_text;
+      entry.clock_out_location_text = params[2];
       entry.clock_out_gps_latitude = params[3];
       entry.clock_out_gps_longitude = params[4];
       entry.duration_minutes = params[5];
       entry.activity = params[6];
+      entry.clock_out_location_source = params[7];
+      entry.clock_out_gps_accuracy_m = params[8];
+      entry.clock_out_located_at = params[9];
+      entry.location_note = params[10] ?? entry.location_note;
       return;
     }
 
