@@ -537,6 +537,30 @@ describe('auth API', () => {
     expect(page).toContain('Delete your DISPUTE account');
     expect(page).toContain('name="password"');
     expect(page).toContain('Google Play subscriptions');
+    expect(page).toContain('Use this page to delete your DISPUTE account');
+    expect(page).toContain('Records on your phone.');
+    expect(page).toContain('What we keep.');
+    expect(page).toContain('Type DELETE to confirm');
+    expect(page).toContain('<button style="background:#D93F44;color:#fff" type="submit">Delete my account</button>');
+    expect(page).not.toContain('Permanent action.');
+    expect(page).not.toContain('login tokens');
+  });
+
+  it('shows plain result messages when the web form is not confirmed or the login is wrong', async () => {
+    const post = (body: Record<string, string>) => fetch(`${baseUrl}/account-deletion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body).toString()
+    });
+    const unconfirmed = await post({ email: 'nobody@example.com', password: 'x', confirmation: 'nope' });
+    expect(unconfirmed.status).toBe(400);
+    const unconfirmedText = await unconfirmed.text();
+    expect(unconfirmedText).toContain('Not deleted yet');
+    expect(unconfirmedText).toContain('Type DELETE exactly as shown to confirm.');
+
+    const wrongLogin = await post({ email: 'nobody@example.com', password: 'Password123!', confirmation: 'DELETE' });
+    expect(wrongLogin.status).toBe(401);
+    expect(await wrongLogin.text()).toContain('The email or password is wrong. Nothing was deleted.');
   });
 
   it('deletes the matching RevenueCat customer with a server-only secret', async () => {
@@ -581,7 +605,10 @@ describe('auth API', () => {
       body: form.toString()
     });
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain('Account deleted');
+    const deletedText = await response.text();
+    expect(deletedText).toContain('Account deleted');
+    expect(deletedText).toContain('has been deleted');
+    expect(deletedText).toContain('Request number: 33333333-3333-4333-8333-333333333333');
     expect(await prisma.user.findUnique({
       where: { email: 'web-delete@example.com' }
     })).toBeNull();
