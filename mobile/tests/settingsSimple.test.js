@@ -13,7 +13,7 @@ test("Settings main rows are exactly Name, Pay rate, Language, Plan, Support, Mo
   assert.match(mainRows, /account\.name\?\.trim\(\) \|\| "Not set"/);
   assert.match(mainRows, /\$\{currency\} \$\{baseRate/);
   assert.match(mainRows, /value: "English"/);
-  assert.match(mainRows, /formatTrialCountdown\(subscription\)/);
+  assert.match(mainRows, /planTrialLine\(subscription\)/);
   assert.match(source, /panel === "main" \? mainRows : moreRows/);
   assert.match(source, /style=\{styles.settingsRow\}/);
   assert.match(source, /styles.settingsChevron\}>›/);
@@ -73,11 +73,35 @@ test("unset pay rates say Not set and saved rates keep their basis", () => {
 test("Settings owns its main heading and sub-panels retain their back row and heading", () => {
   const app = readFileSync(path.join(__dirname, "..", "App.tsx"), "utf8");
   assert.match(app, /!account \|\| \(activeTab !== "settings" && activeTab !== "reports"\) \? <Text/);
-  assert.match(source, /<View style=\{styles.todayScreen\}>\s*<View style=\{styles.todayHeader\}>\s*<Text style=\{styles.todayTitle\}>Settings<\/Text>\s*<Text style=\{styles.todayWordmark\}>DISPUTE<\/Text>\s*<\/View>\s*\{panel !== "main"/);
+  assert.match(source, /<View style=\{styles.todayScreen\}>\s*\{panel === "main" \? \(\s*<View style=\{styles.todayHeader\}>\s*<Text style=\{styles.todayTitle\}>Settings<\/Text>\s*<Text style=\{styles.todayWordmark\}>DISPUTE<\/Text>\s*<\/View>\s*\) : null\}\s*\{panel !== "main"/);
   const plan = read("screens/PlanBillingPanel.tsx");
   assert.match(plan, /styles.todayTitle\}>Plan<\/Text>/);
   assert.doesNotMatch(plan, /Plan & billing/);
   assert.match(source, /panel !== "main" \? \([\s\S]*?insideMore \? "‹ More" : "‹ Settings"/);
   assert.match(source, /panel === "more" \? <Text style=\{styles.todayTitle\}>More<\/Text> : null/);
   assert.match(source, /panel === "pay_rate" \? \([\s\S]*?<Text style=\{styles.todayTitle\}>Pay rate<\/Text>/);
+});
+
+test("each Settings sub-page owns exactly one title and no Settings header", () => {
+  const mainHeader = source.match(/\{panel === "main" \? \([\s\S]*?\) : null\}/)[0];
+  assert.equal((mainHeader.match(/styles.todayHeader/g) || []).length, 1);
+  const rest = source.replace(mainHeader, "");
+  assert.doesNotMatch(rest, /styles.todayHeader|styles.todayWordmark|>Settings<\/Text>/);
+  for (const title of ["More", "Pay rate", "Language"]) {
+    assert.equal((rest.match(new RegExp(`styles.todayTitle}>${title}<`, "g")) || []).length, 1);
+  }
+  for (const [file, title] of [["PlanBillingPanel", "Plan"], ["ProfileSettingsPanel", "Name"], ["ReferralScreen", "Refer a friend"], ["SettingsBackupScreen", "Keep a copy"]]) {
+    const panel = read(`screens/${file}.tsx`);
+    assert.equal((panel.match(/styles.todayTitle/g) || []).length, 1);
+    assert.match(panel, new RegExp(`styles.todayTitle}>${title}<`));
+    assert.doesNotMatch(panel, /styles.todayHeader|styles.todayWordmark|>Settings<\/Text>/);
+    assert.doesNotMatch(rest, new RegExp(`styles.todayTitle}>${title}<`));
+  }
+  const privacy = read("screens/PrivacyScreen.tsx");
+  assert.match(privacy, /!supportOnly \? <>[\s\S]*styles.todayTitle}>Privacy &amp; data/);
+  assert.match(privacy, /supportOnly \? styles.todayTitle : styles.rowLabel/);
+  assert.doesNotMatch(privacy, /styles.todayHeader|styles.todayWordmark/);
+  assert.match(read("screens/PlanBillingPanel.tsx"), /const trialLine = planTrialLine\(subscription\)/);
+  assert.match(read("screens/PlanBillingPanel.tsx"), /trialLine \? <Text style=\{styles.muted\}>\{trialLine\}<\/Text> : null/);
+  assert.match(source, /<PlanBillingPanel\s+subscription=\{subscription\}/);
 });

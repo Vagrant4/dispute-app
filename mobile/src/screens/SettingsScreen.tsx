@@ -12,7 +12,7 @@ import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
 import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
-  formatTrialCountdown,
+  planTrialLine,
   getSubscriptionManagementUrl,
   getSubscriptionSettingsAction,
   purchaseDisputeBasicSubscription,
@@ -83,7 +83,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
     { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : "day"}` : "Not set" },
     { id: "language", label: "Language", value: "English" },
-    { id: "plan", label: "Plan", value: subscription?.status === "TRIALING" ? `Free trial · ${formatTrialCountdown(subscription)}` : subscription?.planName || "Checking plan…" },
+    { id: "plan", label: "Plan", value: planTrialLine(subscription) ?? (subscription?.planName || "Checking plan…") },
     { id: "support", label: "Support", value: "Help and policies" },
     { id: "more", label: "More", value: "Referrals, privacy, backup" },
   ];
@@ -189,10 +189,12 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   return (
     <View style={styles.todayScreen}>
-      <View style={styles.todayHeader}>
-        <Text style={styles.todayTitle}>Settings</Text>
-        <Text style={styles.todayWordmark}>DISPUTE</Text>
-      </View>
+      {panel === "main" ? (
+        <View style={styles.todayHeader}>
+          <Text style={styles.todayTitle}>Settings</Text>
+          <Text style={styles.todayWordmark}>DISPUTE</Text>
+        </View>
+      ) : null}
       {panel !== "main" ? (
         <Pressable accessibilityRole="button" onPress={() => setPanel(insideMore ? "more" : "main")} style={styles.settingsBackRow}>
           <Text style={styles.settingsBackText}>{insideMore ? "‹ More" : "‹ Settings"}</Text>
@@ -406,6 +408,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
       {panel === "plan" ? (
         <PlanBillingPanel
+          subscription={subscription}
           action={subscriptionAction}
           actionStatus={subscriptionActionStatus}
           localizedStorePrice={storePrice}

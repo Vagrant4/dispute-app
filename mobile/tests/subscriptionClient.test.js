@@ -416,3 +416,23 @@ function restoreEnv(name, value) {
     process.env[name] = value;
   }
 }
+
+test("Plan trial line shares the countdown and hides for paid plans", () => {
+  const { planTrialLine } = loadTsModule("src/subscription/subscriptionClient.ts", {
+    "react-native": { Platform: { OS: "android" } },
+    "../auth/remoteAuth": { getAuthApiBaseUrl: () => "https://example.test" },
+    "@claimproof/shared": {
+      DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+      matchesConfiguredStoreProductIdentifier: () => false,
+    },
+  });
+  const now = Date.parse("2026-10-29T00:00:00Z");
+  const subscription = { status: "TRIALING", trialEndsAt: "2026-11-03T00:00:00Z" };
+  assert.equal(planTrialLine(subscription, now), "Free trial · 5 days left");
+  assert.equal(planTrialLine({ ...subscription, trialEndsAt: "2026-10-30T00:00:00Z" }, now), "Free trial · 1 day left");
+  const expired = "Trial ended. Existing records remain viewable.";
+  assert.equal(planTrialLine({ ...subscription, trialEndsAt: "2026-10-28T00:00:00Z" }, now), expired);
+  assert.equal(planTrialLine({ ...subscription, status: "EXPIRED" }, now), expired);
+  assert.equal(planTrialLine({ ...subscription, status: "ACTIVE", isActive: true }, now), null);
+  assert.equal(planTrialLine(null, now), null);
+});

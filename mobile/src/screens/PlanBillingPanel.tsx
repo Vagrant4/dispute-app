@@ -1,10 +1,11 @@
 import { Pressable, Text, View } from "react-native";
 
 import { styles } from "../styles";
-import type { SubscriptionSettingsAction } from "../subscription/subscriptionClient";
+import { planTrialLine, type SubscriptionEntitlement, type SubscriptionSettingsAction } from "../subscription/subscriptionClient";
 import { formatMonthlyStorePrice } from "../subscription/useDisputeBasicStorePrice";
 
 type PlanBillingPanelProps = {
+  subscription: SubscriptionEntitlement | null;
   action: SubscriptionSettingsAction;
   actionStatus: string;
   localizedStorePrice: string | null;
@@ -14,6 +15,7 @@ type PlanBillingPanelProps = {
 };
 
 export function PlanBillingPanel({
+  subscription,
   action,
   actionStatus,
   localizedStorePrice,
@@ -21,11 +23,13 @@ export function PlanBillingPanel({
   onSubscribe,
   exportNote,
 }: PlanBillingPanelProps) {
+  const trialLine = planTrialLine(subscription);
   const monthlyPrice = formatMonthlyStorePrice(localizedStorePrice);
 
   return (
     <View style={styles.settingsSection}>
       <Text style={styles.todayTitle}>Plan</Text>
+      {trialLine ? <Text style={styles.muted}>{trialLine}</Text> : null}
       <View style={styles.settingsValueRow}>
         <Text style={styles.rowLabel}>Plan</Text>
         <Text style={styles.rowValue}>Dispute Basic</Text>

@@ -389,16 +389,31 @@ function getRevenueCatConfigurationError(
   return null;
 }
 
-export function formatTrialCountdown(subscription: SubscriptionEntitlement | null): string {
+export function formatTrialCountdown(subscription: SubscriptionEntitlement | null, nowMs = Date.now()): string {
   if (!subscription?.trialEndsAt || subscription.status !== "TRIALING") {
     return "";
   }
-  const remainingMs = Date.parse(subscription.trialEndsAt) - Date.now();
+  const remainingMs = Date.parse(subscription.trialEndsAt) - nowMs;
   if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
     return "Trial ending now";
   }
   const days = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
   return `${days} day${days === 1 ? "" : "s"} trial remaining`;
+}
+
+// Settings-only presentation; access and trial eligibility remain in their existing helpers.
+export function planTrialLine(
+  subscription: SubscriptionEntitlement | null,
+  nowMs = Date.now(),
+): string | null {
+  if (!subscription || subscription.status === "ACTIVE" || hasPaidSubscription(subscription, nowMs)) {
+    return null;
+  }
+  const countdown = formatTrialCountdown(subscription, nowMs);
+  if (subscription.status === "EXPIRED" || countdown === "Trial ending now") {
+    return "Trial ended. Existing records remain viewable.";
+  }
+  return countdown ? `Free trial · ${countdown.replace(" trial remaining", " left")}` : null;
 }
 
 async function readJsonBody(response: Response): Promise<Record<string, unknown>> {
