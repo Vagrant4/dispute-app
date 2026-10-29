@@ -33,22 +33,21 @@ export function ReferralScreen() {
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.eyebrow}>Referral pilot</Text>
-      <Text style={styles.heading}>Invite another worker</Text>
+    <View style={styles.settingsSection}>
+      <Text style={styles.todayTitle}>Refer a friend</Text>
       <Text style={styles.body}>
         A referral qualifies after the new user completes two paid months. Five qualified referrals earn one reward month.
       </Text>
       <Text style={styles.inputLabel}>Your code</Text>
-      <Text selectable style={styles.metricValue}>{referral?.code ?? "Loading"}</Text>
+      <Text selectable style={styles.settingsRowLabel}>{referral?.code ?? "Loading"}</Text>
       <Text selectable style={styles.muted}>{referral?.shareUrl ?? ""}</Text>
-      <View style={styles.metricGrid}>
-        <View style={styles.metricTile}>
-          <Text style={styles.metricValue}>{referral?.qualifiedCount ?? 0}</Text>
+      <View style={styles.settingsSection}>
+        <View style={styles.settingsValueRow}>
+          <Text style={styles.settingsRowLabel}>{referral?.qualifiedCount ?? 0}</Text>
           <Text style={styles.metricLabel}>qualified</Text>
         </View>
-        <View style={styles.metricTile}>
-          <Text style={styles.metricValue}>{referral?.earnedRewardMonths ?? 0}</Text>
+        <View style={styles.settingsValueRow}>
+          <Text style={styles.settingsRowLabel}>{referral?.earnedRewardMonths ?? 0}</Text>
           <Text style={styles.metricLabel}>reward months</Text>
         </View>
       </View>
@@ -56,9 +55,9 @@ export function ReferralScreen() {
         accessibilityRole="button"
         disabled={!referral}
         onPress={() => void handleShare()}
-        style={[styles.actionButton, !referral && styles.disabledButton]}
+        style={[styles.actionButtonSecondary, !referral && styles.disabledButton]}
       >
-        <Text style={[styles.actionButtonText, (!referral) && styles.disabledButtonText]}>Share referral link</Text>
+        <Text style={[styles.actionButtonSecondaryText, (!referral) && styles.disabledButtonText]}>Share referral link</Text>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => void loadReferral()} style={styles.actionButtonSecondary}>
         <Text style={styles.actionButtonSecondaryText}>Refresh referral progress</Text>

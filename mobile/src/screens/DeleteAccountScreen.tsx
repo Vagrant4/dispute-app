@@ -128,14 +128,14 @@ export function DeleteAccountScreen({
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.eyebrow}>Danger zone</Text>
+    <View style={embedded ? styles.settingsSection : styles.card}>
+      {!embedded ? <Text style={styles.eyebrow}>Danger zone</Text> : null}
       <Text style={embedded ? styles.rowLabel : styles.heading}>Delete account and data</Text>
       <Text style={styles.body}>
         Permanently deletes {account.email}, projects, time entries, locations,
         evidence, reports and login tokens. This cannot be recovered.
       </Text>
-      <View style={styles.deletionWarningCard}>
+      <View style={embedded ? styles.settingsSection : styles.deletionWarningCard}>
         <Text style={styles.warningText}>
           Deleting DISPUTE does not cancel an active Google Play or App Store
           subscription. Manage the subscription separately before deletion.
@@ -181,7 +181,7 @@ export function DeleteAccountScreen({
           <Text style={[styles.dangerButtonSecondaryText, (deleting) && styles.disabledButtonText]}>Review permanent deletion</Text>
         </Pressable>
       ) : (
-        <View style={styles.deletionWarningCard}>
+        <View style={embedded ? styles.settingsSection : styles.deletionWarningCard}>
           <Text style={styles.warningText}>
             Final confirmation: delete this account and all associated data now.
           </Text>

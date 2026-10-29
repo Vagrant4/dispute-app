@@ -90,12 +90,12 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
 
   return (
     <>
-      <View style={[styles.card, styles.warningCard]}>
-        <Text style={styles.heading}>Keep a copy of your records</Text>
+      <View style={styles.settingsSection}>
+        <Text style={styles.todayTitle}>Keep a copy</Text>
         <Text style={styles.body}>{backupWarning}</Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={styles.settingsSection}>
         <Text style={styles.rowLabel}>Your records</Text>
         <Text style={styles.body}>
           Save a copy of your records. {exportOnly
@@ -103,8 +103,8 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
             : "Restoring replaces what's on this phone. We'll ask first."}
         </Text>
         <View style={styles.actionRow}>
-          <Pressable style={styles.actionButton} onPress={handleExport}>
-            <Text style={styles.actionButtonText}>Save a copy</Text>
+          <Pressable style={styles.actionButtonSecondary} onPress={handleExport}>
+            <Text style={styles.actionButtonSecondaryText}>Save a copy</Text>
           </Pressable>
           <Pressable style={styles.actionButtonSecondary} onPress={handleShare}>
             <Text style={styles.actionButtonSecondaryText}>Send a copy</Text>
@@ -116,8 +116,8 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
           ) : null}
         </View>
         {restoreArmed && !exportOnly ? (
-          <Pressable style={styles.actionButton} onPress={handleImport}>
-            <Text style={styles.actionButtonText}>Confirm restore</Text>
+          <Pressable style={styles.actionButtonSecondary} onPress={handleImport}>
+            <Text style={styles.actionButtonSecondaryText}>Confirm restore</Text>
           </Pressable>
         ) : null}
         <Text style={styles.muted}>{status}</Text>

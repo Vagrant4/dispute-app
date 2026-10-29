@@ -8,19 +8,19 @@ export function PrivacyScreen({ supportOnly = false }: { supportOnly?: boolean }
   return (
     <>
       {!supportOnly ? <>
-      <View style={styles.card}>
-        <Text style={styles.heading}>Privacy &amp; data</Text>
+      <View style={styles.settingsSection}>
+        <Text style={styles.todayTitle}>Privacy &amp; data</Text>
         <Text style={styles.body}>{privacyContent.body}</Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={styles.settingsSection}>
         <Text style={styles.rowLabel}>{privacyContent.analyticsHeading}</Text>
         <Text style={styles.body}>{privacyContent.analyticsBody}</Text>
       </View>
 
       </> : null}
-      <View style={styles.card}>
-        <Text style={supportOnly ? styles.heading : styles.rowLabel}>{supportOnly ? "Support" : "Privacy and deletion links"}</Text>
+      <View style={styles.settingsSection}>
+        <Text style={supportOnly ? styles.todayTitle : styles.rowLabel}>{supportOnly ? "Support" : "Privacy and deletion links"}</Text>
         <Text style={styles.body}>
           {supportOnly ? "Questions or problems? See our privacy and help pages." : "Read the public policy or use the web deletion page when the mobile app is unavailable."}
         </Text>

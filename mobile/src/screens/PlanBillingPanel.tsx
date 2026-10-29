@@ -24,13 +24,13 @@ export function PlanBillingPanel({
   const monthlyPrice = formatMonthlyStorePrice(localizedStorePrice);
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.heading}>Plan & billing</Text>
-      <View style={styles.row}>
+    <View style={styles.settingsSection}>
+      <Text style={styles.todayTitle}>Plan & billing</Text>
+      <View style={styles.settingsValueRow}>
         <Text style={styles.rowLabel}>Plan</Text>
         <Text style={styles.rowValue}>Dispute Basic</Text>
       </View>
-      <View style={styles.row}>
+      <View style={styles.settingsValueRow}>
         <Text style={styles.rowLabel}>Price</Text>
         <Text style={styles.rowValue}>{monthlyPrice}</Text>
       </View>

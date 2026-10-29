@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
@@ -92,6 +92,17 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     { id: "privacy_data", label: "Privacy & data", value: "Your privacy and account" },
     { id: "backup", label: "Keep a copy", value: "Save or restore your records" },
   ];
+  const rowIcons = {
+    name: require("../../assets/icons/set-name.png"),
+    pay_rate: require("../../assets/icons/set-pay.png"),
+    language: require("../../assets/icons/set-language.png"),
+    plan: require("../../assets/icons/set-plan.png"),
+    support: require("../../assets/icons/set-support.png"),
+    more: require("../../assets/icons/set-more.png"),
+    referrals: require("../../assets/icons/set-refer.png"),
+    privacy_data: require("../../assets/icons/set-privacy.png"),
+    backup: require("../../assets/icons/set-backup.png"),
+  };
   const insideMore = panel === "referrals" || panel === "privacy_data" || panel === "backup";
 
   async function handleSubscribe() {
@@ -178,20 +189,23 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   return (
     <>
-      {panel === "main" ? <Text style={styles.screenTitle}>Settings</Text> : null}
+      {panel === "main" ? <Text style={styles.todayTitle}>Settings</Text> : null}
       {panel !== "main" ? (
         <Pressable accessibilityRole="button" onPress={() => setPanel(insideMore ? "more" : "main")} style={styles.settingsBackRow}>
-          <Text style={styles.settingsRowLabel}>{insideMore ? "‹ More" : "‹ Settings"}</Text>
+          <Text style={styles.settingsBackText}>{insideMore ? "‹ More" : "‹ Settings"}</Text>
         </Pressable>
       ) : null}
+      {panel === "more" ? <Text style={styles.todayTitle}>More</Text> : null}
       {panel === "main" || panel === "more" ? (
         <View style={styles.settingsList}>
-          {panel === "more" ? <Text style={styles.heading}>More</Text> : null}
           {(panel === "main" ? mainRows : moreRows).map((item) => (
             <Pressable accessibilityRole="button" key={item.id} onPress={() => setPanel(item.id)} style={styles.settingsRow}>
+              <View style={styles.todayIconTile}>
+                <Image accessible={false} source={rowIcons[item.id as keyof typeof rowIcons]} style={styles.todayRowIcon} />
+              </View>
               <View style={styles.settingsRowContent}>
                 <Text style={styles.settingsRowLabel}>{item.label}</Text>
-                <Text style={styles.muted}>{item.value}</Text>
+                <Text numberOfLines={1} style={styles.settingsRowSubtitle}>{item.value}</Text>
               </View>
               <Text style={styles.settingsChevron}>›</Text>
             </Pressable>
@@ -199,8 +213,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         </View>
       ) : null}
       {panel === "language" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Language</Text>
+        <View style={styles.settingsSection}>
+          <Text style={styles.todayTitle}>Language</Text>
           <Text style={styles.body}>English is the only language for now.</Text>
         </View>
       ) : null}
@@ -208,7 +222,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       {panel === "more" ? (
         <>
         {isTrialDebugOverrideEnabled() && account.isGuest ? (
-          <View style={[styles.card, styles.warningCard]}>
+          <View style={styles.settingsSection}>
             <Text style={styles.rowLabel}>Debug: trial clock</Text>
             {[["Set trial start to 31 days ago", 31], ["Set trial start to 25 days ago", 25], ["Reset to now", 0]].map(([label, days]) => (
               <Pressable key={String(label)} accessibilityRole="button" onPress={() => void rewriteGuestTrial(Date.now() - Number(days) * 86400000).then(loadSubscriptionStatus)} style={styles.actionButtonSecondary}>
@@ -225,12 +239,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       ) : null}
 
       {panel === "pay_rate" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Pay rate</Text>
+        <View style={styles.settingsSection}>
+          <Text style={styles.todayTitle}>Pay rate</Text>
           <Text style={styles.body}>
-            Set the normal working time. Normal hours are based on this start/end
-            range. OT applies after the normal end time; off day and holiday
-            rates apply to entries marked with those day types.
+            Set your normal hours and rates. Overtime, off-day and holiday rates apply automatically.
           </Text>
           <Text style={styles.inputLabel}>Currency</Text>
           <View style={styles.dropdownContainer}>
@@ -242,7 +254,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
               style={styles.dropdownBox}
             >
               <Text style={styles.dropdownValue}>{getCurrencyLabel(currency)}</Text>
-              <Text style={styles.dropdownChevron}>
+              <Text style={styles.settingsDropdownChevron}>
                 {currencyDropdownOpen ? "▲" : "▼"}
               </Text>
             </Pressable>
@@ -261,16 +273,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
                         setCurrencyDropdownOpen(false);
                       }}
                       style={
-                        selected ? styles.dropdownOptionActive : styles.dropdownOption
+                        selected ? styles.settingsDropdownOptionSelected : styles.dropdownOption
                       }
                     >
-                      <Text
-                        style={
-                          selected
-                            ? styles.dropdownOptionActiveText
-                            : styles.dropdownOptionText
-                        }
-                      >
+                      <Text style={styles.dropdownOptionText}>
                         {option.code} — {option.name}
                       </Text>
                     </Pressable>
@@ -291,7 +297,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
               <Text style={styles.dropdownValue}>
                 {getRateBasisLabel(rateBasis)}
               </Text>
-              <Text style={styles.dropdownChevron}>
+              <Text style={styles.settingsDropdownChevron}>
                 {rateBasisDropdownOpen ? "▲" : "▼"}
               </Text>
             </Pressable>
@@ -310,16 +316,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
                         setRateBasisDropdownOpen(false);
                       }}
                       style={
-                        selected ? styles.dropdownOptionActive : styles.dropdownOption
+                        selected ? styles.settingsDropdownOptionSelected : styles.dropdownOption
                       }
                     >
-                      <Text
-                        style={
-                          selected
-                            ? styles.dropdownOptionActiveText
-                            : styles.dropdownOptionText
-                        }
-                      >
+                      <Text style={styles.dropdownOptionText}>
                         {option.label}
                       </Text>
                     </Pressable>

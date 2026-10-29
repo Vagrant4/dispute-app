@@ -37,7 +37,7 @@ test("main list uses plain wording and no segmented Account menu", () => {
   assert.doesNotMatch(source, /options\.map|item\.id === panel|styles\.eyebrow|>Account<|Work hours loaded from this phone/);
   assert.match(source, /panel === "more" \? \([\s\S]*isTrialDebugOverrideEnabled\(\)/);
   assert.match(source, /setWorkHoursStatus\("Saved"\)/);
-  assert.match(source, /styles.heading\}>Pay rate/);
+  assert.match(source, /styles.todayTitle\}>Pay rate/);
   assert.match(source, /onPress=\{\(\) => void handleSaveWorkHours\(\)\}[\s\S]*?>Save<\/Text>/);
 });
 
@@ -73,8 +73,8 @@ test("unset pay rates say Not set and saved rates keep their basis", () => {
 test("Settings owns its main heading and sub-panels retain their back row and heading", () => {
   const app = readFileSync(path.join(__dirname, "..", "App.tsx"), "utf8");
   assert.match(app, /!account \|\| \(activeTab !== "settings" && activeTab !== "reports"\) \? <Text/);
-  assert.match(source, /panel === "main" \? <Text style=\{styles.screenTitle\}>Settings<\/Text> : null/);
+  assert.match(source, /panel === "main" \? <Text style=\{styles.todayTitle\}>Settings<\/Text> : null/);
   assert.match(source, /panel !== "main" \? \([\s\S]*?insideMore \? "‹ More" : "‹ Settings"/);
-  assert.match(source, /panel === "more" \? <Text style=\{styles.heading\}>More<\/Text> : null/);
-  assert.match(source, /panel === "pay_rate" \? \([\s\S]*?<Text style=\{styles.heading\}>Pay rate<\/Text>/);
+  assert.match(source, /panel === "more" \? <Text style=\{styles.todayTitle\}>More<\/Text> : null/);
+  assert.match(source, /panel === "pay_rate" \? \([\s\S]*?<Text style=\{styles.todayTitle\}>Pay rate<\/Text>/);
 });

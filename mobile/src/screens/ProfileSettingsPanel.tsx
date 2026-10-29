@@ -13,24 +13,24 @@ export function ProfileSettingsPanel({
   onLogout,
 }: ProfileSettingsPanelProps) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.heading}>Name</Text>
+    <View style={styles.settingsSection}>
+      <Text style={styles.todayTitle}>Name</Text>
       <Text style={styles.muted}>{account.isGuest ? "On this phone · no account yet" : `Signed in as ${account.name}`}</Text>
-      {account.emailVerified ? <Text style={styles.headerPillText}>Email verified</Text> : null}
-      <View style={styles.row}>
+      {account.emailVerified ? <Text style={styles.muted}>Email verified</Text> : null}
+      <View style={styles.settingsValueRow}>
         <Text style={styles.rowLabel}>Name</Text>
         <Text numberOfLines={2} style={styles.rowValue}>
           {account.name || "Not set"}
         </Text>
       </View>
-      <View style={styles.row}>
+      <View style={styles.settingsValueRow}>
         <Text style={styles.rowLabel}>Verified email</Text>
         <Text numberOfLines={2} style={styles.rowValue}>
           {account.email}
         </Text>
       </View>
       {account.phone ? (
-        <View style={styles.row}>
+        <View style={styles.settingsValueRow}>
           <Text style={styles.rowLabel}>Mobile</Text>
           <Text numberOfLines={2} style={styles.rowValue}>
             {account.phone}
@@ -40,9 +40,9 @@ export function ProfileSettingsPanel({
       <Pressable
         accessibilityRole="button"
         onPress={onLogout}
-        style={styles.clockSecondaryButton}
+        style={styles.actionButtonSecondary}
       >
-        <Text style={styles.clockSecondaryButtonText}>Logout</Text>
+        <Text style={styles.actionButtonSecondaryText}>Logout</Text>
       </Pressable>
     </View>
   );
