@@ -21,6 +21,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
   const [photos, setPhotos] = useState<PhotoEvidenceRow[]>([]);
   const [paySetupRequest, setPaySetupRequest] = useState(0);
   const [sessionsExpanded, setSessionsExpanded] = useState(false);
+  const [lockDetailsExpanded, setLockDetailsExpanded] = useState(false);
   const [rename, setRename] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [totals, setTotals] = useState({ totalOvertimeHours: 0, totalClaimAmountCents: 0 });
@@ -71,6 +72,21 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
           <Text style={styles.actionButtonSecondaryText}>{project.status === "archived" ? "Reopen" : "Mark finished"}</Text>
         </Pressable>
       </View>
+      <ProgressClaimReportsScreen account={account} projectId={projectId} paySetupRequest={paySetupRequest} onPaySaved={() => void refresh()} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} lockDetailsExpanded={lockDetailsExpanded} renderActions={({ share, preview, csv, locked }) => <>
+        <Pressable accessibilityRole="button" onPress={share} style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>{"Create & share PDF"}</Text>
+        </Pressable>
+        {locked ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: lockDetailsExpanded }} onPress={() => setLockDetailsExpanded((value) => !value)}>
+          <Text style={styles.projectExportLockNote} numberOfLines={1}>Sharing PDFs needs a plan · Details</Text>
+        </Pressable> : null}
+        <Text style={styles.muted}>Week {currentWeekStart()} – {weekEnd()}</Text>
+        <View style={styles.actionRow}>{!locked ? <Pressable style={styles.textButton} onPress={preview}>
+          <Text style={styles.body}>Preview</Text>
+        </Pressable> : null}<Pressable style={[styles.textButton, (locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
+            <Text style={[styles.muted, (locked) && styles.disabledButtonText]}>CSV</Text>
+          </Pressable>
+        </View>
+      </>} />
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: sessionsExpanded }} onPress={() => setSessionsExpanded((value) => !value)} style={styles.actionButtonSecondary}>
         <Text style={styles.actionButtonSecondaryText}>Show sessions {sessionsExpanded ? "▲" : "▼"}</Text>
       </Pressable>
@@ -98,18 +114,6 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
         </View>
         <View style={styles.actionRow}>{photos.slice(0, 4).map((photo) => <Image key={photo.id} source={{ uri: photo.local_uri }} style={styles.projectPhoto} />)}</View>
       </View>
-      <ProgressClaimReportsScreen account={account} projectId={projectId} paySetupRequest={paySetupRequest} onPaySaved={() => void refresh()} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} renderActions={({ share, preview, csv, locked }) => <>
-        {!locked ? <Pressable accessibilityRole="button" onPress={share} style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>{"Create & share PDF"}</Text>
-        </Pressable> : null}
-        <Text style={styles.muted}>Week {currentWeekStart()} – {weekEnd()}</Text>
-        <View style={styles.actionRow}>{!locked ? <Pressable style={styles.textButton} onPress={preview}>
-          <Text style={styles.body}>Preview</Text>
-        </Pressable> : null}<Pressable style={[styles.textButton, (locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
-            <Text style={[styles.muted, (locked) && styles.disabledButtonText]}>CSV</Text>
-          </Pressable>
-        </View>
-      </>} />
       {rename ? <ProjectNameSheet name={project.name} onSave={saveName} onClose={() => setRename(false)} /> : null}</> : null}
   </>;
 }

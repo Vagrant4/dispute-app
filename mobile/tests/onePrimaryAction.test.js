@@ -29,7 +29,7 @@ test("Projects open through plain rows; New project and name sheets are secondar
 test("Project detail reserves filled lime for its gated PDF action", () => {
   const detail = screen("ProjectDetail");
   assert.equal(primary(detail).length, 1);
-  assert.match(detail, /!locked \? <Pressable accessibilityRole="button" onPress=\{share\} style=\{styles.actionButton\}/);
+  assert.match(detail, /<Pressable accessibilityRole="button" onPress=\{share\} style=\{styles.actionButton\}/);
   assert.equal((detail.match(/Create & share PDF/g) || []).length, 1);
   assert.equal(primary(source("src/screens/ProjectPayCard.tsx")).length, 0);
   const reports = source("src/screens/ProgressClaimReportsScreen.tsx");

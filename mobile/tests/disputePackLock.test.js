@@ -101,14 +101,14 @@ test("guest ensureCanExport never consults the trial entitlement", () => {
   assert.doesNotMatch(guestBranch, /return true/);
 });
 
-test("locked UI: lock card, preview button, create-account or Plan & billing action, locked file pills", () => {
-  assert.match(reports, /exportLocked \? \(\s*<View accessibilityLabel="Dispute pack locked"/);
+test("locked UI: disclosed explanation, preview button, create-account or Plan & billing action, locked file pills", () => {
+  assert.match(reports, /exportLocked && \(!renderActions \|\| lockDetailsExpanded\) \? \(\s*<View accessibilityLabel="Dispute pack locked"/);
   assert.match(reports, /disputePackLockContent\.guestButton/);
   assert.match(reports, /onPress=\{onOpenPlanBilling\}/);
   assert.match(reports, /handlePreview\(\)/);
   assert.match(reports, /exportLocked \? "Locked · Save to phone"/);
   assert.match(reports, /exportLocked \? "Locked · Share"/);
-  assert.match(reports, /renderActions\(\{ share:.*locked: true/);
+  assert.match(reports, /renderActions\(\{ share:.*locked: exportLocked/);
   const app = src("App.tsx");
   assert.match(app, /onOpenPlanBilling=\{\(\) => onNavigate\("settings", "subscription"\)\}/);
   assert.match(src("src/screens/SettingsScreen.tsx"), /useState<SettingsPage>\(initialPanel \? INITIAL_PANEL_PAGES\[initialPanel\] : "main"\)/);

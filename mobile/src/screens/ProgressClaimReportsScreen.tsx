@@ -42,6 +42,7 @@ type ProgressClaimReportsScreenProps = {
   account: LocalAccount;
   projectId?: string;
   paySetupRequest?: number;
+  lockDetailsExpanded?: boolean;
   renderActions?: (actions: { share: () => void; preview: () => void; csv: () => void; locked: boolean }) => ReactNode;
   onPaySaved?: () => void;
 
@@ -49,7 +50,7 @@ type ProgressClaimReportsScreenProps = {
   onOpenPlanBilling?: () => void;
 };
 
-export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPlanBilling, projectId: detailProjectId, paySetupRequest, renderActions, onPaySaved }: ProgressClaimReportsScreenProps) {
+export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPlanBilling, projectId: detailProjectId, paySetupRequest, renderActions, lockDetailsExpanded = false, onPaySaved }: ProgressClaimReportsScreenProps) {
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
@@ -428,9 +429,10 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   return (
     <>
       <View style={styles.card}>
-        <Text style={styles.eyebrow}>Weekly report</Text>
-        {exportLocked ? (
-          <View accessibilityLabel="Dispute pack locked" style={[styles.statusCard, styles.warningCard]}>
+        {renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked }) : null}
+        {!renderActions ? <Text style={styles.eyebrow}>Weekly report</Text> : null}
+        {exportLocked && (!renderActions || lockDetailsExpanded) ? (
+          <View accessibilityLabel="Dispute pack locked" style={styles.list}>
             <Text style={styles.statusTitle}>{disputePackLockContent.title}</Text>
             {account.isGuest && subscription && !subscription.canCreateRecords ? (
               <Text style={styles.statusMessage}>{disputePackLockContent.guestTrialEnded}</Text>
@@ -450,10 +452,9 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
               <Text style={[styles.actionButtonSecondaryText, (!selectedProjectId) && styles.disabledButtonText]}>Preview report</Text>
             </Pressable>
           </View>
-        ) : renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked }) : (
+        ) : !exportLocked && !renderActions ? (
           <Pressable onPress={() => void handleShareDisputePack()} style={styles.actionButton}><Text style={styles.actionButtonText}>Share report</Text></Pressable>
-        )}
-        {exportLocked && renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: true }) : null}
+        ) : null}
         <Text style={styles.muted}>{subscriptionStatus}</Text>
       </View>
       {payStep ? <ProjectPayCard name={payStep.name} settings={payStep.settings} rateCents={projects.find((project) => project.id === selectedProjectId)?.hourlyRateCents ?? 0} onSave={savePay} /> : null}

@@ -32,6 +32,7 @@ export const styles = StyleSheet.create({
   settingsBackRow: { minHeight: 56, justifyContent: "center", marginBottom: theme.spacing.sm },
   projectSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.photoScrim },
   projectSheet: { backgroundColor: theme.colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.md },
+  projectExportLockNote: { color: theme.colors.textMuted, ...type.caption },
   projectPhoto: { width: 70, height: 70, borderRadius: radius.sm },
 
   photoScreenContainer: { paddingHorizontal: space.md, paddingBottom: theme.spacing.md },
