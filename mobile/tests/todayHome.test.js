@@ -22,7 +22,7 @@ test("location rows use address or friendly saved fallback", () => {
   assert.equal(formatLocationRow(null, { ...idle, locationOff: true }).subtitle, "Location is off · Open settings");
   assert.doesNotMatch(source("src/work/locationEvidence.ts"), /GPS point/);
 });
-test("Today has a neutral pill, large clock and single round action", () => {
+test("Today limits lime to the working pill, wordmark and round action", () => {
   const home = source("src/screens/HomeScreen.tsx");
   assert.match(home, /Working · since/);
   assert.match(home, /Not clocked in/);
@@ -34,7 +34,8 @@ test("Today has a neutral pill, large clock and single round action", () => {
   assert.match(styles, /todayClock: \{[^\n]*today.clock/);
   assert.match(styles, /todayRoundButton: \{[^\n]*width: 176, height: 176/);
   const today = styles.slice(styles.indexOf("  todayScreen:"), styles.indexOf("  todayBottomAction:"));
-  assert.equal((today.match(/theme.colors.primary\b/g) || []).length, 2);
+  const limeStyles = today.split("\r\n").filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
+  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton"]);
 });
 test("Clock in directs missing requirements to GPS or the picker", () => {
   const home = source("src/screens/HomeScreen.tsx");
@@ -80,4 +81,45 @@ test("shortAddress uses the first two distinct joined parts for older readings",
 test("shortAddress returns null for empty readings so the row uses Location saved", () => {
   for (const reading of [null, {}, { address: " , , " }, { addressParts: {} }]) assert.equal(shortAddress(reading), null);
   assert.equal(formatLocationRow({ source: "gps", address: " , " }, { working: false }).title, "Location saved");
+});
+
+test("working pill uses lime while idle stays neutral", () => {
+  const styles = source("src/styles.ts");
+  const home = source("src/screens/HomeScreen.tsx");
+  assert.match(styles, /primaryHalo: "#1B2410"/);
+  assert.match(styles, /todayStatusWorking: \{ backgroundColor: theme.colors.primaryHalo/);
+  assert.match(styles, /todayStatusDotWorking: \{ backgroundColor: theme.colors.primary/);
+  assert.match(styles, /todayStatusTextWorking: \{ color: theme.colors.primary/);
+  for (const key of ["todayStatus", "todayStatusDot", "todayStatusText"]) {
+    assert.doesNotMatch(styles.match(new RegExp(key + ": \\{[^\\n]*"))[0], /theme.colors.primary/);
+    assert.ok(home.includes("isRunning && styles." + key + "Working"));
+  }
+});
+test("round action keeps a fixed frame and full touch target", () => {
+  const styles = source("src/styles.ts");
+  const home = source("src/screens/HomeScreen.tsx");
+  assert.match(styles, /todayButtonFrame: \{[^\n]*width: 200, height: 200[^\n]*alignItems: "center", justifyContent: "center"/);
+  assert.match(styles, /todayRoundButton: \{ width: 176, height: 176/);
+  assert.match(styles, /todayStopButton: \{ width: 160, height: 160/);
+  assert.match(styles, /todayHalo: \{ padding: today.halo/);
+  assert.match(source("src/theme/tokens.ts"), /halo: 12/);
+  assert.match(home, /hitSlop=\{isRunning \? 8 : 0\}/);
+  assert.match(home, /style=\{styles.todayButtonFrame\}/);
+});
+test("tabs use PNG line icons with lime active icons and normal active labels", () => {
+  const app = source("App.tsx");
+  const styles = source("src/styles.ts");
+  for (const name of ["today", "photos", "projects", "settings"]) assert.ok(app.includes('require("./assets/icons/tab-' + name + '.png")'));
+  assert.match(app, /<Image accessible=\{false\} source=\{tabIcons\[tab.id\]\}/);
+  assert.doesNotMatch(app, /[◷▦▤≡]/);
+  assert.match(app, /accessibilityRole="tab"/);
+  assert.match(app, /accessibilityState=\{\{ selected \}\}/);
+  assert.match(styles, /bottomTabIcon: \{ width: 24, height: 24, tintColor: theme.colors.placeholder/);
+  assert.match(styles, /bottomTabIconActive: \{ tintColor: theme.colors.primary/);
+  assert.match(styles, /bottomTabActive: \{ color: theme.colors.text/);
+  assert.match(styles, /bottomTabLabel: \{ color: theme.colors.placeholder, \.\.\.type.tabLabel/);
+  assert.match(styles, /bottomTabItem: \{[^\n]*gap: space.xs/);
+  assert.match(styles, /bottomTabBar: \{[^\n]*borderTopWidth: 1, borderTopColor: theme.colors.border/);
+  const tabStyles = styles.slice(styles.indexOf("  bottomTabBar:"), styles.indexOf("  tabScroller:"));
+  assert.equal((tabStyles.match(/theme.colors.primary\b/g) || []).length, 1);
 });

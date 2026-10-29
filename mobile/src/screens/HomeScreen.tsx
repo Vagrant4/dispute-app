@@ -220,17 +220,19 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         <Text style={styles.todayWordmark}>DISPUTE</Text>
       </View>
       <View style={styles.todayHero}>
-        <View style={styles.todayStatus}>
-          <View style={styles.todayStatusDot} />
-          <Text style={styles.todayStatusText}>{isRunning && clockInAt ? `Working · since ${formatClockTime(clockInAt)}` : "Not clocked in"}</Text>
+        <View style={[styles.todayStatus, isRunning && styles.todayStatusWorking]}>
+          <View style={[styles.todayStatusDot, isRunning && styles.todayStatusDotWorking]} />
+          <Text style={[styles.todayStatusText, isRunning && styles.todayStatusTextWorking]}>{isRunning && clockInAt ? `Working · since ${formatClockTime(clockInAt)}` : "Not clocked in"}</Text>
         </View>
         <Text style={styles.todayClock}>{isRunning ? formatWorkedClock(workedSeconds) : idleClock.time}{!isRunning ? <Text style={styles.todayPeriod}> {idleClock.period}</Text> : null}</Text>
         <Text style={styles.todayCaption}>{isRunning ? "hours worked today" : now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long" })}</Text>
         {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
-        <View style={[styles.todayHalo, isRunning && styles.todayStopHalo]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayRoundButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
-            <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
-          </Pressable>
+        <View style={styles.todayButtonFrame}>
+          <View style={[styles.todayHalo, isRunning && styles.todayStopHalo]}>
+            <Pressable hitSlop={isRunning ? 8 : 0} accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayRoundButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
+              <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
       <View style={styles.todayRows}>

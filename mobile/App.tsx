@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Image, type ImageSourcePropType, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
@@ -23,7 +23,12 @@ import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSes
 import { loadGuestTrial, saveGuestTrial, startGuestTrial } from "./src/subscription/guestTrial";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
-const tabIcons: Record<TabId, string> = { home: "◷", evidence: "▦", reports: "▤", settings: "≡" };
+const tabIcons: Record<TabId, ImageSourcePropType> = {
+  home: require("./assets/icons/tab-today.png"),
+  evidence: require("./assets/icons/tab-photos.png"),
+  reports: require("./assets/icons/tab-projects.png"),
+  settings: require("./assets/icons/tab-settings.png"),
+};
 
 function renderScreen(
   activeTab: TabId,
@@ -231,7 +236,7 @@ export default function App() {
                   accessibilityLabel={tab.label}
                   style={styles.bottomTabItem}
                 >
-                  <Text accessible={false} style={[styles.bottomTabIcon, selected && styles.bottomTabActive]}>{tabIcons[tab.id]}</Text>
+                  <Image accessible={false} source={tabIcons[tab.id]} style={[styles.bottomTabIcon, selected && styles.bottomTabIconActive]} />
                   <Text
                     style={[
                       styles.bottomTabLabel,

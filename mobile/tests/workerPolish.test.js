@@ -23,7 +23,7 @@ for (const kind of ["sqlite", "web"]) test(`${kind}: latest unnamed stop fix tak
   assert.equal(formatProjectSite(summary), "GPS site ±23m");
 });
 
-test("bottom tabs use stacked glyphs, theme colours, accessible targets and bottom safe area", () => {
+test("bottom tabs use stacked PNG icons, theme colours, accessible targets and bottom safe area", () => {
   const app = source("App.tsx");
   const bar = app.slice(app.indexOf('<SafeAreaView style={styles.bottomTabBar}'));
   assert.doesNotMatch(bar, /styles\.tabButton/);
@@ -31,12 +31,13 @@ test("bottom tabs use stacked glyphs, theme colours, accessible targets and bott
   assert.match(bar, /accessibilityState=\{\{ selected \}\}/);
   assert.match(bar, /edges=\{\["bottom"\]\}/);
   assert.ok(bar.indexOf("{tabIcons[tab.id]}") < bar.lastIndexOf("{tab.label}"));
-  for (const glyph of ["◷", "▦", "▤", "≡"]) assert.ok(app.includes(glyph));
+  for (const name of ["today", "photos", "projects", "settings"]) assert.ok(app.includes("assets/icons/tab-" + name + ".png"));
   const styles = source("src/styles.ts");
   assert.match(styles, /bottomTabItem: \{[^\n]*minWidth: 48, minHeight: 48/);
   assert.match(styles, /bottomTabBar: \{[^\n]*borderTopColor: theme.colors.border/);
-  assert.match(styles, /bottomTabActive: \{ color: theme.colors.primary/);
-  for (const key of ["bottomTabIcon", "bottomTabLabel"]) assert.match(styles, new RegExp(key + ': \\{ color: theme.colors.textMuted'));
+  assert.match(styles, /bottomTabActive: \{ color: theme.colors.text/);
+  assert.match(styles, /bottomTabIcon: \{ width: 24, height: 24, tintColor: theme.colors.placeholder/);
+  assert.match(styles, /bottomTabLabel: \{ color: theme.colors.placeholder/);
 });
 
 test("Photos and Projects keep one title and inner count subtitles", () => {
