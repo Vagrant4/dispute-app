@@ -1,7 +1,9 @@
 import * as Location from "expo-location";
+import type { AddressParts } from "./locationEvidence";
 
 export type WorkLocationResult = {
   address: string | null;
+  addressParts?: AddressParts | null;
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;
@@ -40,9 +42,11 @@ export async function getOptionalWorkLocationAddress(
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
-    const address = await reverseGeocodeAddress(latitude, longitude);
+    const geocoded = await reverseGeocodeAddress(latitude, longitude);
+    const address = geocoded?.address ?? null;
     return {
       address,
+      addressParts: geocoded?.addressParts ?? null,
       accuracy: position.coords.accuracy,
       timestamp: new Date(position.timestamp).toISOString(),
       latitude,
@@ -62,7 +66,7 @@ export async function getOptionalWorkLocationAddress(
 async function reverseGeocodeAddress(
   latitude: number,
   longitude: number,
-): Promise<string | null> {
+): Promise<{ address: string | null; addressParts: AddressParts } | null> {
   if (!Location.reverseGeocodeAsync) {
     return null;
   }
@@ -84,7 +88,7 @@ async function reverseGeocodeAddress(
     ]
       .map((value) => value?.trim())
       .filter(Boolean);
-    return [...new Set(parts)].join(", ") || null;
+    return { address: [...new Set(parts)].join(", ") || null, addressParts: { name: address.name, streetNumber: address.streetNumber, street: address.street, district: address.district, city: address.city } };
   } catch {
     return null;
   }

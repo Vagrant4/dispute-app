@@ -1,4 +1,13 @@
-import type { LocationReading } from "./locationEvidence";
+import type { AddressParts, LocationReading } from "./locationEvidence";
+
+export function shortAddress(reading: { address?: string | null; addressParts?: AddressParts | null } | null): string | null {
+  const parts = reading?.addressParts;
+  const streetLine = parts?.name?.trim() || [parts?.streetNumber?.trim(), parts?.street?.trim()].filter(Boolean).join(" ");
+  const area = parts?.district?.trim() || parts?.city?.trim();
+  const values = streetLine || area ? [streetLine, area] : reading?.address?.split(",");
+  const distinct = [...new Set(values?.map((value) => value?.trim()).filter(Boolean))];
+  return distinct.slice(0, 2).join(", ") || null;
+}
 
 export function formatClockTime(date: Date): string {
   return date.toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
@@ -15,7 +24,7 @@ export function formatLocationRow(reading: LocationReading | null, options: { wo
   const time = reading?.locatedAt ? formatClockTime(new Date(reading.locatedAt)) : "time unknown";
   const accuracy = reading?.accuracy == null ? "Accuracy unknown" : `±${Math.round(reading.accuracy)} m`;
   if (!reading || reading.source !== "gps") return { title: "Add your location", subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating…" : options.locationOff ? "Location is off · Open settings" : "Tap to take a GPS reading" };
-  return { title: reading.address || "Location saved", subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating…" : reading.address ? `Tap to update · ${accuracy}` : `${accuracy} · ${time}` };
+  return { title: shortAddress(reading) || "Location saved", subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating…" : reading.address ? `Tap to update · ${accuracy}` : `${accuracy} · ${time}` };
 }
 
 export function workedSecondsToday(completedMinutes: number, clockInAt: Date | null, now: Date): number {

@@ -1,8 +1,16 @@
 export type LocationSource = "gps" | "none" | "legacy";
+export type AddressParts = {
+  name?: string | null;
+  streetNumber?: string | null;
+  street?: string | null;
+  district?: string | null;
+  city?: string | null;
+};
 export type LocationReading = {
   phase: "start" | "stop";
   source: LocationSource;
   address: string | null;
+  addressParts?: AddressParts | null;
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;
@@ -10,6 +18,7 @@ export type LocationReading = {
 };
 export type LocationParams = {
   locationText?: string;
+  addressParts?: AddressParts | null;
   clockOutLocationText?: string;
   gpsLatitude?: number | null;
   gpsLongitude?: number | null;
@@ -21,6 +30,7 @@ export function locationReading(params: LocationParams, phase: "start" | "stop")
   const hasFix = params.gpsLatitude != null && params.gpsLongitude != null;
   return {
     phase, source: hasFix ? "gps" : "none",
+    ...(hasFix && params.addressParts ? { addressParts: params.addressParts } : {}),
     address: hasFix ? (phase === "stop" ? params.clockOutLocationText ?? params.locationText : params.locationText)?.trim() || null : null,
     latitude: hasFix ? params.gpsLatitude! : null,
     longitude: hasFix ? params.gpsLongitude! : null,

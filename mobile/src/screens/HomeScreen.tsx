@@ -148,7 +148,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       await refreshWorkState();
       try {
         const location = await getWorkLocationWithTimeout(20_000);
-        const params = { userId, entryId: entry.id, phase: "start" as const, locationText: location?.address ?? undefined, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
+        const params = { userId, entryId: entry.id, phase: "start" as const, locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
         if (request !== locationRequest.current) return;
         if (await store.completeStartLocation(params)) setLocationFix(locationReading(params, "start"));
       } finally { if (request === locationRequest.current) setLocating(false); }
@@ -166,7 +166,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
       if (request !== locationRequest.current) return;
       const store = await getWorkStore(userId);
       const canRefreshEntry = locationEntryId && (locationPhase === "start" || (clockOutAt && now.getTime() - clockOutAt.getTime() <= 600_000));
-      const params = { userId, entryId: locationEntryId!, phase: locationPhase, locationText: location?.address ?? undefined, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
+      const params = { userId, entryId: locationEntryId!, phase: locationPhase, locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
       const fix = locationReading(params, canRefreshEntry ? locationPhase : "start");
       setLocationOff(fix.source !== "gps");
       if (canRefreshEntry) await store.refreshLocation(params);
@@ -202,7 +202,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         gpsLongitude: location?.longitude ?? null,
       });
       setLocationPhase("stop");
-      setLocationFix(locationReading({ locationText: location?.address ?? undefined, gpsLatitude: location?.latitude, gpsLongitude: location?.longitude, gpsAccuracyM: location?.accuracy, locatedAt: location?.timestamp }, "stop"));
+      setLocationFix(locationReading({ locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude, gpsLongitude: location?.longitude, gpsAccuracyM: location?.accuracy, locatedAt: location?.timestamp }, "stop"));
       setClockOutAt(nextClockOut);
       setDayType(defaultDayType(nextClockOut));
       setNow(nextClockOut);
