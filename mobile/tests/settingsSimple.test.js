@@ -68,6 +68,8 @@ test("unset pay rates say Not set and saved rates keep their basis", () => {
   for (const rate of ["", "0", "0.00"]) assert.equal(value(rate, "daily"), "Not set");
   assert.equal(value("150", "daily"), "SGD 150 / day");
   assert.equal(value("3000", "monthly"), "SGD 3000 / month");
+  assert.equal(value("15", "hourly"), "SGD 15 / hour");
+  assert.match(source, /\{ id: "hourly", label: "Hourly" \}/);
 });
 
 test("Settings owns its main heading and sub-panels retain their back row and heading", () => {

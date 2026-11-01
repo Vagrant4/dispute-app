@@ -66,7 +66,7 @@ test("settings updates reject unsafe limits and invalid currency", () => {
     { currency: "sgd" },
     { currency: "US" },
     { currency: "EURO" },
-    { rateBasis: "hourly" },
+    { rateBasis: "weekly" },
     { baseRateCents: -1 },
     { baseRateCents: 100_000_001 },
     { baseRateCents: 10.5 },
@@ -86,6 +86,11 @@ test("settings updates reject unsafe limits and invalid currency", () => {
 test("settings updates merge valid patches", () => {
   const { DEFAULT_APP_SETTINGS, validateSettingsPatch } = loadTsModule(
     "src/db/settingsValidation.ts",
+  );
+
+  assert.equal(
+    validateSettingsPatch(DEFAULT_APP_SETTINGS, { rateBasis: "hourly" }).rateBasis,
+    "hourly",
   );
 
   assert.deepEqual(

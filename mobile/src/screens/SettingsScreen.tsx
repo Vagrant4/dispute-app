@@ -81,7 +81,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
-    { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : "day"}` : "Not set" },
+    { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : rateBasis === "hourly" ? "hour" : "day"}` : "Not set" },
     { id: "language", label: "Language", value: "English" },
     { id: "plan", label: "Plan", value: planTrialLine(subscription) ?? (subscription?.planName || "Checking plan…") },
     { id: "support", label: "Support", value: "Help and policies" },
@@ -334,14 +334,14 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             ) : null}
           </View>
           <Text style={styles.inputLabel}>
-            {rateBasis === "monthly" ? "Monthly rate" : "Daily rate"} ({currency})
+            {rateBasis === "monthly" ? "Monthly rate" : rateBasis === "hourly" ? "Hourly rate" : "Daily rate"} ({currency})
           </Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Base rate amount"
             inputMode="decimal"
             keyboardType="decimal-pad"
             onChangeText={setBaseRate}
-            placeholder={rateBasis === "monthly" ? "3000" : "150"}
+            placeholder={rateBasis === "monthly" ? "3000" : rateBasis === "hourly" ? "15" : "150"}
             style={styles.textInput}
             value={baseRate}
           />
@@ -456,6 +456,7 @@ const CURRENCY_OPTIONS = [
 ] as const;
 
 const RATE_BASIS_OPTIONS: { id: AppSettings["rateBasis"]; label: string }[] = [
+  { id: "hourly", label: "Hourly" },
   { id: "daily", label: "Daily" },
   { id: "monthly", label: "Monthly" },
 ];

@@ -2,7 +2,7 @@ export type AppSettings = {
   id: string;
   userId: string;
   currency: string;
-  rateBasis: "daily" | "monthly";
+  rateBasis: "daily" | "monthly" | "hourly";
   baseRateCents: number;
   dailyHours: number;
   weeklyHours: number;
@@ -81,8 +81,12 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
   if (!/^[A-Z]{3}$/.test(settings.currency)) {
     errors.push("currency must be 3 uppercase letters");
   }
-  if (settings.rateBasis !== "daily" && settings.rateBasis !== "monthly") {
-    errors.push("rateBasis must be daily or monthly");
+  if (
+    settings.rateBasis !== "daily" &&
+    settings.rateBasis !== "monthly" &&
+    settings.rateBasis !== "hourly"
+  ) {
+    errors.push("rateBasis must be daily, monthly or hourly");
   }
   if (
     !Number.isInteger(settings.baseRateCents) ||
