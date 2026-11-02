@@ -176,8 +176,8 @@ test("Projects main title is skipped for detail and detail actions use secondary
   assert.ok(projects.indexOf("if (openProjectId) return <ProjectDetailScreen") < projects.indexOf(">Projects</Text>"));
   assert.match(projects, /<Text style=\{styles.screenTitle\}>Projects<\/Text>/);
   const detail = source("src/screens/ProjectDetailScreen.tsx");
-  assert.match(detail, />‹ Projects<\/Text>[\s\S]*?styles.heading\}>\{project.name\}/);
+  assert.match(detail, />‹ Projects<\/Text>[\s\S]*?style=\{\[styles.heading, styles.projectTitle\]\}>\{project.name\}/);
   assert.doesNotMatch(detail, /styles.screenTitle/);
-  assert.match(detail, /styles.actionButtonSecondary[^\n]*setRename\(true\)/);
+  assert.match(detail, /styles.projectRenameButton[^\n]*setRename\(true\)/);
   assert.match(detail, /styles.actionButtonSecondary\} onPress=\{\(\) => void toggleFinished\(\)/);
 });

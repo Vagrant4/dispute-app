@@ -30,8 +30,8 @@ export const theme = {
 export const styles = StyleSheet.create({
   projectTitleRow: { alignItems: "center", flexDirection: "row", gap: space.sm },
   projectTitle: { flexShrink: 1 },
-  projectRenameButton: { alignItems: "center", borderColor: theme.colors.border, borderRadius: 18, borderWidth: 1, height: 36, justifyContent: "center", width: 36 },
-  projectRenameIcon: { color: theme.colors.primary, fontSize: 20, lineHeight: 22 },
+  projectRenameButton: { alignItems: "center", borderColor: theme.colors.border, borderRadius: radius.pill, borderWidth: 1, height: 36, justifyContent: "center", width: 36 },
+  projectRenameIcon: { color: theme.colors.primary, ...type.heading },
   locationMapScreen: { gap: space.md },
   locationMapFrame: { borderColor: theme.colors.border, borderRadius: radius.md, borderWidth: 1, height: 360, overflow: "hidden" },
   locationMap: { flex: 1 },
