@@ -58,7 +58,8 @@ test("project navigation, one-field sheet, Today picker and one primary PDF acti
   const detail = source("src/screens/ProjectDetailScreen.tsx");
   assert.equal((detail.match(/Create & share PDF/g) || []).length, 1);
   assert.match(detail, /ProgressClaimReportsScreen/);
-  assert.match(detail, /Mark finished/);
+  assert.match(detail, /Project complete/);
+  assert.match(detail, /accessibilityLabel="Rename project"/);
   assert.match(detail, /Reopen/);
   assert.match(detail, /onSeePhotos\(projectId\)/);
   const reports = source("src/screens/ProgressClaimReportsScreen.tsx");

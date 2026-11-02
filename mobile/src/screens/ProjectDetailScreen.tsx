@@ -61,15 +61,17 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
     {error ? <Text style={styles.body}>{error}</Text> : null}
     {project ? <>
       <View style={styles.card}>
-        <Text style={styles.heading}>{project.name}</Text>
+        <View style={styles.projectTitleRow}>
+          <Text style={[styles.heading, styles.projectTitle]}>{project.name}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Rename project" hitSlop={8} style={[styles.projectRenameButton, (!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
+            <Text style={[styles.projectRenameIcon, (!access.canCreateRecords) && styles.disabledButtonText]}>✎</Text>
+          </Pressable>
+        </View>
         <Text style={styles.muted}>{formatProjectSite(summary)}</Text>
-        <Pressable accessibilityRole="button" style={[styles.actionButtonSecondary, (!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setRename(true)}>
-          <Text style={[styles.actionButtonSecondaryText, (!access.canCreateRecords) && styles.disabledButtonText]}>Rename</Text>
-        </Pressable>
         <Text style={styles.metricValue}>{((summary?.minutesThisWeek ?? 0) / 60).toFixed(1)} h</Text>
         <Text style={styles.metricLabel}>This week</Text>
         <Pressable accessibilityRole="button" style={styles.actionButtonSecondary} onPress={() => void toggleFinished()}>
-          <Text style={styles.actionButtonSecondaryText}>{project.status === "archived" ? "Reopen" : "Mark finished"}</Text>
+          <Text style={styles.actionButtonSecondaryText}>{project.status === "archived" ? "Reopen" : "Project complete"}</Text>
         </Pressable>
       </View>
       <ProgressClaimReportsScreen account={account} projectId={projectId} paySetupRequest={paySetupRequest} onPaySaved={() => void refresh()} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} lockDetailsExpanded={lockDetailsExpanded} renderActions={({ share, preview, csv, locked }) => <>

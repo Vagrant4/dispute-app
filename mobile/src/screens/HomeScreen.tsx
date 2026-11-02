@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { ProjectNameSheet } from "./ProjectNameSheet";
+import { LocationMap } from "./LocationMap";
 import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
@@ -43,6 +44,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const [dayType, setDayType] = useState<WorkDayType>(() => defaultDayType(new Date()));
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
+  const [locationMapOpen, setLocationMapOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), clockInAt && !clockOutAt ? 1000 : 15_000);
@@ -176,6 +178,22 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     finally { if (request === locationRequest.current) setLocating(false); }
   }
 
+  function useTestLocation() {
+    const fix: LocationReading = {
+      phase: "start",
+      source: "gps",
+      address: "Test location · Singapore",
+      latitude: 1.3521,
+      longitude: 103.8198,
+      accuracy: 15,
+      locatedAt: new Date().toISOString(),
+    };
+    pendingLocations.current.push(fix);
+    setLocationFix(fix);
+    setLocationOff(false);
+    setWorkStatus("Test location selected. This is not a live GPS reading.");
+  }
+
   async function handleClockOut() {
     if (stopping || !clockInAt || clockOutAt || !homeState?.activeEntry) {
       return;
@@ -213,6 +231,19 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
     } finally { setLocating(false); setStopping(false); }
   }
 
+  if (locationMapOpen) return (
+    <View style={styles.locationMapScreen}>
+      <Pressable accessibilityRole="button" onPress={() => setLocationMapOpen(false)} style={styles.textButton}><Text style={styles.body}>‹ Today</Text></Pressable>
+      <Text style={styles.heading}>Location map</Text>
+      <Text style={styles.muted}>Current GPS reading. The pin cannot be moved.</Text>
+      <View style={styles.locationMapFrame}><LocationMap reading={locationFix} /></View>
+      <Text style={styles.locationMapAccuracy}>{locationFix?.accuracy == null ? "Accuracy unknown" : `±${Math.round(locationFix.accuracy)} m`}</Text>
+      <Pressable accessibilityRole="button" disabled={locating} onPress={() => void handleLocateMe()} style={[styles.actionButtonSecondary, locating && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, locating && styles.disabledButtonText]}>{locating ? "Refreshing…" : "Refresh"}</Text></Pressable>
+      {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
+      {Platform.OS === "web" && locationFix?.address?.startsWith("Test location") ? <Text style={styles.muted}>Test location · not live GPS</Text> : null}
+    </View>
+  );
+
   return (
     <View style={styles.todayScreen}>
       <View style={styles.todayHeader}>
@@ -244,6 +275,10 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
           </View>
           {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
         </Pressable>
+        {!isRunning ? <View style={styles.actionRow}>
+          <Pressable accessibilityRole="button" onPress={() => setLocationMapOpen(true)} style={styles.textButton}><Text style={styles.body}>View on map</Text></Pressable>
+          {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
+        </View> : null}
         <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
           <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
           <View style={styles.todayRowContent}>

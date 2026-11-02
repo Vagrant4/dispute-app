@@ -162,6 +162,25 @@ test("local photo destination builder falls back to safe id without timestamp", 
   );
 });
 
+test("browser blob photos bypass the native file-system copy", async () => {
+  let copied = false;
+  const { importEvidencePhotoFile } = createTsLoader({
+    "expo-file-system/legacy": {
+      makeDirectoryAsync: async () => {},
+      copyAsync: async () => { copied = true; },
+    },
+  })("src/photos/photoFileStorage.ts");
+
+  const result = await importEvidencePhotoFile({
+    sourceUri: "blob:https://claimproof.test/captured-photo",
+    destinationUri: "file:///evidence/photo.jpg",
+  });
+
+  assert.equal(result.localUri, "blob:https://claimproof.test/captured-photo");
+  assert.equal(result.copied, false);
+  assert.equal(copied, false);
+});
+
 test("GPS denied result is non-blocking", async () => {
   const { getOptionalPhotoGps } = createTsLoader({
     "expo-location": {

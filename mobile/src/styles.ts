@@ -28,6 +28,15 @@ export const theme = {
 };
 
 export const styles = StyleSheet.create({
+  projectTitleRow: { alignItems: "center", flexDirection: "row", gap: space.sm },
+  projectTitle: { flexShrink: 1 },
+  projectRenameButton: { alignItems: "center", borderColor: theme.colors.border, borderRadius: 18, borderWidth: 1, height: 36, justifyContent: "center", width: 36 },
+  projectRenameIcon: { color: theme.colors.primary, fontSize: 20, lineHeight: 22 },
+  locationMapScreen: { gap: space.md },
+  locationMapFrame: { borderColor: theme.colors.border, borderRadius: radius.md, borderWidth: 1, height: 360, overflow: "hidden" },
+  locationMap: { flex: 1 },
+  locationMapFallback: { alignItems: "center", backgroundColor: theme.colors.surfaceMuted, flex: 1, gap: space.sm, justifyContent: "center", padding: space.lg },
+  locationMapAccuracy: { backgroundColor: theme.colors.background, borderColor: theme.colors.primary, borderRadius: radius.md, borderWidth: 1, color: theme.colors.primary, overflow: "hidden", paddingHorizontal: space.sm, paddingVertical: space.xs, ...type.label },
   settingsList: { paddingTop: space.md },
   settingsSection: { gap: space.md, paddingVertical: space.md },
   settingsRow: { width: "100%", minHeight: 72, flexDirection: "row", alignItems: "center", gap: today.rowGap, paddingVertical: today.rowY, borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.colors.border, marginTop: today.rowOverlap },

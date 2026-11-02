@@ -59,6 +59,16 @@ export async function importEvidencePhotoFile(params: {
   sourceUri: string;
   destinationUri: string;
 }): Promise<ImportedEvidencePhoto> {
+  // ImagePicker uses browser-owned blob/data URLs on web. They are already
+  // usable by <Image> and cannot be copied with Expo's native file-system API.
+  if (/^(blob:|data:)/i.test(params.sourceUri)) {
+    return {
+      localUri: params.sourceUri,
+      copied: false,
+      message: "Photo retained in browser storage.",
+    };
+  }
+
   if (!FileSystem.copyAsync || !FileSystem.makeDirectoryAsync) {
     return {
       localUri: params.sourceUri,
