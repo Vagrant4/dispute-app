@@ -4,9 +4,9 @@ import { Text, View } from "react-native";
 import { styles } from "../styles";
 import type { LocationReading } from "../work/locationEvidence";
 
-export function LocationMap({ reading }: { reading: LocationReading | null }) {
+export function LocationMap({ reading, locating = false }: { reading: LocationReading | null; locating?: boolean }) {
   if (reading?.latitude == null || reading.longitude == null) {
-    return <View style={styles.locationMapFallback}><Text style={styles.muted}>No GPS reading yet.</Text></View>;
+    return <View style={styles.locationMapFallback}><Text style={styles.muted}>{locating ? "Getting GPS…" : "No GPS reading yet. Tap Refresh."}</Text></View>;
   }
   const coordinate = { latitude: reading.latitude, longitude: reading.longitude };
   return <MapView

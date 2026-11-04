@@ -55,6 +55,12 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     void refreshWorkState();
   }, []);
 
+  useEffect(() => {
+    if (locationMapOpen && locationFix?.latitude == null && !locating) {
+      void handleLocateMe();
+    }
+  }, [locationMapOpen]);
+
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
     : null;
@@ -160,7 +166,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   }
 
   async function handleLocateMe() {
-    if (isRunning || locating || stopping) return;
+    if (locating || stopping) return;
     const request = ++locationRequest.current;
     setLocating(true);
     try {
@@ -236,7 +242,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       <Pressable accessibilityRole="button" onPress={() => setLocationMapOpen(false)} style={styles.textButton}><Text style={styles.body}>‹ Today</Text></Pressable>
       <Text style={styles.heading}>Location map</Text>
       <Text style={styles.muted}>Current GPS reading. The pin cannot be moved.</Text>
-      <View style={styles.locationMapFrame}><LocationMap reading={locationFix} /></View>
+      <View style={styles.locationMapFrame}><LocationMap reading={locationFix} locating={locating} /></View>
       <Text style={styles.locationMapAccuracy}>{locationFix?.accuracy == null ? "Accuracy unknown" : `±${Math.round(locationFix.accuracy)} m`}</Text>
       <Pressable accessibilityRole="button" disabled={locating} onPress={() => void handleLocateMe()} style={[styles.actionButtonSecondary, locating && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, locating && styles.disabledButtonText]}>{locating ? "Refreshing…" : "Refresh"}</Text></Pressable>
       {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}

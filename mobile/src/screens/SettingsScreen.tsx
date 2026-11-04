@@ -143,7 +143,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setHolidayMultiplier(String(settings.holidayMultiplier));
       setWorkHoursStatus("");
     } catch (error) {
-      setWorkHoursStatus(getErrorMessage(error));
+      setWorkHoursStatus("Couldn't load pay rate. Reopen the app and try again.");
     }
   }, [userId]);
 
@@ -182,7 +182,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setHolidayMultiplier(String(settings.holidayMultiplier));
       setWorkHoursStatus("Saved");
     } catch (error) {
-      setWorkHoursStatus(getErrorMessage(error));
+      setWorkHoursStatus(getPayRateSaveErrorMessage(error));
     }
   }
 
@@ -476,6 +476,21 @@ function formatRateAmount(cents: number): string {
   return (cents / 100).toFixed(2).replace(/\.00$/, "");
 }
 
-function getErrorMessage(error: unknown): string {
-  return "Something went wrong. Please try again.";
+function getPayRateSaveErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message.startsWith("Invalid app settings: ")) {
+    const reason = message.slice("Invalid app settings: ".length)
+      .replace("normalWorkEndTime must be different from normalWorkStartTime", "End time must differ from start time")
+      .replace("dailyHours", "Daily hours")
+      .replace("weeklyHours", "Weekly hours")
+      .replace("overtimeMultiplier", "Overtime multiplier")
+      .replace("offDayMultiplier", "Off-day multiplier")
+      .replace("holidayMultiplier", "Holiday multiplier")
+      .replace("baseRateCents", "Pay rate")
+      .replace("normalWorkStartTime", "Start time")
+      .replace("normalWorkEndTime", "End time")
+      .replace("rateBasis", "Rate basis");
+    return `Couldn't save pay rate: ${reason}`;
+  }
+  return "Couldn't save pay rate. Your phone storage didn't respond — reopen the app and try again.";
 }

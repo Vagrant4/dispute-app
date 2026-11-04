@@ -1,5 +1,5 @@
 import type { LocalDatabase } from "./localDatabase";
-import { DEFAULT_USER_ID } from "./settingsValidation";
+import { DEFAULT_USER_ID, getSettingsIdForUser } from "./settingsValidation";
 
 const WORK_DATA_TABLES = [
   "photo_evidence",
@@ -45,10 +45,17 @@ export async function claimLegacyLocalDataForUser(
     }
     for (const table of AUXILIARY_TABLES) {
       if ((await countRows(database, normalizedUserId, [table])) === 0) {
-        await database.runAsync(
-          `UPDATE ${table} SET user_id = ? WHERE user_id = ?`,
-          [normalizedUserId, DEFAULT_USER_ID],
-        );
+        if (table === "app_settings") {
+          await database.runAsync(
+            "UPDATE app_settings SET id = ?, user_id = ? WHERE user_id = ?",
+            [getSettingsIdForUser(normalizedUserId), normalizedUserId, DEFAULT_USER_ID],
+          );
+        } else {
+          await database.runAsync(
+            `UPDATE ${table} SET user_id = ? WHERE user_id = ?`,
+            [normalizedUserId, DEFAULT_USER_ID],
+          );
+        }
       }
     }
     await database.execAsync("COMMIT;");

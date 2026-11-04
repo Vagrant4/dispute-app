@@ -18,7 +18,10 @@ function loadOwnershipModule() {
   const module = { exports: {} };
   function localRequire(request) {
     if (request === "./settingsValidation") {
-      return { DEFAULT_USER_ID: "local-user" };
+      return {
+        DEFAULT_USER_ID: "local-user",
+        getSettingsIdForUser: (userId) => `settings:${userId}`,
+      };
     }
     return require(request);
   }
@@ -66,10 +69,14 @@ test("legacy local data is claimed once by the authenticated account", async () 
     "COMMIT;",
   ]);
   assert.equal(database.updateCalls.length, 7);
-  for (const call of database.updateCalls) {
+  for (const call of database.updateCalls.filter((call) => !call.sql.startsWith("UPDATE app_settings "))) {
     assert.match(call.sql, /^UPDATE [a-z_]+ SET user_id = \? WHERE user_id = \?$/);
     assert.deepEqual(call.params, ["account-a", "local-user"]);
   }
+  assert.deepEqual(database.updateCalls.find((call) => call.sql.startsWith("UPDATE app_settings ")), {
+    sql: "UPDATE app_settings SET id = ?, user_id = ? WHERE user_id = ?",
+    params: ["settings:account-a", "account-a", "local-user"],
+  });
 });
 
 test("legacy data is not merged into an account that already owns local rows", async () => {

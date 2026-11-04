@@ -49,7 +49,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
       }
       const rows: PhotoEvidenceRow[] = Platform.OS === "web" ? JSON.parse(globalThis.localStorage?.getItem(`dispute-web-saved-photo-evidence:${encodeURIComponent(userId)}`) || "[]") : await (await (await import("../db/repositories")).getLocalRepositories(userId)).photoEvidence.listRecentPhotoEvidence({ userId });
       setPhotos(rows.filter((photo) => photo.project_id === projectId));
-    } catch (cause) { setError("Could not load project."); }
+    } catch (cause) { setError("Couldn't open this project. Go back and try again."); }
   }
   useEffect(() => { void refresh(); }, [userId, projectId]);
   async function saveName(name: string) { if (!project || !access.canCreateRecords) throw new Error(access.message); const store = await getProjectScreenStore(userId); await store.updateProject({ userId, projectId, name, description: project.description, hourlyRateCents: project.hourlyRateCents }); await refresh(); }

@@ -80,10 +80,9 @@ function createFakeDatabase() {
       if (/COUNT\(\*\).*generated_documents/i.test(sql)) {
         return { count: 0 };
       }
-      const id = params[0];
-      const userId = params[1];
-      const row = rows.get(id);
-      return row && row.userId === userId ? toRow(row) : null;
+      const userId = params[0];
+      const row = [...rows.values()].find((candidate) => candidate.userId === userId);
+      return row ? toRow(row) : null;
     },
     async runAsync(sql, params = []) {
       calls.push({ method: "runAsync", sql, params });
@@ -161,7 +160,7 @@ function createFakeDatabase() {
   };
 }
 
-test("getSettings inserts defaults idempotently then reselects by deterministic id and user", async () => {
+test("getSettings inserts defaults idempotently then reselects by user", async () => {
   const load = createTsLoader();
   const { SettingsRepository } = load("src/db/settingsRepository.ts");
   const database = createFakeDatabase();
@@ -182,9 +181,8 @@ test("getSettings inserts defaults idempotently then reselects by deterministic 
     database.calls.some(
       (call) =>
         call.method === "getFirstAsync" &&
-        /WHERE id = \? AND user_id = \?/i.test(call.sql) &&
-        call.params[0] === "settings:user-a" &&
-        call.params[1] === "user-a",
+        /WHERE user_id = \? LIMIT 1/i.test(call.sql) &&
+        call.params[0] === "user-a",
     ),
   );
 });

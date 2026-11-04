@@ -60,7 +60,7 @@ export async function createTrialSubscriptionForUser(
   client: PrismaClientOrTx = prisma
 ): Promise<void> {
   const user = await client.user.findUnique({ where: { id: userId }, select: { appFirstUseAt: true } });
-  const anchor = trialAnchor(user?.appFirstUseAt ?? null, verifiedAt);
+  const anchor = trialAnchor(user?.appFirstUseAt ?? null, verifiedAt, env.trialPolicyStartAt);
   const plan = await ensureBasicPlan(client);
   await client.userSubscription.upsert({
     where: { userId },
@@ -72,7 +72,7 @@ export async function createTrialSubscriptionForUser(
       monthlyRecurringCents: basicPlanPriceCents,
       currency: basicPlanCurrency,
       provider: 'store',
-      trialEndsAt: addDays(anchor, trialDays),
+      trialEndsAt: trialEndForPolicy(user?.appFirstUseAt ?? null, verifiedAt, trialDays, env.trialPolicyStartAt),
       currentPeriodStart: anchor,
       currentPeriodEnd: addDays(anchor, trialDays)
     }
@@ -108,8 +108,8 @@ export async function getSubscriptionEntitlement(userId: string): Promise<Subscr
       select: { emailVerifiedAt: true, appFirstUseAt: true }
     });
     if (verifiedUser?.emailVerifiedAt) {
-      const anchor = trialAnchor(verifiedUser.appFirstUseAt, verifiedUser.emailVerifiedAt);
-      const policyTrialEnd = addDays(anchor, trialDays);
+      const anchor = trialAnchor(verifiedUser.appFirstUseAt, verifiedUser.emailVerifiedAt, env.trialPolicyStartAt);
+      const policyTrialEnd = trialEndForPolicy(verifiedUser.appFirstUseAt, verifiedUser.emailVerifiedAt, trialDays, env.trialPolicyStartAt);
       if (!subscription.trialEndsAt || subscription.trialEndsAt < policyTrialEnd) {
         subscription = await prisma.userSubscription.update({
           where: { userId },
@@ -544,8 +544,22 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-export function trialAnchor(appFirstUseAt: Date | null, verifiedAt: Date): Date {
-  return appFirstUseAt && appFirstUseAt < verifiedAt ? appFirstUseAt : verifiedAt;
+export function trialAnchor(
+  appFirstUseAt: Date | null,
+  verifiedAt: Date,
+  policyStart: Date | null = null
+): Date {
+  const existingAnchor = appFirstUseAt && appFirstUseAt < verifiedAt ? appFirstUseAt : verifiedAt;
+  return policyStart && policyStart > existingAnchor ? policyStart : existingAnchor;
+}
+
+export function trialEndForPolicy(
+  appFirstUseAt: Date | null,
+  verifiedAt: Date,
+  days: number,
+  policyStart: Date | null = null
+): Date {
+  return addDays(trialAnchor(appFirstUseAt, verifiedAt, policyStart), days);
 }
 
 function getRevenueCatEvent(body: unknown): Record<string, unknown> {

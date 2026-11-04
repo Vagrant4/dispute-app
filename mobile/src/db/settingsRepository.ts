@@ -63,8 +63,8 @@ export class SettingsRepository {
     const defaults = createDefaultAppSettings(userId);
     await this.insertSettings(defaults);
     const current = await this.database.getFirstAsync<AppSettingsRow>(
-      "SELECT id, user_id, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, status, lock_hash, locked_at FROM app_settings WHERE id = ? AND user_id = ? LIMIT 1",
-      [defaults.id, userId],
+      "SELECT id, user_id, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, status, lock_hash, locked_at FROM app_settings WHERE user_id = ? LIMIT 1",
+      [userId],
     );
 
     if (!current) {

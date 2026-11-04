@@ -23,13 +23,22 @@ export async function getOptionalWorkLocationAddress(
     }
 
     // TIME OUT passes prompt:false so the permission dialog is only shown once, at TIME IN.
-    const permission =
+    let permission =
       options.prompt === false && Location.getForegroundPermissionsAsync
         ? await Location.getForegroundPermissionsAsync()
         : await Location.requestForegroundPermissionsAsync();
+    if (options.prompt === false && permission.status === Location.PermissionStatus.UNDETERMINED) {
+      permission = await Location.requestForegroundPermissionsAsync();
+    }
     if (permission.status !== Location.PermissionStatus.GRANTED) {
       return nonBlockingLocationResult(
         "Location is off. Turn on location and try again.",
+      );
+    }
+
+    if (Location.hasServicesEnabledAsync && !(await Location.hasServicesEnabledAsync())) {
+      return nonBlockingLocationResult(
+        "Location services are off. Turn on Location in Android settings.",
       );
     }
 
@@ -39,7 +48,10 @@ export async function getOptionalWorkLocationAddress(
       );
     }
 
-    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const lastKnown = Location.getLastKnownPositionAsync
+      ? await Location.getLastKnownPositionAsync({ maxAge: 120_000, requiredAccuracy: 100 })
+      : null;
+    const position = await getCurrentPositionWithFallback(lastKnown);
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
     const geocoded = await reverseGeocodeAddress(latitude, longitude);
@@ -72,7 +84,11 @@ async function reverseGeocodeAddress(
   }
 
   try {
-    const [address] = await Location.reverseGeocodeAsync({ latitude, longitude });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const [address] = await Promise.race([
+      Location.reverseGeocodeAsync({ latitude, longitude }),
+      new Promise<[]>((resolve) => { timer = setTimeout(() => resolve([]), 4_000); }),
+    ]).finally(() => { if (timer) clearTimeout(timer); });
     if (!address) {
       return null;
     }
@@ -91,6 +107,23 @@ async function reverseGeocodeAddress(
     return { address: [...new Set(parts)].join(", ") || null, addressParts: { name: address.name, streetNumber: address.streetNumber, street: address.street, district: address.district, city: address.city } };
   } catch {
     return null;
+  }
+}
+
+async function getCurrentPositionWithFallback(
+  lastKnown: Awaited<ReturnType<typeof Location.getLastKnownPositionAsync>> | null,
+) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const current = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).catch(() => null),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 15_000); }),
+    ]);
+    if (current) return current;
+    if (lastKnown) return lastKnown;
+    throw new Error("No GPS position available");
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
