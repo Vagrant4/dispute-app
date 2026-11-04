@@ -6,13 +6,8 @@ const read = (file) => fs.readFileSync(path.join(__dirname, "..", "src", file), 
 const deletion = read("screens/DeleteAccountScreen.tsx");
 const settings = read("screens/SettingsScreen.tsx");
 
-test("guest summary has no email interpolation and describes the existing deletion limitation", () => {
-  assert.match(deletion, /account.isGuest === true \|\| !account.email.trim\(\)/);
-  const guest = deletion.match(/\{isGuest\s*\? "([^"]+)"/)[1];
-  assert.doesNotMatch(guest, /for ,|email|\$\{/);
-  assert.equal(guest, "You are using DISPUTE without an account. Deleting an account needs a signed-in account. To remove guest projects, time entries, places, photos, reports and settings from this phone, clear DISPUTE storage in phone Settings. You cannot get them back. Copies you saved or shared elsewhere are not removed.");
-  assert.match(guest, /clear DISPUTE storage in phone Settings/);
-  assert.match(guest, /Copies you saved or shared elsewhere are not removed/);
+test("deletion summary is account-only", () => {
+  assert.doesNotMatch(deletion, /isGuest|without an account|Open phone settings/);
   assert.match(deletion, /account for \$\{account.email\}/);
 });
 
@@ -28,8 +23,8 @@ test("Privacy has one divider row and mounts the form only on the delete sub-pag
   assert.equal((deletion.match(/styles.todayTitle}>Delete account</g) || []).length, 1);
 });
 
-test("signed-in summary includes the policy record line and guests omit it", () => {
-  assert.match(deletion, /!isGuest \? <Text style=\{styles.body\}>\s*DISPUTE keeps a short record with no personal details that a deletion was asked for: a request number, the time, and whether clean-up finished. Google Play or our payment partner may keep their own payment records.\s*<\/Text> : null/);
+test("signed-in summary includes the policy record line", () => {
+  assert.match(deletion, /<Text style=\{styles.body\}>\s*DISPUTE keeps a short record with no personal details that a deletion was asked for: a request number, the time, and whether clean-up finished. Google Play or our payment partner may keep their own payment records.\s*<\/Text>/);
 });
 
 test("permanent confirm uses danger red and white text", () => {
@@ -56,30 +51,15 @@ test("danger buttons use red danger tokens and readable text", () => {
   }
 });
 
-// Keep all account-only controls inside the signed-in side of this render branch.
-const guestControls = deletion.split("      {isGuest ? (")[1].split("      ) : (")[0];
-const signedInControls = deletion.split("      {isGuest ? (")[1].slice(deletion.split("      {isGuest ? (")[1].indexOf("      ) : (") + "      ) : (".length);
-
-test("guest deletion screen offers only the phone settings button", () => {
-  assert.equal((guestControls.match(/<Pressable/g) || []).length, 1);
-  assert.match(guestControls, /onPress=\{\(\) => void Linking.openSettings\(\)\}/);
-  assert.match(guestControls, /style=\{styles.actionButtonSecondary\}/);
-  assert.match(guestControls, />Open phone settings<\/Text>/);
-  assert.doesNotMatch(guestControls, /TextInput|password|ACCOUNT_DELETION_CONFIRMATION|DELETE|reviewDeletion|permanentlyDeleteAccount|dangerButton|Manage subscription|subscription|statusMessage/);
-  const guestTitle = deletion.slice(deletion.indexOf("  return ("), deletion.indexOf("      <Text style={styles.body}>"));
-  assert.match(guestTitle, /<Text style=\{styles.todayTitle\}>Delete account<\/Text>/);
-  assert.doesNotMatch(guestTitle, /isGuest/);
-});
-
 test("signed-in deletion screen retains password, DELETE and danger controls", () => {
-  assert.equal((signedInControls.match(/<TextInput/g) || []).length, 2);
-  assert.match(signedInControls, /accessibilityLabel="Account deletion current password"/);
-  assert.match(signedInControls, /secureTextEntry/);
-  assert.match(signedInControls, /Type \{ACCOUNT_DELETION_CONFIRMATION\} to confirm/);
-  assert.match(signedInControls, /onPress=\{reviewDeletion\}/);
-  assert.match(signedInControls, /styles.dangerButtonSecondary/);
-  assert.match(signedInControls, /onPress=\{\(\) => void permanentlyDeleteAccount\(\)\}/);
-  assert.match(signedInControls, /styles.accountDeletionConfirmButton/);
-  assert.match(signedInControls, />Manage subscription<\/Text>/);
-  assert.match(signedInControls, /styles.statusMessage/);
+  assert.equal((deletion.match(/<TextInput/g) || []).length, 2);
+  assert.match(deletion, /accessibilityLabel="Account deletion current password"/);
+  assert.match(deletion, /secureTextEntry/);
+  assert.match(deletion, /Type \{ACCOUNT_DELETION_CONFIRMATION\} to confirm/);
+  assert.match(deletion, /onPress=\{reviewDeletion\}/);
+  assert.match(deletion, /styles.dangerButtonSecondary/);
+  assert.match(deletion, /onPress=\{\(\) => void permanentlyDeleteAccount\(\)\}/);
+  assert.match(deletion, /styles.accountDeletionConfirmButton/);
+  assert.match(deletion, />Manage subscription<\/Text>/);
+  assert.match(deletion, /styles.statusMessage/);
 });

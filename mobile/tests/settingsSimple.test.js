@@ -35,7 +35,7 @@ test("main list uses plain wording and no segmented Account menu", () => {
   const strings = [...mainRows.matchAll(/"([^"\n]*)"|`([^`]+)`/g)].map((match) => match[1] ?? match[2]).join(" ");
   assert.doesNotMatch(strings, /\b(sync|cache|hash|device ID|debug|database|SQLite|storage|API|token|server|runtime|backup ID)\b/i);
   assert.doesNotMatch(source, /options\.map|item\.id === panel|styles\.eyebrow|>Account<|Work hours loaded from this phone/);
-  assert.match(source, /panel === "more" \? \([\s\S]*isTrialDebugOverrideEnabled\(\)/);
+  assert.doesNotMatch(source, /isTrialDebugOverrideEnabled|Debug: trial clock/);
   assert.match(source, /setWorkHoursStatus\("Saved"\)/);
   assert.match(source, /styles.todayTitle\}>Pay rate/);
   assert.match(source, /onPress=\{\(\) => void handleSaveWorkHours\(\)\}[\s\S]*?>Save<\/Text>/);

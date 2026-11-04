@@ -20,7 +20,7 @@ import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
 
-export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount; onCreateAccount: () => void }) {
+export function HomeScreen({ account }: { account: LocalAccount }) {
   const locationRequest = useRef(0);
   const pendingLocations = useRef<LocationReading[]>([]);
   const [locationOff, setLocationOff] = useState(false);
@@ -64,7 +64,7 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
   const idleClock = formatIdleClock(now);
   const workedSeconds = workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now);
   const locationRow = formatLocationRow(locationFix, { working: isRunning, locating, locationOff });
-  const trialDaysLeft = account.isGuest ? access.trialDaysLeft : access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
+  const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? Math.ceil((Date.parse(access.subscription.trialEndsAt) - now.getTime()) / 86400000) : null;
   async function refreshWorkState() {
     try {
@@ -301,12 +301,9 @@ export function HomeScreen({ account, onCreateAccount }: { account: LocalAccount
         {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
         {access.subscription && !access.canCreateRecords ? (
           <View style={styles.todayPicker}>
-            <Text style={styles.heading}>{account.isGuest ? "Your 30-day free trial has ended." : "Your trial or subscription is not active."}</Text>
-            <Text style={styles.body}>{account.isGuest
-              ? "Create a free account to keep your records, then subscribe to continue logging and exporting. All your records stay viewable."
-              : "Subscribe in Settings > Plan & billing to continue logging and exporting. All your records stay viewable."}</Text>
+            <Text style={styles.heading}>Your trial or subscription is not active.</Text>
+            <Text style={styles.body}>Subscribe in Settings &gt; Plan &amp; billing to continue logging and exporting. All your records stay viewable.</Text>
             {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Clock out to finish the current shift.</Text> : null}
-            {account.isGuest ? <Pressable accessibilityRole="button" onPress={onCreateAccount} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Create account</Text></Pressable> : null}
           </View>
         ) : null}
       </View>

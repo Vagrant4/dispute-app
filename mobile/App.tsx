@@ -18,9 +18,7 @@ import { SettingsScreen, type SettingPanel } from "./src/screens/SettingsScreen"
 import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
 import { clearCachedSubscriptionEntitlement } from "./src/subscription/subscriptionClient";
-import { DEFAULT_USER_ID } from "./src/db/settingsValidation";
 import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSession";
-import { loadGuestTrial, saveGuestTrial, startGuestTrial } from "./src/subscription/guestTrial";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
 const tabIcons: Record<TabId, ImageSourcePropType> = {
@@ -64,7 +62,7 @@ function renderScreen(
       );
     case "home":
     default:
-      return <HomeScreen account={account} onCreateAccount={onCreateAccount} />;
+      return <HomeScreen account={account} />;
   }
 }
 
@@ -86,9 +84,9 @@ export default function App() {
   const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
 
   useEffect(() => {
-    void isGuestSessionActive().then((active) => {
-      if (active) setAccount({ id: DEFAULT_USER_ID, email: "", name: "Guest", phone: "", emailVerified: false, isGuest: true });
-    });
+    void isGuestSessionActive()
+      .then((active) => active ? setGuestSessionActive(false) : undefined)
+      .catch(() => undefined);
     void reconcilePendingAccountDeletion().then((cleaned) => {
       if (cleaned) {
         setAuthNotice("Your account was deleted and this phone was cleared.");
@@ -155,15 +153,6 @@ export default function App() {
             )
           ) : authMode === "logo" ? (
             <LogoScreen
-              onStartTracking={() => {
-                const guest = { id: DEFAULT_USER_ID, email: "", name: "Guest", phone: "", emailVerified: false, isGuest: true } satisfies LocalAccount;
-                void (async () => {
-                  const now = Date.now();
-                  await saveGuestTrial(startGuestTrial(now, await loadGuestTrial()));
-                  await setGuestSessionActive(true);
-                  setAccount(guest);
-                })();
-              }}
               onShowCreateAccount={() => setAuthMode("create")}
               onShowLogin={() => setAuthMode("login")}
             />

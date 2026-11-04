@@ -115,14 +115,17 @@ test("migration on sign-up: verify and login from a guest claim local-user rows 
   assert.equal(statements.some((s) => /DELETE/i.test(s)), false);
 });
 
-test("sign-up sends the guest first-use time so the server anchors the same 30-day trial", () => {
+test("sign-up starts the local trial only after account creation succeeds", () => {
   const create = src("src/screens/CreateAccountScreen.tsx");
-  assert.match(create, /firstUseAt: guestTrial \? new Date\(guestTrial\.firstUseAt\)\.toISOString\(\)/);
+  const success = create.slice(create.indexOf("if (result.ok)"));
+  assert.match(success, /saveGuestTrial\(startGuestTrial\(Date\.now\(\)\)\)/);
+  assert.doesNotMatch(create.slice(0, create.indexOf("if (result.ok)")), /startGuestTrial|saveGuestTrial/);
+  assert.doesNotMatch(create, /firstUseAt:/);
   assert.doesNotMatch(create, /Confirm account password/);
 });
 
-test("debug trial-clock panel renders only with the device-test flag", () => {
-  assert.match(src("src/screens/SettingsScreen.tsx"), /isTrialDebugOverrideEnabled\(\) && account\.isGuest/);
+test("signed-in settings has no guest-only trial clock panel", () => {
+  assert.doesNotMatch(src("src/screens/SettingsScreen.tsx"), /Debug: trial clock|account\.isGuest/);
 });
 
 test("TIME OUT never re-prompts for location permission", () => {

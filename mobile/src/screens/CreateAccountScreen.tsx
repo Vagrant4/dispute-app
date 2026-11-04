@@ -6,7 +6,7 @@ import {
   type PendingEmailVerification,
 } from "../auth/remoteAuth";
 import { styles, theme } from "../styles";
-import { loadGuestTrial } from "../subscription/guestTrial";
+import { saveGuestTrial, startGuestTrial } from "../subscription/guestTrial";
 
 type CreateAccountScreenProps = {
   onVerificationRequired: (pending: PendingEmailVerification) => void;
@@ -35,16 +35,15 @@ export function CreateAccountScreen({
 
     setIsSubmitting(true);
     try {
-      const guestTrial = await loadGuestTrial();
       const result = await registerRemoteAccount({
         name,
         email,
         phone: formatPhoneNumber(countryCode, phone),
         password,
-        firstUseAt: guestTrial ? new Date(guestTrial.firstUseAt).toISOString() : undefined,
         referralCode,
       });
       if (result.ok) {
+        await saveGuestTrial(startGuestTrial(Date.now())).catch(() => undefined);
         setStatus(result.pending.message);
         onVerificationRequired(result.pending);
       } else {
