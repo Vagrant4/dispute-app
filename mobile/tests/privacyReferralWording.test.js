@@ -52,6 +52,7 @@ test("referral code keeps its slot through loading, failure, retry and success",
       if (name === "react") return react;
       if (name === "react-native") return { Text: "Text", View: "View", Pressable: "Pressable", Share: {} };
       if (name === "../styles") return { styles: new Proxy({}, { get: (_, key) => key }) };
+      if (name === "../referrals/formatReferralCodeForDisplay") { const m = { exports: {} }; new Function("exports", "module", ts.transpileModule(read("referrals/formatReferralCodeForDisplay.ts"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(m.exports, m); return m.exports; }
       if (name === "../referrals/referralClient") return { fetchReferralSummary: () => new Promise((resolve) => { resolveFetch = resolve; }) };
       throw new Error(name);
     },
@@ -74,7 +75,7 @@ test("referral code keeps its slot through loading, failure, retry and success",
   resolveFetch({ ok: true, referral: { code: "ABC123", shareUrl: "https://example.test", qualifiedCount: 2, earnedRewardMonths: 1, rewardMessage: "Reward ready" } });
   await new Promise(setImmediate);
   tree = render();
-  assert.equal(text(slot(tree)), "ABC123");
+  assert.equal(text(slot(tree)), "ABC 123");
   assert.equal(nodes(tree).some((node) => node.type === "Pressable" && text(node) === "Try again"), false);
   assert.match(read("styles.ts"), /referralCodeSlot: \{ height: 48 \}/);
   assert.match(referral, /onPress=\{\(\) => void loadReferral\(\)\}/);

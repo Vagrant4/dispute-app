@@ -73,7 +73,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   const [payStep, setPayStep] = useState<{ settings: AppSettings; name: string; action: "share" | "preview" | "save" } | null>(null);
   useEffect(() => {
     if (!paySetupRequest) return;
-    void loadWorkHours(userId).then((preferences) => setPayStep({ settings: preferences.settings, name: (!account.isGuest && account.name) || preferences.reportName, action: "save" })).catch((error) => setStatus(getErrorMessage(error)));
+    void loadWorkHours(userId).then((preferences) => setPayStep({ settings: preferences.settings, name: (!account.isGuest && account.name) || preferences.reportName, action: "save" })).catch((error) => setStatus(getErrorMessage(error, "load the pay rate")));
   }, [paySetupRequest]);
   async function preparePay(action: "share" | "preview") {
     if (!selectedProjectId) return false;
@@ -218,7 +218,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           : home.recentEntries[0]?.projectId ?? projectRows[0]?.id ?? null),
       );
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "load the reports"));
     }
   }
 
@@ -260,7 +260,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       }
       await refreshArchive();
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "create the PDF"));
     }
   }
 
@@ -282,7 +282,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           : "Report preview shown below. Use Share dispute pack to send the file.",
       );
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "preview the report"));
     }
   }
 
@@ -302,7 +302,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       }
       await shareGeneratedDocument({ filePath: result.filePath, mimeType: "application/pdf", sharing: expoSharingAdapter });
       setStatus("Report ready.");
-    } catch (error) { setStatus(getErrorMessage(error)); }
+    } catch (error) { setStatus(getErrorMessage(error, "share the PDF")); }
   }
 
   async function handleViewReport(params: {
@@ -338,7 +338,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           : await viewNativeGeneratedDocumentFile(params.filePath);
       setStatus(result.message);
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "open the report"));
     }
   }
 
@@ -363,7 +363,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       });
       setStatus(result.message);
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "share the report"));
     }
   }
 
@@ -396,7 +396,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           : await downloadNativePdf(params.filePath, params.fileName);
       setStatus(result.message);
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "download the PDF"));
     }
   }
 
@@ -422,7 +422,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       setStatus(`Archive row deleted. ${fileResult.message}`);
       await refreshArchive();
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "delete the report"));
     }
   }
 
@@ -647,8 +647,9 @@ async function ensureCanExportWithRefresh(
   return false;
 }
 
-function getErrorMessage(error: unknown): string {
-  return "Something went wrong. Please try again.";
+function getErrorMessage(error: unknown, action: string): string {
+  if (error instanceof Error && /access|permission|subscription|trial|export requires/i.test(error.message)) return error.message;
+  return `Couldn't ${action}. Try again.`;
 }
 
 function formatDocumentType(type: string): string {

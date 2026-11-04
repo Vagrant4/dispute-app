@@ -8,7 +8,7 @@ const reports = source("src/screens/ProgressClaimReportsScreen.tsx");
 test("project PDF action comes after summary and before lock note and sessions", () => {
   const summary = detail.indexOf("{formatProjectSite(summary)}");
   const button = detail.indexOf('onPress={share} style={styles.actionButton}');
-  const note = detail.indexOf("Sharing PDFs needs a plan · Details");
+  const note = detail.indexOf("Subscribe to share PDFs · Details");
   const sessions = detail.indexOf('>Show sessions');
   assert.ok(summary < button && button < note && note < sessions);
   assert.match(detail, /onPress=\{share\} style=\{styles.actionButton\}>\s*<Text[^>]*>\{"Create & share PDF"\}/);
@@ -17,7 +17,8 @@ test("project PDF action comes after summary and before lock note and sessions",
 
 test("lock note is one muted caption line with details collapsed initially", () => {
   assert.match(detail, /lockDetailsExpanded, setLockDetailsExpanded\] = useState\(false\)/);
-  assert.match(detail, /<Text style=\{styles.projectExportLockNote\} numberOfLines=\{1\}>Sharing PDFs needs a plan · Details<\/Text>/);
+  assert.match(detail, /<Text style=\{styles.projectExportLockNote\} numberOfLines=\{1\}>Subscribe to share PDFs · Details<\/Text>/);
+  assert.match(detail, /locked && access\.subscription\?\.status !== "TRIALING"/);
   assert.match(source("src/styles.ts"), /projectExportLockNote: \{ color: theme.colors.textMuted, \.\.\.type.caption \}/);
   assert.match(detail, /onPress=\{\(\) => setLockDetailsExpanded\(\(value\) => !value\)\}/);
   assert.match(reports, /exportLocked && \(!renderActions \|\| lockDetailsExpanded\) \? \(/);

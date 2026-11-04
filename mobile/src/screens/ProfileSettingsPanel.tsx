@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { styles } from "../styles";
+import { formatPhoneForDisplay } from "../uiReviewFormatters";
 
 type ProfileSettingsPanelProps = {
   account: LocalAccount;
@@ -33,7 +34,7 @@ export function ProfileSettingsPanel({
         <View style={styles.settingsValueRow}>
           <Text style={styles.rowLabel}>Mobile</Text>
           <Text numberOfLines={2} style={styles.rowValue}>
-            {account.phone}
+            {formatPhoneForDisplay(account.phone)}
           </Text>
         </View>
       ) : null}

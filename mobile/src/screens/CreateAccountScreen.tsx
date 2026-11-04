@@ -59,10 +59,9 @@ export function CreateAccountScreen({
   return (
     <View style={styles.authPage}>
       <View style={styles.heroPanel}>
-        <Text style={styles.eyebrow}>Create account</Text>
-        <Text style={styles.heroTitle}>Register and verify email.</Text>
+        <Text style={styles.heroTitle}>Create your account</Text>
         <Text style={styles.heroBody}>
-          We send a 6-digit code to your email before you enter Dispute.
+          We'll email you a 6-digit code. Your 30-day free trial starts when you're in.
         </Text>
       </View>
 
@@ -160,7 +159,7 @@ export function CreateAccountScreen({
           value={referralCode}
         />
         <Text style={styles.muted}>
-          Enter the code before creating the account. It cannot be changed after registration.
+          Optional. It cannot be changed after registration.
         </Text>
 
         <Text style={styles.inputLabel}>Password</Text>
@@ -181,7 +180,7 @@ export function CreateAccountScreen({
             style={styles.passwordToggleButton}
           >
             <Text style={styles.passwordToggleSymbol}>
-              {showPassword ? "HIDE" : "EYE"}
+              {showPassword ? "Hide" : "Show"}
             </Text>
           </Pressable>
         </View>

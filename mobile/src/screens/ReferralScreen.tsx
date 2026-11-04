@@ -3,6 +3,7 @@ import { Pressable, Share, Text, View } from "react-native";
 
 import { fetchReferralSummary, type ReferralSummary } from "../referrals/referralClient";
 import { styles } from "../styles";
+import { formatReferralCodeForDisplay } from "../referrals/formatReferralCodeForDisplay";
 
 export function ReferralScreen() {
   const [referral, setReferral] = useState<ReferralSummary | null>(null);
@@ -43,21 +44,19 @@ export function ReferralScreen() {
       </Text>
       <Text style={styles.inputLabel}>Your code</Text>
       <Text selectable style={[styles.settingsRowLabel, styles.referralCodeSlot, !referral && styles.muted]}>
-        {codeLoading ? "Getting your code…" : referral?.code ?? "Connect to the internet to see your code"}
+        {codeLoading ? "Getting your code…" : referral ? formatReferralCodeForDisplay(referral.code) : "Connect to the internet to see your code"}
       </Text>
       {!codeLoading && !referral ? (
-        <Pressable accessibilityRole="button" onPress={() => void loadReferral()}>
-          <Text style={styles.actionButtonSecondaryText}>Try again</Text>
-        </Pressable>
+        <View style={styles.referralOfflineRow}><Text style={styles.muted}>Offline.</Text><Pressable accessibilityRole="button" onPress={() => void loadReferral()}><Text style={styles.body}>Try again</Text></Pressable></View>
       ) : null}
       <Text selectable style={styles.muted}>{referral?.shareUrl ?? ""}</Text>
-      <View style={styles.settingsSection}>
-        <View style={styles.settingsValueRow}>
-          <Text style={styles.settingsRowLabel}>{referral?.qualifiedCount ?? 0}</Text>
+      <View style={styles.referralStatsRow}>
+        <View style={styles.referralStatTile}>
+          <Text style={styles.referralStatValue}>{referral?.qualifiedCount ?? 0}</Text>
           <Text style={styles.metricLabel}>counted</Text>
         </View>
-        <View style={styles.settingsValueRow}>
-          <Text style={styles.settingsRowLabel}>{referral?.earnedRewardMonths ?? 0}</Text>
+        <View style={styles.referralStatTile}>
+          <Text style={styles.referralStatValue}>{referral?.earnedRewardMonths ?? 0}</Text>
           <Text style={styles.metricLabel}>reward months</Text>
         </View>
       </View>

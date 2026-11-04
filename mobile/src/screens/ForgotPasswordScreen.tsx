@@ -120,7 +120,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 style={styles.passwordToggleButton}
               >
                 <Text style={styles.passwordToggleSymbol}>
-                  {showPassword ? "HIDE" : "EYE"}
+                  {showPassword ? "Hide" : "Show"}
                 </Text>
               </Pressable>
             </View>
@@ -145,7 +145,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 style={styles.passwordToggleButton}
               >
                 <Text style={styles.passwordToggleSymbol}>
-                  {showConfirmPassword ? "HIDE" : "EYE"}
+                  {showConfirmPassword ? "Hide" : "Show"}
                 </Text>
               </Pressable>
             </View>

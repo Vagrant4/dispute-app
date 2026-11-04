@@ -325,7 +325,7 @@ test("settings screen keeps profile read-only and shows only subscribe or manage
   assert.match(settingsSource, /useDisputeBasicStorePrice/);
   assert.match(planBillingSource, /formatMonthlyStorePrice/);
   assert.match(storePriceHookSource, /fetchDisputeBasicStorePrice/);
-  assert.match(storePriceHookSource, /S\$6\.99\/month/);
+  assert.match(storePriceHookSource, /S\$6\.99 a month \(final price shown in Google Play\)/);
   assert.doesNotMatch(settingsSource, /SGD 4\.99\/month/);
   assert.doesNotMatch(source, /Restore purchases/);
 });

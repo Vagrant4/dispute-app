@@ -158,7 +158,7 @@ export function LoginScreen({
             style={styles.passwordToggleButton}
           >
             <Text style={styles.passwordToggleSymbol}>
-              {showPassword ? "HIDE" : "EYE"}
+              {showPassword ? "Hide" : "Show"}
             </Text>
           </Pressable>
         </View>

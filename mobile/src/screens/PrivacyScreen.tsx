@@ -47,7 +47,7 @@ export function PrivacyScreen({ supportOnly = false }: { supportOnly?: boolean }
           onPress={() => void Linking.openURL(`${getAuthApiBaseUrl()}/account-deletion`)}
           style={styles.actionButtonSecondary}
         >
-          <Text style={styles.actionButtonSecondaryText}>Open web account deletion</Text>
+          <Text style={styles.actionButtonSecondaryText}>Delete account on the web</Text>
         </Pressable>
       </View>
     </>

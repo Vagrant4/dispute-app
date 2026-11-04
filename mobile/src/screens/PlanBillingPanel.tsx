@@ -38,8 +38,10 @@ export function PlanBillingPanel({
         <Text style={styles.rowLabel}>Price</Text>
         <Text style={styles.rowValue}>{monthlyPrice}</Text>
       </View>
-      {exportNote ? (
-        <Text style={styles.muted}>{exportNote}</Text>
+      {subscription?.status === "TRIALING" && subscription.trialEndsAt ? (
+        <Text style={styles.muted}>{`Your trial ends on ${formatTrialEnd(subscription.trialEndsAt)}. You can subscribe here after that.`}</Text>
+      ) : exportNote ? (
+        <Text style={styles.muted}>{exportNote.replaceAll("DISPUTE Basic", "Dispute Basic")}</Text>
       ) : null}
       {action === "subscribe" ? (
         <Pressable
@@ -67,4 +69,8 @@ export function PlanBillingPanel({
       ) : null}
     </View>
   );
+}
+
+function formatTrialEnd(endIso: string): string {
+  return new Date(endIso).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 }

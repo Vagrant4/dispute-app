@@ -71,7 +71,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       setProjectId((current) => home.activeEntry?.projectId || current || nextRows[0]?.project_id || home.recentEntries[0]?.projectId || nextProjects[0]?.id || "");
       setRows(nextRows);
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "load the photos"));
     }
   }
 
@@ -119,7 +119,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       setPendingGps(gps);
       setStatus("");
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "open the camera"));
     }
   }
 
@@ -191,7 +191,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       setCaptureSheetOpen(false);
       await refresh();
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "save the photo"));
     } finally {
       setSaving(false);
     }
@@ -214,7 +214,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       setStatus("Photo deleted.");
       await refresh();
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "delete the photo"));
     }
   }
 
@@ -237,8 +237,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       </ScrollView>
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
         <Text style={styles.photoEmptyIcon}>▧</Text>
-        <Text style={styles.heading}>Your proof starts here</Text>
-        <Text style={styles.muted}>Keep photo proof of your work on this phone.</Text>
+        <Text style={styles.heading}>No photos yet</Text>
+        <Text style={styles.muted}>Photos you take are sealed with time and GPS on this phone.</Text>
 
       </ScrollView> : <>
         <SectionList style={styles.photoList} scrollEnabled stickySectionHeadersEnabled sections={groups} keyExtractor={(pair) => pair[0].id}
@@ -300,8 +300,10 @@ function formatEvidenceType(value: string): string {
   return value.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function getErrorMessage(error: unknown): string {
-  return "Something went wrong. Please try again.";
+function getErrorMessage(error: unknown, action: string): string {
+  if (error instanceof Error && /required|choose a project|permission/i.test(error.message)) return error.message;
+  if (action === "save the photo") return "Couldn't save the photo. Check storage space.";
+  return `Couldn't ${action}. Try again.`;
 }
 
 async function getNativeRepositories(userId: string) {

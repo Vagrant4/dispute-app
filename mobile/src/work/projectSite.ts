@@ -5,6 +5,6 @@ export function formatProjectSite(site: Pick<ProjectSummary, "lastSiteAddress" |
   if (site?.lastSiteLatitude == null || site.lastSiteLongitude == null) return "No GPS site recorded";
   const accuracy = site.lastSiteAccuracyM;
   return accuracy != null && Number.isFinite(accuracy) && accuracy >= 0
-    ? `GPS site ±${Math.round(accuracy)}m`
-    : "GPS site";
+    ? `GPS ±${Math.round(accuracy)} m`
+    : "GPS";
 }

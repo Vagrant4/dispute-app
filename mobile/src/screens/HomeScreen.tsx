@@ -19,6 +19,7 @@ import { getWorkLocationWithTimeout } from "../work/workLocation";
 import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime, formatLocationRow } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
+import { formatTrialDaysLeft } from "../uiReviewFormatters";
 
 export function HomeScreen({ account }: { account: LocalAccount }) {
   const locationRequest = useRef(0);
@@ -71,7 +72,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const workedSeconds = workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now);
   const locationRow = formatLocationRow(locationFix, { working: isRunning, locating, locationOff });
   const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
-    ? Math.ceil((Date.parse(access.subscription.trialEndsAt) - now.getTime()) / 86400000) : null;
+    ? formatTrialDaysLeft(access.subscription.trialEndsAt, now.getTime()) : null;
   async function refreshWorkState() {
     try {
       const store = await getWorkStore(userId);
@@ -118,7 +119,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         );
       }
     } catch (error) {
-      setWorkStatus(getErrorMessage(error));
+      setWorkStatus(getErrorMessage(error, "load today's work"));
     }
   }
 
@@ -161,7 +162,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         if (await store.completeStartLocation(params)) setLocationFix(locationReading(params, "start"));
       } finally { if (request === locationRequest.current) setLocating(false); }
     } catch (error) {
-      setWorkStatus(getErrorMessage(error));
+      setWorkStatus(getErrorMessage(error, "start the shift"));
     } finally { savingStart.current = false; }
   }
 
@@ -180,7 +181,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       if (canRefreshEntry) await store.refreshLocation(params);
       else if (fix.source === "gps") pendingLocations.current.push(fix);
       setLocationFix(fix);
-    } catch (error) { setWorkStatus(getErrorMessage(error)); }
+    } catch (error) { setWorkStatus(getErrorMessage(error, "refresh the location")); }
     finally { if (request === locationRequest.current) setLocating(false); }
   }
 
@@ -233,7 +234,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       setWorkStatus("");
       await refreshWorkState();
     } catch (error) {
-      setWorkStatus(getErrorMessage(error));
+      setWorkStatus(getErrorMessage(error, "stop the shift"));
     } finally { setLocating(false); setStopping(false); }
   }
 
@@ -243,7 +244,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
       <Text style={styles.heading}>Location map</Text>
       <Text style={styles.muted}>Current GPS reading. The pin cannot be moved.</Text>
       <View style={styles.locationMapFrame}><LocationMap reading={locationFix} locating={locating} /></View>
-      <Text style={styles.locationMapAccuracy}>{locationFix?.accuracy == null ? "Accuracy unknown" : `±${Math.round(locationFix.accuracy)} m`}</Text>
+      {locationFix?.accuracy != null ? <Text style={styles.locationMapAccuracy}>{`±${Math.round(locationFix.accuracy)} m`}</Text> : null}
       <Pressable accessibilityRole="button" disabled={locating} onPress={() => void handleLocateMe()} style={[styles.actionButtonSecondary, locating && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, locating && styles.disabledButtonText]}>{locating ? "Refreshing…" : "Refresh"}</Text></Pressable>
       {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
       {Platform.OS === "web" && locationFix?.address?.startsWith("Test location") ? <Text style={styles.muted}>Test location · not live GPS</Text> : null}
@@ -307,8 +308,8 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
         {access.subscription && !access.canCreateRecords ? (
           <View style={styles.todayPicker}>
-            <Text style={styles.heading}>Your trial or subscription is not active.</Text>
-            <Text style={styles.body}>Subscribe in Settings &gt; Plan &amp; billing to continue logging and exporting. All your records stay viewable.</Text>
+            <Text style={styles.heading}>{access.subscription.currentPeriodEnd && access.subscription.currentPeriodEnd !== access.subscription.trialEndsAt ? "Subscription ended" : "Trial ended"}</Text>
+            <Text style={styles.body}>Subscribe in Settings › Plan to keep clocking in. Your records stay viewable.</Text>
             {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Clock out to finish the current shift.</Text> : null}
           </View>
         ) : null}
@@ -336,6 +337,6 @@ function parseBreakMinutes(value: string): number {
   return parsed;
 }
 
-function getErrorMessage(error: unknown): string {
-  return "Something went wrong. Please try again.";
+function getErrorMessage(error: unknown, action: string): string {
+  return `Couldn't ${action}. Try again.`;
 }

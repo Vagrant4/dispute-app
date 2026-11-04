@@ -59,7 +59,7 @@ test("phone app has separate create account and login pages before main tabs", (
   assert.match(createAccountSource, /Malaysia/);
   assert.match(createAccountSource, /Bangladesh/);
   assert.match(createAccountSource, /registerRemoteAccount/);
-  assert.match(createAccountSource, /Register and verify email/);
+  assert.match(createAccountSource, /Create your account/);
   assert.match(createAccountSource, /Show password/);
   assert.doesNotMatch(createAccountSource, /Confirm account password/);
   assert.match(createAccountSource, /Already have an account\? Login/);

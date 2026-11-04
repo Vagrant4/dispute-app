@@ -30,7 +30,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
       setBackupPath(file.filePath);
       setStatus("Copy saved. Use Send a copy to keep it somewhere else.");
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "make the backup file"));
     }
   }
 
@@ -49,7 +49,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
       setRestoreArmed(true);
       setStatus("Tap Confirm restore to replace what's on this phone.");
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "open the backup file"));
     }
   }
 
@@ -72,7 +72,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
       setStatus("Your records were restored.");
       setRestoreArmed(false);
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "restore the backup"));
     }
   }
 
@@ -84,7 +84,7 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
     try {
       setStatus(await shareBackupFile(backupPath));
     } catch (error) {
-      setStatus(getErrorMessage(error));
+      setStatus(getErrorMessage(error, "share the backup file"));
     }
   }
 
@@ -126,9 +126,9 @@ export function SettingsBackupScreen({ account, exportOnly = false }: SettingsBa
   );
 }
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(error: unknown, action: string): string {
   if (error instanceof Error && error.message === "This file isn't a DISPUTE copy.") return error.message;
-  return "Something went wrong. Please try again.";
+  return `Couldn't ${action}.`;
 }
 
 async function getNativeRepositories(userId: string) {

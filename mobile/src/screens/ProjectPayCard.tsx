@@ -27,7 +27,7 @@ export function ProjectPayCard({ name, settings, rateCents, onSave }: { name: st
     <Text style={styles.inputLabel}>Hourly rate SGD</Text>
     <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Hourly rate SGD" keyboardType="decimal-pad" value={rate} onChangeText={setRate} style={styles.textInput} />
     {(["normalWorkStartTime", "normalWorkEndTime"] as const).map((key) => <View key={key}>
-      <Text style={styles.inputLabel}>{key === "normalWorkStartTime" ? "Normal start" : "Normal end"}</Text>
+      <Text style={styles.inputLabel}>{key === "normalWorkStartTime" ? "Start time" : "End time"}</Text>
       <TextInput value={values[key]} onChangeText={(text) => setValues({ ...values, [key]: text })} placeholder="HH:mm" placeholderTextColor={theme.colors.placeholder} style={styles.textInput} />
     </View>)}
     <Pressable onPress={() => setAdvanced(!advanced)}>

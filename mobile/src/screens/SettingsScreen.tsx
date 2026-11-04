@@ -279,7 +279,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
               </View>
             ) : null}
           </View>
-          <Text style={styles.inputLabel}>Rate entry type</Text>
+          <Text style={styles.inputLabel}>Paid by</Text>
           <View style={styles.dropdownContainer}>
             <Pressable
               accessibilityLabel="Rate entry type dropdown"
@@ -334,7 +334,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={baseRate}
           />
-          <Text style={styles.inputLabel}>Normal start (HH:MM)</Text>
+          <Text style={styles.inputLabel}>Start time</Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Normal work start time"
             inputMode="numeric"
@@ -344,7 +344,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={normalStart}
           />
-          <Text style={styles.inputLabel}>Normal end (HH:MM)</Text>
+          <Text style={styles.inputLabel}>End time</Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Normal work end time"
             inputMode="numeric"
@@ -354,7 +354,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={normalEnd}
           />
-          <Text style={styles.inputLabel}>OT rate multiplier</Text>
+          <Text style={styles.inputLabel}>Overtime ×</Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Overtime rate multiplier"
             inputMode="decimal"
@@ -364,7 +364,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={overtimeMultiplier}
           />
-          <Text style={styles.inputLabel}>Off day rate multiplier</Text>
+          <Text style={styles.inputLabel}>Off day ×</Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Off day rate multiplier"
             inputMode="decimal"
@@ -374,7 +374,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={offDayMultiplier}
           />
-          <Text style={styles.inputLabel}>Holiday rate multiplier</Text>
+          <Text style={styles.inputLabel}>Public holiday ×</Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Holiday rate multiplier"
             inputMode="decimal"

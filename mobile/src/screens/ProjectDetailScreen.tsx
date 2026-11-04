@@ -12,9 +12,12 @@ import { styles } from "../styles";
 import { formatProjectSite } from "../work/projectSite";
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
+import { formatTrialDaysLeft, formatWeekRange } from "../uiReviewFormatters";
 export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccount, onOpenPlanBilling, onSeePhotos }: { account: LocalAccount; projectId: string; onBack: () => void; onCreateAccount: () => void; onOpenPlanBilling?: () => void; onSeePhotos: (projectId: string) => void }) {
   const userId = account.id ?? account.email.trim().toLowerCase();
   const access = useSubscriptionAccess(account);
+  const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
+    ? formatTrialDaysLeft(access.subscription.trialEndsAt, Date.now()) : null;
   const [project, setProject] = useState<WorkProject | null>(null);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [entries, setEntries] = useState<WorkEntry[]>([]);
@@ -78,10 +81,11 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
         <Pressable accessibilityRole="button" onPress={share} style={styles.actionButton}>
           <Text style={styles.actionButtonText}>{"Create & share PDF"}</Text>
         </Pressable>
-        {locked ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: lockDetailsExpanded }} onPress={() => setLockDetailsExpanded((value) => !value)}>
-          <Text style={styles.projectExportLockNote} numberOfLines={1}>Sharing PDFs needs a plan · Details</Text>
+        {locked && access.subscription?.status !== "TRIALING" ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: lockDetailsExpanded }} onPress={() => setLockDetailsExpanded((value) => !value)}>
+          <Text style={styles.projectExportLockNote} numberOfLines={1}>Subscribe to share PDFs · Details</Text>
         </Pressable> : null}
-        <Text style={styles.muted}>Week {currentWeekStart()} – {weekEnd()}</Text>
+        <Text style={styles.muted}>{formatWeekRange(currentWeekStart())}</Text>
+        {trialDaysLeft != null ? <Text style={styles.muted}>{`Trial: ${trialDaysLeft} days left`}</Text> : null}
         <View style={styles.actionRow}>{!locked ? <Pressable style={styles.textButton} onPress={preview}>
           <Text style={styles.body}>Preview</Text>
         </Pressable> : null}<Pressable style={[styles.textButton, (locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
@@ -120,4 +124,3 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
   </>;
 }
 function time(value: string | null) { return value ? new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"; }
-function weekEnd() { const end = new Date(`${currentWeekStart()}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 6); return end.toISOString().slice(0, 10); }

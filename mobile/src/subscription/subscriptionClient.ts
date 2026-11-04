@@ -5,6 +5,7 @@ import type { LocalAccount } from "../auth/localAuth";
 import { getAuthApiBaseUrl } from "../auth/remoteAuth";
 import { matchesConfiguredStoreProductIdentifier } from "./subscriptionProduct";
 import { hasPaidSubscription } from "./recordAccess";
+import { formatTrialDaysLeft } from "../uiReviewFormatters";
 
 export type SubscriptionStatus =
   | "NONE"
@@ -397,7 +398,7 @@ export function formatTrialCountdown(subscription: SubscriptionEntitlement | nul
   if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
     return "Trial ending now";
   }
-  const days = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+  const days = formatTrialDaysLeft(subscription.trialEndsAt, nowMs);
   return `${days} day${days === 1 ? "" : "s"} trial remaining`;
 }
 
