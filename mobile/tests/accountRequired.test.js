@@ -26,5 +26,5 @@ test("trial starts only in the successful create-account path", () => {
   const success = create.slice(create.indexOf("if (result.ok)"));
   assert.match(success, /saveGuestTrial\(startGuestTrial\(Date\.now\(\)\)\)/);
   assert.ok(success.indexOf("saveGuestTrial") < success.indexOf("onVerificationRequired"));
-  assert.doesNotMatch(create.slice(0, create.indexOf("if (result.ok)")), /startGuestTrial|saveGuestTrial/);
+  assert.doesNotMatch(create.slice(create.indexOf("export function"), create.indexOf("if (result.ok)")), /startGuestTrial|saveGuestTrial/);
 });

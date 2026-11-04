@@ -9,7 +9,7 @@ test("Today reserves filled lime for Start / Stop, including expired access", ()
   assert.equal((home.match(/styles.todayRoundButton/g) || []).length, 1);
   assert.match(home, /handleClockOut\(\) : handleClockIn\(\)/);
   assert.match(home, /"Clock out" : "Clock in"/);
-  assert.match(home, /onPress=\{onCreateAccount\} style=\{styles.actionButtonSecondary\}/);
+  assert.doesNotMatch(home, /onCreateAccount|account\.isGuest/);
   assert.match(home, /startDisabled && styles.disabledButtonText/);
 });
 

@@ -72,7 +72,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   } = useSubscriptionAccess(account);
   const storePrice = useDisputeBasicStorePrice(account);
   const subscriptionAction = getSubscriptionSettingsAction(subscription);
-  const exportNote = getDisputePackBillingNote(account.isGuest === true, subscriptionAction, subscription?.trialEndsAt ?? null);
+  const exportNote = getDisputePackBillingNote(false, subscriptionAction, subscription?.trialEndsAt ?? null);
 
   useEffect(() => {
     setPanel(initialPanel ? INITIAL_PANEL_PAGES[initialPanel] : "main");
