@@ -97,7 +97,7 @@ test("mid-shift exemption: TIME OUT has no entitlement check and stays enabled d
 test("migration on sign-up: verify and login from a guest claim local-user rows in place (no deletes)", async () => {
   const app = src("App.tsx");
   assert.equal((app.match(/claimLegacyLocalRepositoriesForUser\(/g) || []).length >= 2, true);
-  const ownership = load("src/db/localDataOwnership.ts", { "./settingsValidation": { DEFAULT_USER_ID: "local-user" } });
+  const ownership = load("src/db/localDataOwnership.ts", { "./settingsValidation": { DEFAULT_USER_ID: "local-user", getSettingsIdForUser: (id) => `settings:${id}` } });
   const statements = [];
   const db = {
     async execAsync(sql) { statements.push(sql); },
