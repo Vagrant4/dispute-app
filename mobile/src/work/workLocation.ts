@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import type { AddressParts } from "./locationEvidence";
+import { formatReadableAddress } from "./addressFormat";
 
 export type WorkLocationResult = {
   address: string | null;
@@ -93,18 +94,22 @@ async function reverseGeocodeAddress(
       return null;
     }
 
-    const parts = [
-      address.name,
-      address.street,
-      address.district,
-      address.city,
-      address.region,
-      address.postalCode,
-      address.country,
-    ]
-      .map((value) => value?.trim())
-      .filter(Boolean);
-    return { address: [...new Set(parts)].join(", ") || null, addressParts: { name: address.name, streetNumber: address.streetNumber, street: address.street, district: address.district, city: address.city } };
+    const addressParts: AddressParts = {
+      name: address.name,
+      streetNumber: address.streetNumber,
+      street: address.street,
+      district: address.district,
+      city: address.city,
+    };
+    return {
+      address: formatReadableAddress({
+        ...addressParts,
+        region: address.region,
+        postalCode: address.postalCode,
+        country: address.country,
+      }),
+      addressParts,
+    };
   } catch {
     return null;
   }

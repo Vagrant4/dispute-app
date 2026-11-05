@@ -19,6 +19,11 @@ import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
 import { clearCachedSubscriptionEntitlement } from "./src/subscription/subscriptionClient";
 import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSession";
+import {
+  clearActiveSession,
+  loadActiveSession,
+  saveActiveSession,
+} from "./src/auth/localAuthStorageExpo";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 
 const tabIcons: Record<TabId, ImageSourcePropType> = {
@@ -70,6 +75,7 @@ export default function App() {
   const [photoProjectId, setPhotoProjectId] = useState<string | undefined>();
   const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login" | "forgot">("logo");
   const [account, setAccount] = useState<LocalAccount | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [pendingVerification, setPendingVerification] =
     useState<PendingEmailVerification | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("home");
@@ -84,16 +90,55 @@ export default function App() {
   const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
 
   useEffect(() => {
-    void isGuestSessionActive()
-      .then((active) => active ? setGuestSessionActive(false) : undefined)
-      .catch(() => undefined);
-    void reconcilePendingAccountDeletion().then((cleaned) => {
-      if (cleaned) {
-        setAuthNotice("Your account was deleted and this phone was cleared.");
-        setAuthMode("login");
+    let cancelled = false;
+    void (async () => {
+      try {
+        await isGuestSessionActive()
+          .then((active) => (active ? setGuestSessionActive(false) : undefined))
+          .catch(() => undefined);
+        const cleaned = await reconcilePendingAccountDeletion();
+        if (cancelled) return;
+        if (cleaned) {
+          await clearActiveSession();
+          setAuthNotice("Your account was deleted and this phone was cleared.");
+          setAuthMode("login");
+          return;
+        }
+        const session = await loadActiveSession();
+        if (cancelled) return;
+        if (session) {
+          setAccount(session);
+          setActiveTab("home");
+        }
+      } catch {
+        // Session restore is best-effort; fall through to the welcome screen.
+      } finally {
+        if (!cancelled) setAuthReady(true);
       }
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  async function establishAccount(next: LocalAccount) {
+    await saveActiveSession(next);
+    setAccount(next);
+  }
+
+  async function endAccountSession() {
+    await clearActiveSession();
+    await setGuestSessionActive(false);
+    setAccount(null);
+  }
+
+  if (!authReady) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.app} edges={["top", "left", "right", "bottom"]} />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
@@ -134,19 +179,20 @@ export default function App() {
               account,
               () => {
                 void clearCachedSubscriptionEntitlement(account.id);
-                void setGuestSessionActive(false);
-                setAccount(null);
-                setActiveTab("home");
-                setAuthMode("logo");
+                void endAccountSession().then(() => {
+                  setActiveTab("home");
+                  setAuthMode("logo");
+                });
               },
               (message) => {
                 void clearCachedSubscriptionEntitlement(account.id);
-                setAccount(null);
-                setActiveTab("home");
-                setAuthNotice(message);
-                setAuthMode("login");
+                void endAccountSession().then(() => {
+                  setActiveTab("home");
+                  setAuthNotice(message);
+                  setAuthMode("login");
+                });
               },
-              () => { setAccount(null); setAuthMode("create"); },
+              () => { void endAccountSession().then(() => setAuthMode("create")); },
               settingsInitialPanel,
               photoProjectId,
               (projectId) => { setPhotoProjectId(projectId); setActiveTab("evidence"); },
@@ -174,7 +220,7 @@ export default function App() {
                   const moved = await claimLegacyLocalRepositoriesForUser(verifiedAccount.id ?? verifiedAccount.email);
                   await setGuestSessionActive(false);
                   setAuthNotice(moved ? "Moved your records to your account" : "");
-                  setAccount(verifiedAccount);
+                  await establishAccount(verifiedAccount);
                 })();
                 setPendingVerification(null);
                 setActiveTab("home");
@@ -196,7 +242,8 @@ export default function App() {
                     const moved = await claimLegacyLocalRepositoriesForUser(loggedInAccount.id ?? loggedInAccount.email);
                     await setGuestSessionActive(false);
                     setAuthNotice(moved ? "Moved your records to your account" : "");
-                    setAccount(loggedInAccount);
+                    await establishAccount(loggedInAccount);
+                    setActiveTab("home");
                   })();
                 }}
                 onVerificationRequired={(pending) => {

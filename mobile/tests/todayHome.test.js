@@ -7,7 +7,7 @@ for (const [hasLocation, hasProject, missing] of [[false, false, "both"], [false
   assert.equal(result.ready, missing === null);
   assert.equal(result.missing, missing);
 });
-const { shortAddress, formatIdleClock, formatWorkedClock, formatLocationRow, workedSecondsToday } = createLoader()("src/work/todayDisplay.ts");
+const { shortAddress, formatIdleClock, formatWorkedClock, formatLocationRow, workedSecondsToday, formatCoordinateLabel } = createLoader()("src/work/todayDisplay.ts");
 test("idle clock is local time and worked clock includes seconds", () => {
   assert.deepEqual(formatIdleClock(new Date(2026, 9, 29, 8, 45)), { time: "8:45", period: "AM" });
   assert.equal(formatWorkedClock(13335), "3:42:15");
@@ -34,7 +34,7 @@ test("Today limits lime to the working pill, wordmark and round action", () => {
   assert.match(styles, /todayClock: \{[^\n]*today.clock/);
   assert.match(styles, /todayRoundButton: \{[^\n]*width: 176, height: 176/);
   const today = styles.slice(styles.indexOf("  todayScreen:"), styles.indexOf("  todayBottomAction:"));
-  const limeStyles = today.split("\r\n").filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
+  const limeStyles = today.split(/\r?\n/).filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
   assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton"]);
 });
 test("Clock in directs missing requirements to GPS or the picker", () => {
@@ -122,4 +122,43 @@ test("tabs use PNG line icons with lime active icons and normal active labels", 
   assert.match(styles, /bottomTabBar: \{[^\n]*borderTopWidth: 1, borderTopColor: theme.colors.border/);
   const tabStyles = styles.slice(styles.indexOf("  bottomTabBar:"), styles.indexOf("  tabScroller:"));
   assert.equal((tabStyles.match(/theme.colors.primary\b/g) || []).length, 1);
+});
+
+test("shortAddress rejects bare house-number + country labels like 377, Singapore", () => {
+  assert.equal(shortAddress({ addressParts: { name: "377", city: "Singapore" } }), null);
+  assert.equal(shortAddress({ addressParts: { streetNumber: "377", city: "Singapore" } }), null);
+  assert.equal(shortAddress({ address: "377, Singapore" }), null);
+  assert.equal(shortAddress({ addressParts: { name: "377", street: "Orchard Road", city: "Singapore" } }), "377 Orchard Road, Singapore");
+  assert.equal(formatCoordinateLabel(1.2945, 103.852), "1.29° N, 103.85° E");
+  assert.equal(
+    formatLocationRow(
+      { source: "gps", address: null, addressParts: { name: "377", city: "Singapore" }, latitude: 1.2945, longitude: 103.852, accuracy: 17, locatedAt: new Date(2026, 10, 6, 0, 40).toISOString() },
+      { working: false, locating: false, locationOff: false },
+    ).title,
+    "1.29° N, 103.85° E",
+  );
+});
+
+test("View on map stays in-app and does not mount react-native-maps MapView", () => {
+  const home = source("src/screens/HomeScreen.tsx");
+  const nativeMap = source("src/screens/LocationMap.native.tsx");
+  assert.match(home, /setLocationMapOpen\(true\)/);
+  assert.match(nativeMap, /openDeviceMaps/);
+  assert.match(nativeMap, /GPS pin is fixed/);
+  assert.doesNotMatch(nativeMap, /from "react-native-maps"/);
+  assert.doesNotMatch(nativeMap, /<MapView/);
+});
+
+test("App restores the signed-in session from SecureStore on cold start", () => {
+  const app = source("App.tsx");
+  const storage = source("src/auth/localAuthStorageExpo.ts");
+  assert.match(storage, /ACTIVE_SESSION_KEY/);
+  assert.match(storage, /saveActiveSession/);
+  assert.match(storage, /loadActiveSession/);
+  assert.match(storage, /clearActiveSession/);
+  assert.match(app, /loadActiveSession\(\)/);
+  assert.match(app, /saveActiveSession\(next\)/);
+  assert.match(app, /clearActiveSession\(\)/);
+  assert.match(app, /authReady/);
+  assert.match(app, /establishAccount/);
 });

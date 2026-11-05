@@ -5,11 +5,8 @@ const test = require("node:test");
 const ts = require("typescript");
 
 function loadWorkLocation(location) {
-  const source = readFileSync(path.join(__dirname, "..", "src", "work", "workLocation.ts"), "utf8");
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const module = { exports: {} };
-  new Function("exports", "module", "require", compiled)(module.exports, module, (request) => request === "expo-location" ? location : require(request));
-  return module.exports;
+  const { createLoader } = require("./locationTestHelpers");
+  return createLoader({ "expo-location": location })("src/work/workLocation.ts");
 }
 
 const granted = { Accuracy: { High: "high" }, PermissionStatus: { GRANTED: "granted", UNDETERMINED: "undetermined" }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }), hasServicesEnabledAsync: async () => true };
@@ -49,4 +46,18 @@ test("home map refresh works while running and auto-locates an empty map", () =>
   assert.doesNotMatch(handler, /if \(isRunning \|\|/);
   assert.match(home, /locationMapOpen && locationFix\?\.latitude == null/);
   assert.match(home, /void handleLocateMe\(\)/);
+});
+
+test("sparse reverse geocode like 377 Singapore yields null address keeping coordinates", async () => {
+  const workLocation = loadWorkLocation({
+    ...granted,
+    getCurrentPositionAsync: async () => position,
+    getLastKnownPositionAsync: async () => null,
+    reverseGeocodeAsync: async () => [{ name: "377", street: null, streetNumber: null, district: null, city: "Singapore", region: null, postalCode: null, country: "Singapore" }],
+  });
+  const result = await workLocation.getOptionalWorkLocationAddress();
+  assert.equal(result.latitude, 1.3);
+  assert.equal(result.longitude, 103.8);
+  assert.equal(result.address, null);
+  assert.equal(result.addressParts?.name, "377");
 });
