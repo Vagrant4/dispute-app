@@ -12,12 +12,10 @@ import { styles } from "../styles";
 import { formatProjectSite } from "../work/projectSite";
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
-import { formatTrialDaysLeft, formatWeekRange } from "../uiReviewFormatters";
+import { formatWeekRange } from "../uiReviewFormatters";
 export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccount, onOpenPlanBilling, onSeePhotos }: { account: LocalAccount; projectId: string; onBack: () => void; onCreateAccount: () => void; onOpenPlanBilling?: () => void; onSeePhotos: (projectId: string) => void }) {
   const userId = account.id ?? account.email.trim().toLowerCase();
   const access = useSubscriptionAccess(account);
-  const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
-    ? formatTrialDaysLeft(access.subscription.trialEndsAt, Date.now()) : null;
   const [project, setProject] = useState<WorkProject | null>(null);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [entries, setEntries] = useState<WorkEntry[]>([]);
@@ -85,7 +83,6 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
           <Text style={styles.projectExportLockNote} numberOfLines={1}>Subscribe to share PDFs · Details</Text>
         </Pressable> : null}
         <Text style={styles.muted}>{formatWeekRange(currentWeekStart())}</Text>
-        {trialDaysLeft != null ? <Text style={styles.muted}>{`Trial: ${trialDaysLeft} days left`}</Text> : null}
         <View style={styles.actionRow}>{!locked ? <Pressable style={styles.textButton} onPress={preview}>
           <Text style={styles.body}>Preview</Text>
         </Pressable> : null}<Pressable style={[styles.textButton, (locked) && styles.disabledButton]} disabled={locked} onPress={csv}>
