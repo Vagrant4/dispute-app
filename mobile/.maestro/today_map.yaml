@@ -1,0 +1,7 @@
+appId: sg.claimproof.mobile.test
+---
+- launchApp
+- assertVisible: "Today"
+- assertVisible: "Show my location"
+- tapOn: "Show my location"
+- takeScreenshot: today-map-after-locate

@@ -1,0 +1,10 @@
+appId: sg.claimproof.mobile.test
+---
+- clearState
+- launchApp
+- tapOn: "Login"
+- tapOn: "Email"
+- inputText: "worker@example.com"
+- assertVisible: "Login"
+- pressKey: back
+- takeScreenshot: login-input-keyboard-visible
