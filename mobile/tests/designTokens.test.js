@@ -7,8 +7,10 @@ const mobile = path.join(__dirname, "..");
 function screens(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? screens(path.join(dir, entry.name)) : entry.name.endsWith(".tsx") ? [path.join(dir, entry.name)] : []);
 }
-// No exceptions currently needed. Keep future exceptions specific and explain why.
-const exceptions = new Map();
+// OpenStreetMap requires the real copyright sign in its attribution.
+const exceptions = new Map([
+  [`${path.join(mobile, "src/screens/LocationMap.native.tsx")}:emoji`, "required map attribution"],
+]);
 function violations(source, file) {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const errors = [];
