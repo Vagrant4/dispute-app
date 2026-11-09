@@ -11,7 +11,7 @@ test("0.3.4 tile identity is shared by JS and native Android", () => {
   const tileConfig = read("src/maps/tileConfig.ts");
   const native = read("android/app/src/main/java/sg/claimproof/mobile/MainApplication.kt");
   assert.equal(app.expo.version, "0.3.4");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.3"/);
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.4"/);
   assert.match(native, /OkHttpClientProvider\.setOkHttpClientFactory/);
   assert.match(native, /tile\.openstreetmap\.org/);
   assert.match(native, /User-Agent/);

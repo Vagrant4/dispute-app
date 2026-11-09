@@ -105,8 +105,8 @@ test("photo capture columns exist in fresh schema and additive migration and rou
 
 test("Photos TextInput is confined to the capture sheet and gallery requests EXIF", () => {
   const source = readFileSync(path.join(__dirname, "../src/screens/PhotoEvidenceScreen.tsx"), "utf8");
-  const sheetStart = source.indexOf("<Modal visible={captureSheetOpen}");
-  const sheetEnd = source.indexOf("</Modal>", sheetStart);
+  const sheetStart = source.indexOf("<SwipeDownSheet visible={captureSheetOpen}");
+  const sheetEnd = source.indexOf("</SwipeDownSheet>", sheetStart);
   assert.ok(sheetStart > 0);
   assert.equal((source.match(/<TextInput\b/g) || []).length, 1);
   assert.ok(source.indexOf("<TextInput") > sheetStart && source.indexOf("<TextInput") < sheetEnd);
