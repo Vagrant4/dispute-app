@@ -188,4 +188,14 @@ The app-level shared container covers Login (email, password), Create account (n
 
 Focused tests exposed the missing gesture and keyboard behavior before completion. Final verification passed: mobile strict TypeScript; mobile Node 302/302; Jest/RNTL 43/43 across 9 suites; full root `npm test` with shared 32/32, server 171/171, client 24/24, mobile Node 302/302, and mobile Jest 43/43. Obsolete tests updated: `followUp3Guards.test.js` (0.3.4), `photoSeal.test.js` (`SwipeDownSheet` boundary), and `designTokens.test.js` (required-copyright exception).
 
+## Follow-up 6: locate-me crosshair (0.3.5-test, versionCode 7)
+
+The Today map locate control now uses a composed React Native reticle: a circular outline crossed by full horizontal and vertical hairlines with a small centre dot. It is the standard map “find me” shape matching Material `gps_fixed` / `my-location` and Unicode U+2316 `⌖`, without relying on a font glyph. The accessible `today-locate-button` remains inside `today-map` and keeps the `Show my location` label.
+
+The standalone location evidence row and its pin icon were removed. The map no longer shows the saved address as an always-visible details line; the address (or the existing coordinate fallback when reverse geocoding has no street) appears inside the location area after the crosshair is pressed. The existing GPS refresh path remains available during a shift, and a crosshair press opens Android settings when location services are off. The empty-state copy now directs the worker to the crosshair. OpenStreetMap attribution, the accuracy ring, and the fixed non-draggable pin remain intact.
+
+Tests were updated before implementation to cover reticle composition and containment, removal of the outside location chrome, and address reveal after a mocked `Raffles Place` fix. Final verification passed: mobile strict TypeScript; mobile Node 302/302; Jest/RNTL 43/43 across 9 suites; full root `npm test` with shared 32/32, server 171/171, client 24/24, mobile Node 302/302, and mobile Jest 43/43. Gradle assemble was not run and no APK is claimed.
+
+Implementation and tests commit: `a6e2d276a8512ae728e6c65c5af3ff2080eec8b4`. The documentation commit is the subsequent local commit containing this section.
+
 The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, and `react-best-practices` skills were not installed, and no Expo/React Native skill was available. Their practices were followed manually. No push, PR, remote, deploy, store, Play, RevenueCat, billing/account action, production/server data change, or other checkout was touched. Existing entitlement, auth/trial gates, fixed GPS pin, Android back ordering, and safe-area behavior were preserved.
