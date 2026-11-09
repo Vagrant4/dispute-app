@@ -15,9 +15,10 @@ test("project PDF action comes after summary and before lock note and sessions",
   assert.doesNotMatch(detail, /!locked \? <Pressable[^>]*onPress=\{share\}/);
 });
 
-test("lock note is one muted caption line with details collapsed initially", () => {
+test("lock note is a wrapping muted caption with details collapsed initially", () => {
   assert.match(detail, /lockDetailsExpanded, setLockDetailsExpanded\] = useState\(false\)/);
-  assert.match(detail, /<Text style=\{styles.projectExportLockNote\} numberOfLines=\{1\}>Subscribe to share PDFs · Details<\/Text>/);
+  assert.match(detail, /<Text style=\{styles.projectExportLockNote\}>Subscribe to share PDFs · Details<\/Text>/);
+  assert.doesNotMatch(detail, /<Text style=\{styles.projectExportLockNote\} numberOfLines=\{1\}>/);
   assert.match(detail, /locked && access\.subscription\?\.status !== "TRIALING"/);
   assert.match(source("src/styles.ts"), /projectExportLockNote: \{ color: theme.colors.textMuted, \.\.\.type.caption \}/);
   assert.match(detail, /onPress=\{\(\) => setLockDetailsExpanded\(\(value\) => !value\)\}/);

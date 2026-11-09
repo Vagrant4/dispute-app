@@ -80,7 +80,7 @@ export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccoun
           <Text style={styles.actionButtonText}>{"Create & share PDF"}</Text>
         </Pressable>
         {locked && access.subscription?.status !== "TRIALING" ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: lockDetailsExpanded }} onPress={() => setLockDetailsExpanded((value) => !value)}>
-          <Text style={styles.projectExportLockNote} numberOfLines={1}>Subscribe to share PDFs · Details</Text>
+          <Text style={styles.projectExportLockNote}>Subscribe to share PDFs · Details</Text>
         </Pressable> : null}
         <Text style={styles.muted}>{formatWeekRange(currentWeekStart())}</Text>
         <View style={styles.actionRow}>{!locked ? <Pressable style={styles.textButton} onPress={preview}>

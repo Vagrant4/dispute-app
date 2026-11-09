@@ -209,7 +209,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
               </View>
               <View style={styles.settingsRowContent}>
                 <Text style={styles.settingsRowLabel}>{item.label}</Text>
-                <Text numberOfLines={1} style={styles.settingsRowSubtitle}>{item.value}</Text>
+                <Text style={styles.settingsRowSubtitle}>{item.value}</Text>
               </View>
               <Text style={styles.settingsChevron}>›</Text>
             </Pressable>

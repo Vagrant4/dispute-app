@@ -19,7 +19,7 @@ test("Settings and its panels use plain sections without card boxes", () => {
   assert.match(styles, /settingsRow: \{[^\n]*borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.colors.border/);
   assert.match(settings, /styles.todayTitle\}>Settings/);
   assert.match(settings, /styles.settingsBackText/);
-  assert.match(settings, /numberOfLines=\{1\} style=\{styles.settingsRowSubtitle\}/);
+  assert.doesNotMatch(settings, /numberOfLines=\{1\} style=\{styles.settingsRowSubtitle\}/);
 });
 
 test("all six main and three More rows use the supplied PNG line icons", () => {

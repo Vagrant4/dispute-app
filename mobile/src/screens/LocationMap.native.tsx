@@ -1,30 +1,91 @@
 import { useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Linking, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
 
 import { styles } from "../styles";
 import { formatCoordinateLabel, shortAddress } from "../work/addressFormat";
 import { openDeviceMaps } from "../work/openDeviceMaps";
 import type { LocationReading } from "../work/locationEvidence";
 
-/**
- * In-app location confirmation. Avoids react-native-maps MapView on Android:
- * without a Google Maps API key in the manifest, MapView native-crashes and
- * kills the process (user lands on the launcher). This screen keeps a fixed
- * GPS pin + accuracy ring, and opens the device maps app as a safe fallback.
- */
+const TILE_SIZE = 256;
+const MAP_ZOOM = 16;
+const EARTH_CIRCUMFERENCE_M = 40_075_016.686;
+
+type MapSize = { width: number; height: number };
+type StreetTile = { key: string; left: number; top: number; url: string };
+
+function longitudeToWorldX(longitude: number, zoom: number): number {
+  return ((longitude + 180) / 360) * TILE_SIZE * 2 ** zoom;
+}
+
+function latitudeToWorldY(latitude: number, zoom: number): number {
+  const boundedLatitude = Math.max(-85.05112878, Math.min(85.05112878, latitude));
+  const radians = (boundedLatitude * Math.PI) / 180;
+  return (
+    (1 - Math.asinh(Math.tan(radians)) / Math.PI) /
+    2 *
+    TILE_SIZE *
+    2 ** zoom
+  );
+}
+
+export function getOpenStreetMapTiles(
+  latitude: number,
+  longitude: number,
+  size: MapSize,
+  zoom = MAP_ZOOM,
+): StreetTile[] {
+  const worldX = longitudeToWorldX(longitude, zoom);
+  const worldY = latitudeToWorldY(latitude, zoom);
+  const leftWorld = worldX - size.width / 2;
+  const topWorld = worldY - size.height / 2;
+  const firstX = Math.floor(leftWorld / TILE_SIZE);
+  const lastX = Math.floor((leftWorld + size.width) / TILE_SIZE);
+  const firstY = Math.floor(topWorld / TILE_SIZE);
+  const lastY = Math.floor((topWorld + size.height) / TILE_SIZE);
+  const tileCount = 2 ** zoom;
+  const tiles: StreetTile[] = [];
+
+  for (let tileY = firstY; tileY <= lastY; tileY += 1) {
+    if (tileY < 0 || tileY >= tileCount) continue;
+    for (let tileX = firstX; tileX <= lastX; tileX += 1) {
+      const wrappedX = ((tileX % tileCount) + tileCount) % tileCount;
+      tiles.push({
+        key: `${zoom}-${wrappedX}-${tileY}`,
+        left: tileX * TILE_SIZE - leftWorld,
+        top: tileY * TILE_SIZE - topWorld,
+        url: `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
+      });
+    }
+  }
+  return tiles;
+}
+
 export function LocationMap({ reading, locating = false }: { reading: LocationReading | null; locating?: boolean }) {
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [openingMaps, setOpeningMaps] = useState(false);
+  const [mapSize, setMapSize] = useState<MapSize>({ width: 360, height: 260 });
 
+  const tiles = useMemo(
+    () => reading?.latitude == null || reading.longitude == null
+      ? []
+      : getOpenStreetMapTiles(reading.latitude, reading.longitude, mapSize),
+    [mapSize, reading?.latitude, reading?.longitude],
+  );
   const ringSize = useMemo(() => {
     const accuracy = reading?.accuracy;
-    if (accuracy == null || !Number.isFinite(accuracy)) return 120;
-    return Math.max(72, Math.min(220, Math.round(accuracy * 4)));
-  }, [reading?.accuracy]);
+    const latitude = reading?.latitude;
+    if (accuracy == null || latitude == null || !Number.isFinite(accuracy)) return 72;
+    const metresPerPixel =
+      Math.cos((latitude * Math.PI) / 180) *
+      EARTH_CIRCUMFERENCE_M /
+      (TILE_SIZE * 2 ** MAP_ZOOM);
+    const diameter = (accuracy * 2) / Math.max(metresPerPixel, 0.01);
+    return Math.max(24, Math.min(Math.min(mapSize.width, mapSize.height) * 0.8, diameter));
+  }, [mapSize, reading?.accuracy, reading?.latitude]);
 
   if (reading?.latitude == null || reading.longitude == null) {
     return (
-      <View style={styles.locationMapFallback}>
+      <View style={styles.locationMapEmpty}>
         <Text style={styles.muted}>{locating ? "Getting GPS…" : "No GPS reading yet. Tap Refresh."}</Text>
       </View>
     );
@@ -32,6 +93,11 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
 
   const coordinateLabel = formatCoordinateLabel(reading.latitude, reading.longitude);
   const label = shortAddress(reading) || coordinateLabel;
+
+  function handleMapLayout(event: LayoutChangeEvent) {
+    const { width, height } = event.nativeEvent.layout;
+    if (width > 0 && height > 0) setMapSize({ width, height });
+  }
 
   async function handleOpenInMaps() {
     if (openingMaps || reading?.latitude == null || reading.longitude == null) return;
@@ -52,32 +118,53 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
   }
 
   return (
-    <View style={styles.locationMapFallback}>
-      <View style={styles.locationMapCanvas} accessibilityLabel="GPS pin and accuracy circle">
+    <View style={styles.locationMapContent}>
+      <View
+        accessibilityLabel="Street map with fixed GPS pin and accuracy circle"
+        onLayout={handleMapLayout}
+        style={styles.locationMapCanvas}
+      >
+        {tiles.map((tile) => (
+          <Image
+            key={tile.key}
+            source={{ uri: tile.url }}
+            style={[styles.locationMapTile, { left: tile.left, top: tile.top }]}
+          />
+        ))}
         <View
+          pointerEvents="none"
           style={[
             styles.locationMapAccuracyRing,
             { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
           ]}
         />
-        <View style={styles.locationMapPin} />
+        <View pointerEvents="none" style={styles.locationMapPin} />
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => void Linking.openURL("https://www.openstreetmap.org/copyright")}
+          style={styles.locationMapAttribution}
+        >
+          <Text style={styles.locationMapAttributionText}>OpenStreetMap contributors</Text>
+        </Pressable>
       </View>
-      <Text style={styles.heading}>{label}</Text>
-      <Text style={styles.body}>{coordinateLabel}</Text>
-      <Text style={styles.muted}>GPS pin is fixed · not draggable</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Open in Maps"
-        accessibilityState={{ disabled: openingMaps }}
-        disabled={openingMaps}
-        onPress={() => void handleOpenInMaps()}
-        style={[styles.actionButtonSecondary, openingMaps && styles.disabledButton]}
-      >
-        <Text style={[styles.actionButtonSecondaryText, openingMaps && styles.disabledButtonText]}>
-          {openingMaps ? "Opening Maps…" : "Open in Maps"}
-        </Text>
-      </Pressable>
-      {mapsError ? <Text style={styles.muted}>{mapsError}</Text> : null}
+      <View style={styles.locationMapDetails}>
+        <Text style={styles.heading}>{label}</Text>
+        <Text style={styles.body}>{coordinateLabel}</Text>
+        <Text style={styles.muted}>GPS pin is fixed · cannot be moved</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open in Maps"
+          accessibilityState={{ disabled: openingMaps }}
+          disabled={openingMaps}
+          onPress={() => void handleOpenInMaps()}
+          style={[styles.actionButtonSecondary, openingMaps && styles.disabledButton]}
+        >
+          <Text style={[styles.actionButtonSecondaryText, openingMaps && styles.disabledButtonText]}>
+            {openingMaps ? "Opening Maps…" : "Open in Maps"}
+          </Text>
+        </Pressable>
+        {mapsError ? <Text style={styles.muted}>{mapsError}</Text> : null}
+      </View>
     </View>
   );
 }

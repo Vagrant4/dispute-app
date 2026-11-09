@@ -34,26 +34,33 @@ export function PlanBillingPanel({
         <Text style={styles.rowLabel}>Plan</Text>
         <Text style={styles.rowValue}>Dispute Basic</Text>
       </View>
-      <View style={styles.settingsValueRow}>
-        <Text style={styles.rowLabel}>Price</Text>
-        <Text style={styles.rowValue}>{monthlyPrice}</Text>
-      </View>
+      {action !== "subscribe" ? (
+        <View style={styles.settingsValueRow}>
+          <Text style={styles.rowLabel}>Price</Text>
+          <Text style={styles.rowValue}>{monthlyPrice}</Text>
+        </View>
+      ) : null}
       {subscription?.status === "TRIALING" && subscription.trialEndsAt ? (
         <Text style={styles.muted}>{`Your trial ends on ${formatTrialEnd(subscription.trialEndsAt)}. You can subscribe here after that.`}</Text>
       ) : exportNote ? (
         <Text style={styles.muted}>{exportNote.replaceAll("DISPUTE Basic", "Dispute Basic")}</Text>
       ) : null}
       {action === "subscribe" ? (
+        <>
         <Pressable
           accessibilityRole="button"
           onPress={onSubscribe}
           style={styles.actionButton}
         >
           <Text style={styles.actionButtonText}>Subscribe</Text>
-          <Text style={styles.actionButtonSubtext}>
-            Dispute Basic - {monthlyPrice}
-          </Text>
         </Pressable>
+        <View style={styles.subscriptionPriceNote}>
+          <Text style={styles.body}>{monthlyPrice}</Text>
+          {localizedStorePrice ? (
+            <Text style={styles.muted}>Final price shown in Google Play.</Text>
+          ) : null}
+        </View>
+        </>
       ) : null}
       {action === "manage" ? (
         <Pressable

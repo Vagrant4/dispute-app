@@ -277,7 +277,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         <Pressable accessibilityRole="button" accessibilityLabel="Get location" accessibilityState={{ disabled: isRunning || locating || stopping }} disabled={isRunning || locating || stopping} onPress={() => { if (locationOff) void Linking.openSettings(); else void handleLocateMe(); }} style={styles.todayEvidenceRow}>
           <View style={styles.todayIconTile}><Image source={require("../../assets/icons/pin.png")} style={styles.todayRowIcon} /></View>
           <View style={styles.todayRowContent}>
-            <Text numberOfLines={1} style={styles.todayRowTitle}>{locationRow.title}</Text>
+            <Text style={styles.todayRowTitle}>{locationRow.title}</Text>
             <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{locationRow.subtitle}</Text></View>
           </View>
           {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
@@ -289,7 +289,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
           <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
           <View style={styles.todayRowContent}>
-            <Text numberOfLines={1} style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
+            <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
             <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
           </View>
           {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
