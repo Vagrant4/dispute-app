@@ -87,3 +87,11 @@ The requested skills `test-driven-development`, `systematic-debugging`, `verific
 - **Cause:** `LocationMap.web.tsx` still referenced `styles.locationMapFallback` after the native map style refactor removed that key.
 - **Fix:** Restored a dark, lime-bordered web fallback with the native map's 260 px minimum height and existing readable type styles. The map attribution now uses the shared caption token, and stale single-line test expectations were aligned with the intentional wrapping behavior.
 - **Results (from `mobile`):** `npx tsc -p tsconfig.json --noEmit` passed; `node --test tests/*.test.js` passed all 302 tests with 0 failures.
+
+## Follow-up 2: tile User-Agent
+
+- **Cause:** Android's React Native image loader sent OpenStreetMap tile requests with the generic `okhttp/4.9.2` User-Agent, which OpenStreetMap blocked.
+- **Fix:** Added the exported `getTileRequestSource(url)` helper and a single app-identifying User-Agent, `DISPUTE/0.3.2 (sg.claimproof.mobile; Android)`, then routed every raster tile image source through the helper. Tile URLs, map math, zoom, fixed pin, accuracy ring, attribution, action, and layout remain unchanged.
+- **Regression coverage:** Extended `mobile/tests/textBoxMapLayout.test.js` to require HTTPS `tile.openstreetmap.org` sources with a non-okhttp User-Agent containing `DISPUTE`.
+- **Verification:** Shared passed 32 tests, server passed 171 tests, client passed 24 tests, mobile passed 302 tests, and the mobile TypeScript check passed. All suites reported 0 failures.
+- **Implementation commit:** `bb23d0fc9779d1723bd757ef690a80ef6350dd8a` (`fix(mobile): identify OpenStreetMap tile requests`).
