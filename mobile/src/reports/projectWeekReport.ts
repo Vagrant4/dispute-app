@@ -19,3 +19,20 @@ export function buildProjectWeekReport(params: {
     photoEvidence: params.input.photoEvidence?.filter((photo) => !photo.capturedAt || inWeek(photo.capturedAt.slice(0, 10))),
   });
 }
+
+export function buildProjectPeriodReport(params: {
+  input: ProgressClaimSnapshotInput;
+  periodStart: string;
+  periodEnd: string;
+  accountName?: string;
+  reportName?: string;
+}) {
+  const inPeriod = (date: string) => date >= params.periodStart && date <= params.periodEnd;
+  return buildProgressClaimSnapshot({
+    ...params.input,
+    claimPeriod: { start: params.periodStart, end: params.periodEnd },
+    worker: { name: params.accountName?.trim() || params.reportName?.trim() || "Worker" },
+    timeEntries: params.input.timeEntries?.filter((entry) => inPeriod(entry.workDate)),
+    photoEvidence: params.input.photoEvidence?.filter((photo) => !photo.capturedAt || inPeriod(photo.capturedAt.slice(0, 10))),
+  });
+}

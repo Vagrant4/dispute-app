@@ -45,7 +45,7 @@ test("Settings uses lime only for primary actions and the wordmark", () => {
     }
     if (!["SettingsScreen", "PlanBillingPanel"].includes(file)) assert.doesNotMatch(source, /styles.actionButton\b/);
   }
-  assert.equal((settings.match(/style=\{styles.actionButton\}/g) || []).length, 1);
+  assert.equal((settings.match(/style=\{styles.actionButton\}/g) || []).length, 2);
   assert.match(styles, /actionButton: \{[\s\S]*?height: control.height/);
 });
 

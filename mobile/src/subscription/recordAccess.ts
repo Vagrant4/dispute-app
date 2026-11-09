@@ -3,8 +3,6 @@ import type { SubscriptionEntitlement } from "./subscriptionClient";
 const PAID_STATUSES = new Set(["ACTIVE", "PAST_DUE", "CANCELED"]);
 
 // A paid store subscription whose current billing period has not ended yet.
-// Free trials (guest or server-side), referral rewards and expired/none states
-// do not count: downloading or sharing the dispute pack needs a paid plan.
 export function hasPaidSubscription(
   entitlement: SubscriptionEntitlement | null | undefined,
   nowMs = Date.now(),
@@ -35,7 +33,7 @@ export function getDisputePackExportAccess(params: {
   const canExport =
     entitlement?.canExportReports === true &&
     entitlement.userId !== "local-user" &&
-    hasPaidSubscription(entitlement, params.nowMs ?? Date.now());
+    hasCurrentEntitlement(entitlement, params.nowMs ?? Date.now());
   return { canPreview: true, canExport, lock: canExport ? null : "subscribe" };
 }
 
@@ -71,8 +69,16 @@ export function getRecordAccess(entitlement: SubscriptionEntitlement | null) {
   return {
     canView: true,
     canCreate: entitlement?.canCreateRecords === true,
-    canExport: entitlement?.canExportReports === true && hasPaidSubscription(entitlement),
+    canExport: entitlement?.canExportReports === true && hasCurrentEntitlement(entitlement, Date.now()),
   };
+}
+
+function hasCurrentEntitlement(entitlement: SubscriptionEntitlement, nowMs: number): boolean {
+  if (entitlement.status === "TRIALING") {
+    const end = entitlement.trialEndsAt ? Date.parse(entitlement.trialEndsAt) : Number.NaN;
+    return entitlement.canCreateRecords && Number.isFinite(end) && end > nowMs;
+  }
+  return hasPaidSubscription(entitlement, nowMs);
 }
 
 export function canClockOut(hasActiveEntry: boolean): boolean {

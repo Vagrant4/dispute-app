@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 
 import {
@@ -10,43 +10,36 @@ import type { LocalAccount } from "../auth/localAuth";
 import { buildGuestEntitlement, type GuestTrialState, guestTrialStatus, loadGuestTrial, observeClock, saveGuestTrial, startGuestTrial } from "./guestTrial";
 
 export function useSubscriptionAccess(account: LocalAccount) {
-  const [subscription, setSubscription] = useState<SubscriptionEntitlement | null>(null);
-  const [message, setMessage] = useState("Checking subscription access...");
-  const [nowMs, setNowMs] = useState(0);
-  const [guestState, setGuestState] = useState<GuestTrialState | null>(null);
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const { subscription, message, nowMs, guestState } = state.accountId === account.id ? state : EMPTY_STATE;
 
   const refresh = useCallback(async () => {
     if (account.isGuest) {
       const now = Date.now();
       const state = observeClock(startGuestTrial(now, await loadGuestTrial()), now);
       await saveGuestTrial(state);
-      setGuestState(state);
       const entitlement = buildGuestEntitlement(state, now);
-      setSubscription(entitlement);
-      setMessage(entitlement.message);
-      setNowMs(now);
-      return;
+      publish({ accountId: account.id, subscription: entitlement, message: entitlement.message, nowMs: now, guestState: state });
+      return entitlement;
     }
     const result = await fetchSubscriptionStatus(account.id);
     if (!result.ok) {
-      setSubscription(null);
-      setMessage(result.message);
-      return;
+      publish({ accountId: account.id, subscription: null, message: result.message, nowMs: Date.now(), guestState: null });
+      return null;
     }
-    setSubscription(result.subscription);
-    setMessage(result.subscription.message);
-    setNowMs(Date.now());
-  }, [account.id]);
+    publish({ accountId: account.id, subscription: result.subscription, message: result.subscription.message, nowMs: Date.now(), guestState: null });
+    return result.subscription;
+  }, [account.id, account.isGuest]);
 
   useEffect(() => {
     const initialRefresh = setTimeout(() => void refresh(), 0);
     const timer = setInterval(() => {
-      setNowMs(Date.now());
+      publish({ ...getSnapshot(), nowMs: Date.now() });
       if (account.isGuest) void refresh();
     }, 30_000);
     const appState = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        setNowMs(Date.now());
+        publish({ ...getSnapshot(), nowMs: Date.now() });
         void refresh();
       }
     });
@@ -75,3 +68,11 @@ export function useSubscriptionAccess(account: LocalAccount) {
       : null,
   };
 }
+
+type EntitlementState = { accountId: string | undefined; subscription: SubscriptionEntitlement | null; message: string; nowMs: number; guestState: GuestTrialState | null };
+const EMPTY_STATE: EntitlementState = { accountId: undefined, subscription: null, message: "Checking subscription access...", nowMs: 0, guestState: null };
+let sharedState = EMPTY_STATE;
+const listeners = new Set<() => void>();
+function getSnapshot() { return sharedState; }
+function subscribe(listener: () => void) { listeners.add(listener); return () => listeners.delete(listener); }
+function publish(next: EntitlementState) { sharedState = next; listeners.forEach((listener) => listener()); }

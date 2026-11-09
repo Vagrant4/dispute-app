@@ -217,7 +217,7 @@ test("restore does not report success when server verification fails", async () 
   }
 });
 
-test("PDF export access needs a paid plan: rejects trial and expired access", () => {
+test("PDF export access accepts active trial or subscription and rejects expired access", () => {
   const { canExportProgressClaim } = loadTsModule(
     "src/subscription/subscriptionClient.ts",
     {
@@ -256,7 +256,7 @@ test("PDF export access needs a paid plan: rejects trial and expired access", ()
       { ...base, trialEndsAt: "2026-08-08T00:00:00.000Z" },
       nowMs,
     ),
-    false,
+    true,
   );
   assert.equal(
     canExportProgressClaim(

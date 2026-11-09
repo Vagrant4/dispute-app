@@ -56,12 +56,10 @@ test("project navigation, one-field sheet, Today picker and one primary PDF acti
   assert.match(projects, /ProjectDetailScreen/);
   assert.match(projects, /Finished/);
   const detail = source("src/screens/ProjectDetailScreen.tsx");
-  assert.equal((detail.match(/Create & share PDF/g) || []).length, 1);
+  assert.equal((detail.match(/Create &amp; share PDF/g) || []).length, 1);
   assert.match(detail, /ProgressClaimReportsScreen/);
-  assert.match(detail, /Project complete/);
-  assert.match(detail, /accessibilityLabel="Rename project"/);
-  assert.match(detail, /Reopen/);
-  assert.match(detail, /onSeePhotos\(projectId\)/);
+  assert.match(detail, /testID="project-picker"/);
+  assert.doesNotMatch(detail, /Project complete|Rename project|Reopen|onSeePhotos/);
   const reports = source("src/screens/ProgressClaimReportsScreen.tsx");
   assert.match(reports, /Earlier reports/);
   assert.match(reports, /payStep \? <ProjectPayCard/);
@@ -171,13 +169,12 @@ test("project count uses singular only for one project", () => {
   for (const count of [0, 1, 2]) assert.equal(`${count} ${noun({ length: count })}`, `${count} ${count === 1 ? "project" : "projects"}`);
 });
 
-test("Projects main title is skipped for detail and detail actions use secondary controls", () => {
+test("Projects main title is skipped for minimal detail", () => {
   const projects = source("src/screens/ProjectsScreen.tsx");
   assert.ok(projects.indexOf("if (openProjectId) return <ProjectDetailScreen") < projects.indexOf(">Projects</Text>"));
   assert.match(projects, /<Text style=\{styles.screenTitle\}>Projects<\/Text>/);
   const detail = source("src/screens/ProjectDetailScreen.tsx");
-  assert.match(detail, />‹ Projects<\/Text>[\s\S]*?style=\{\[styles.heading, styles.projectTitle\]\}>\{project.name\}/);
+  assert.match(detail, /testID="project-picker"[\s\S]*project\?\.name/);
   assert.doesNotMatch(detail, /styles.screenTitle/);
-  assert.match(detail, /styles.projectRenameButton[^\n]*setRename\(true\)/);
-  assert.match(detail, /styles.actionButtonSecondary\} onPress=\{\(\) => void toggleFinished\(\)/);
+  assert.doesNotMatch(detail, /projectRenameButton|toggleFinished/);
 });

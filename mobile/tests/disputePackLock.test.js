@@ -51,8 +51,8 @@ test("guest stays locked after the trial expires and even with a forged paid ent
   assert.equal(gate({ ...base, status: "ACTIVE", currentPeriodEnd: future }, true).canExport, false);
 });
 
-test("signed-in trial, expired, none and referral-only accounts must subscribe", () => {
-  assert.equal(gate(base).lock, "subscribe");
+test("signed-in active trial unlocks while expired, none and referral-only accounts subscribe", () => {
+  assert.equal(gate(base).lock, null);
   assert.equal(gate({ ...base, status: "EXPIRED", isActive: false, canExportReports: false }).lock, "subscribe");
   assert.equal(gate({ ...base, status: "NONE", trialEndsAt: null }).lock, "subscribe");
   assert.equal(gate({ ...base, status: "EXPIRED", hasReferralRewardAccess: true, referralRewardEndsAt: future }).lock, "subscribe");

@@ -29,8 +29,8 @@ test("Projects open through plain rows; New project and name sheets are secondar
 test("Project detail reserves filled lime for its gated PDF action", () => {
   const detail = screen("ProjectDetail");
   assert.equal(primary(detail).length, 1);
-  assert.match(detail, /<Pressable accessibilityRole="button" onPress=\{share\} style=\{styles.actionButton\}/);
-  assert.equal((detail.match(/Create & share PDF/g) || []).length, 1);
+  assert.match(detail, /testID="create-share-pdf"[\s\S]*onPress=\{share\}[\s\S]*style=\{styles.actionButton\}/);
+  assert.equal((detail.match(/Create &amp; share PDF/g) || []).length, 1);
   assert.equal(primary(source("src/screens/ProjectPayCard.tsx")).length, 0);
   const reports = source("src/screens/ProgressClaimReportsScreen.tsx");
   for (const handler of ["onCreateAccount", "onOpenPlanBilling"]) {
@@ -56,17 +56,13 @@ test("Today shows one summary and a direct project picker without Details", () =
   assert.equal((home.match(/styles.todayClock/g) || []).length, 1);
 });
 
-test("Project sessions and breakdown start collapsed; each screen has one title", () => {
+test("Project detail omits sessions and breakdown", () => {
   const detail = screen("ProjectDetail");
-  assert.match(detail, /\[sessionsExpanded, setSessionsExpanded\] = useState\(false\)/);
-  assert.match(detail, /accessibilityState=\{\{ expanded: sessionsExpanded \}\}/);
-  assert.match(detail, />Show sessions \{sessionsExpanded/);
-  const details = detail.slice(detail.indexOf("{sessionsExpanded ? <>"));
-  for (const content of ["totalOvertimeHours", "totalClaimAmountCents", "entries.map", "Pay rate:", "clockOutLocationSource"]) assert.ok(details.includes(content));
+  for (const content of ["sessionsExpanded", "totalOvertimeHours", "entries.map", "Pay rate:", "clockOutLocationSource"]) assert.ok(!detail.includes(content));
   assert.doesNotMatch(screen("Home"), /styles.eyebrow|>Work today</);
   assert.match(screen("Projects"), /styles.screenTitle\}>Projects<\/Text>/);
   assert.doesNotMatch(screen("PhotoEvidence"), />Photos<\/Text>/);
-  assert.equal((detail.match(/>\{project.name\}<\/Text>/g) || []).length, 1);
+  assert.match(detail, /project\?\.name/);
 });
 
 test("shared spacing is generous and bottom tabs have no filled background", () => {

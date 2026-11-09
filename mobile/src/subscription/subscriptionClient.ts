@@ -130,12 +130,9 @@ export function canExportProgressClaim(
   subscription: SubscriptionEntitlement | null,
   nowMs = Date.now(),
 ): boolean {
-  // Dispute pack files (PDF/CSV download, share, open) need a paid plan; the
-  // free trial only covers logging, evidence and the in-app preview.
   return Boolean(
     subscription?.canExportReports &&
-      hasCurrentFullAccess(subscription, nowMs) &&
-      hasPaidSubscription(subscription, nowMs),
+      hasCurrentFullAccess(subscription, nowMs),
   );
 }
 

@@ -4,7 +4,8 @@ import { loadWorkHours, saveWorkHours, calculateNormalHours } from "../work/work
 import { needsPayStep, currentWeekStart } from "../work/projectScreenStore";
 import type { AppSettings } from "../db/settingsValidation";
 import { parseSgdHourlyRateCents } from "../work/projectRates";
-import { buildProjectWeekReport } from "../reports/projectWeekReport";
+import { buildProjectPeriodReport } from "../reports/projectWeekReport";
+import { getReportPeriodRange, loadReportPeriod } from "../reports/reportPeriodSettings";
 import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 
@@ -21,8 +22,6 @@ import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
 import { progressClaimReportContent } from "../screenContent";
 import { styles, type, space, radius } from "../styles";
 import {
-  fetchSubscriptionStatus,
-  formatTrialCountdown,
   canExportProgressClaim,
   type SubscriptionEntitlement,
 } from "../subscription/subscriptionClient";
@@ -54,12 +53,8 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState(progressClaimReportContent.localStorage);
-  const [subscription, setSubscription] = useState<SubscriptionEntitlement | null>(
-    null,
-  );
-  const [subscriptionStatus, setSubscriptionStatus] = useState(
-    "Checking subscription status...",
-  );
+  const subscription = access.subscription;
+  const subscriptionStatus = access.message;
   const [documents, setDocuments] = useState<GeneratedDocumentRow[]>([]);
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(detailProjectId ?? null);
@@ -123,8 +118,11 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       const preferences = await loadWorkHours(userId);
       const entries = await repositories.work.listProjectEntries(userId, params.projectId!);
       const snapshot = await repositories.progressClaims.buildLatestProgressClaimSnapshot(params);
-      return buildProjectWeekReport({
-        weekStart: currentWeekStart(),
+      const reportPeriod = await loadReportPeriod(userId);
+      const range = getReportPeriodRange(reportPeriod);
+      return buildProjectPeriodReport({
+        periodStart: range.start,
+        periodEnd: range.end,
         accountName: account.isGuest ? undefined : account.name,
         reportName: preferences.reportName,
         input: {
@@ -145,55 +143,23 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   }
   const exportAccess = getDisputePackExportAccess({
     isGuest: account.isGuest === true,
-    entitlement: account.isGuest ? access.subscription : subscription,
+    entitlement: subscription,
   });
   const exportLocked = !exportAccess.canExport;
 
   useEffect(() => {
     void refreshArchive();
-    void refreshSubscriptionStatus();
   }, []);
-
-  useEffect(() => {
-    if (account.isGuest && access.subscription) {
-      setSubscription(access.subscription);
-      setSubscriptionStatus(access.message);
-    }
-  }, [account.isGuest, access.message, access.subscription]);
-
-  async function refreshSubscriptionStatus() {
-    if (account.isGuest) {
-      setSubscription(access.subscription);
-      setSubscriptionStatus(access.message);
-      return;
-    }
-    const result = await fetchSubscriptionStatus(account.id);
-    if (!result.ok) {
-      setSubscription(null);
-      setSubscriptionStatus(result.message);
-      return;
-    }
-
-    setSubscription(result.subscription);
-    const trialCountdown = formatTrialCountdown(result.subscription);
-    setSubscriptionStatus(
-      trialCountdown ||
-        `${result.subscription.planName}: ${result.subscription.message}`,
-    );
-  }
 
   async function ensureCanExport(): Promise<boolean> {
     if (account.isGuest) {
       // Guests (trial or expired) never download, share or open pack files.
-      setSubscription(access.subscription);
       setStatus(disputePackLockContent.lockedStatus);
       return false;
     }
     return ensureCanExportWithRefresh(
       subscription,
-      account.id,
-      setSubscription,
-      setSubscriptionStatus,
+      access.refresh,
       setStatus,
     );
   }
@@ -426,11 +392,14 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
     }
   }
 
+  if (renderActions) {
+    return <View style={styles.card}>{renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked })}</View>;
+  }
+
   return (
     <>
       <View style={styles.card}>
-        {renderActions ? renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked }) : null}
-        {!renderActions ? <Text style={styles.eyebrow}>Weekly report</Text> : null}
+        <Text style={styles.eyebrow}>Weekly report</Text>
         {exportLocked && (!renderActions || lockDetailsExpanded) ? (
           <View accessibilityLabel="Dispute pack locked" style={styles.list}>
             <Text style={styles.statusTitle}>{disputePackLockContent.title}</Text>
@@ -617,9 +586,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
 
 async function ensureCanExportWithRefresh(
   subscription: SubscriptionEntitlement | null,
-  expectedUserId: string | undefined,
-  setSubscription: (value: SubscriptionEntitlement | null) => void,
-  setSubscriptionStatus: (value: string) => void,
+  refresh: () => Promise<SubscriptionEntitlement | null>,
   setStatus: (value: string) => void,
 ): Promise<boolean> {
   if (canExportProgressClaim(subscription)) {
@@ -627,19 +594,12 @@ async function ensureCanExportWithRefresh(
   }
 
   setStatus("Checking subscription before export...");
-  const result = await fetchSubscriptionStatus(expectedUserId);
-  if (!result.ok) {
-    setSubscription(null);
-    setSubscriptionStatus(result.message);
-    setStatus(result.message);
+  const refreshed = await refresh();
+  if (!refreshed) {
+    setStatus("Unable to refresh subscription access.");
     return false;
   }
-
-  setSubscription(result.subscription);
-  setSubscriptionStatus(
-    formatTrialCountdown(result.subscription) || result.subscription.message,
-  );
-  if (canExportProgressClaim(result.subscription)) {
+  if (canExportProgressClaim(refreshed)) {
     return true;
   }
 
