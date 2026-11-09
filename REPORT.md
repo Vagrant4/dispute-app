@@ -199,3 +199,22 @@ Tests were updated before implementation to cover reticle composition and contai
 Implementation and tests commit: `a6e2d276a8512ae728e6c65c5af3ff2080eec8b4`. The documentation commit is the subsequent local commit containing this section.
 
 The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, and `react-best-practices` skills were not installed, and no Expo/React Native skill was available. Their practices were followed manually. No push, PR, remote, deploy, store, Play, RevenueCat, billing/account action, production/server data change, or other checkout was touched. Existing entitlement, auth/trial gates, fixed GPS pin, Android back ordering, and safe-area behavior were preserved.
+
+## Follow-up 7: Today map visible on open (0.3.6-test, versionCode 8)
+
+The Today map now renders OpenStreetMap tiles on its first frame even before a GPS result exists. Its initial center priority is: restore any pending or active/recent-entry fix while `refreshWorkState` runs; quietly request a fresh fix through the existing `getWorkLocationWithTimeout` path (which already falls back to Expo last-known location); replace the restored center only when that request returns GPS coordinates; otherwise retain the restored center. When neither restored nor requested coordinates are available, the tile canvas uses Singapore latitude `1.3521`, longitude `103.8198`, at zoom `16`. The default center has no pin or accuracy ring, so it is not presented as a live fix.
+
+The idle/default copy `No GPS reading yet. Tap the crosshair.` was removed from both native and web map paths and does not appear elsewhere. Web now shares the same tile-rendering implementation instead of its former empty fallback. A fresh or last-known auto-load fix recenters the map and may show the fixed pin and accuracy ring, but the address remains hidden. Only a crosshair press enables address details; that press still calls `handleLocateMe` without an `isRunning` guard, and location-off behavior still opens Android settings.
+
+The 0.3.5 crosshair is unchanged: the composed 16 dp, 2 dp ring; 28 dp horizontal and vertical hairlines; 4 dp center dot; primary/disabled-placeholder colors; `today-locate-reticle` test ID; `today-locate-button` top-right placement; and `Show my location` accessibility label all remain. OSM attribution, `osm-v2`, the native tile User-Agent interceptor, fixed non-draggable pin, and absence of standalone location chrome and accuracy text are also unchanged.
+
+Tests were updated before implementation and first failed against the old empty panel, missing mount request, and 0.3.5/7 version values. Final verification passed:
+
+- Mobile strict TypeScript: passed.
+- Mobile Node: 302/302 passed.
+- Mobile Jest/RNTL: 43/43 across 9 suites passed.
+- Shared: 32/32 passed.
+- Server: 171/171 passed.
+- Client: 24/24 passed.
+
+Gradle assemble was not run and no APK is claimed. Implementation, tests, and version bump commit: `b244e50` (`fix: show Today map tiles on open`). This report is the subsequent local documentation commit. No push, PR, deploy, store/billing/account action, paid account/API key, or other checkout was touched.
