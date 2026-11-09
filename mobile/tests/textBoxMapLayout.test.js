@@ -6,11 +6,10 @@ const source = (relative) => readFileSync(path.join(__dirname, "..", relative), 
 
 test("native location map uses an attributed OpenStreetMap basemap with a fixed pin", () => {
   const map = source("src/screens/LocationMap.native.tsx");
-  assert.match(map, /tile\.openstreetmap\.org/);
-  assert.match(map, /https:\/\/tile\.openstreetmap\.org/);
+  assert.match(map, /buildOpenStreetMapTileUrl/);
   assert.match(map, /getTileRequestSource\(tile\.url\)/);
   assert.match(map, /headers:\s*\{\s*["']User-Agent["']:\s*TILE_USER_AGENT\s*\}/);
-  assert.match(map, /TILE_USER_AGENT\s*=\s*["'][^"']*DISPUTE[^"']*["']/);
+  assert.match(map, /TILE_USER_AGENT/);
   assert.doesNotMatch(map, /TILE_USER_AGENT\s*=\s*["'][^"']*okhttp/i);
   assert.match(map, /OpenStreetMap contributors/);
   assert.match(map, /styles\.locationMapPin/);

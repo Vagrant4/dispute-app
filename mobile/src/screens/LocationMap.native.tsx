@@ -3,13 +3,13 @@ import { Image, Linking, Pressable, Text, View, type LayoutChangeEvent } from "r
 
 import { styles } from "../styles";
 import { formatCoordinateLabel, shortAddress } from "../work/addressFormat";
-import { openDeviceMaps } from "../work/openDeviceMaps";
 import type { LocationReading } from "../work/locationEvidence";
+import { buildOpenStreetMapTileUrl, TILE_CACHE_VERSION, TILE_USER_AGENT } from "../maps/tileConfig";
 
 const TILE_SIZE = 256;
 const MAP_ZOOM = 16;
 const EARTH_CIRCUMFERENCE_M = 40_075_016.686;
-export const TILE_USER_AGENT = "DISPUTE/0.3.2 (sg.claimproof.mobile; Android)";
+export { TILE_CACHE_VERSION, TILE_USER_AGENT } from "../maps/tileConfig";
 
 type MapSize = { width: number; height: number };
 type StreetTile = { key: string; left: number; top: number; url: string };
@@ -58,7 +58,7 @@ export function getOpenStreetMapTiles(
         key: `${zoom}-${wrappedX}-${tileY}`,
         left: tileX * TILE_SIZE - leftWorld,
         top: tileY * TILE_SIZE - topWorld,
-        url: `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
+        url: buildOpenStreetMapTileUrl(zoom, wrappedX, tileY),
       });
     }
   }
@@ -66,8 +66,6 @@ export function getOpenStreetMapTiles(
 }
 
 export function LocationMap({ reading, locating = false }: { reading: LocationReading | null; locating?: boolean }) {
-  const [mapsError, setMapsError] = useState<string | null>(null);
-  const [openingMaps, setOpeningMaps] = useState(false);
   const [mapSize, setMapSize] = useState<MapSize>({ width: 360, height: 260 });
 
   const tiles = useMemo(
@@ -104,24 +102,6 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
     if (width > 0 && height > 0) setMapSize({ width, height });
   }
 
-  async function handleOpenInMaps() {
-    if (openingMaps || reading?.latitude == null || reading.longitude == null) return;
-    setOpeningMaps(true);
-    setMapsError(null);
-    try {
-      const result = await openDeviceMaps({
-        latitude: reading.latitude,
-        longitude: reading.longitude,
-        label,
-      });
-      if (!result.ok) setMapsError(result.message);
-    } catch {
-      setMapsError("Couldn't open a maps app on this phone.");
-    } finally {
-      setOpeningMaps(false);
-    }
-  }
-
   return (
     <View style={styles.locationMapContent}>
       <View
@@ -149,26 +129,13 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
           onPress={() => void Linking.openURL("https://www.openstreetmap.org/copyright")}
           style={styles.locationMapAttribution}
         >
-          <Text style={styles.locationMapAttributionText}>OpenStreetMap contributors</Text>
+          <Text style={styles.locationMapAttributionText}>(c) OpenStreetMap contributors</Text>
         </Pressable>
       </View>
       <View style={styles.locationMapDetails}>
         <Text style={styles.heading}>{label}</Text>
         <Text style={styles.body}>{coordinateLabel}</Text>
         <Text style={styles.muted}>GPS pin is fixed · cannot be moved</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open in Maps"
-          accessibilityState={{ disabled: openingMaps }}
-          disabled={openingMaps}
-          onPress={() => void handleOpenInMaps()}
-          style={[styles.actionButtonSecondary, openingMaps && styles.disabledButton]}
-        >
-          <Text style={[styles.actionButtonSecondaryText, openingMaps && styles.disabledButtonText]}>
-            {openingMaps ? "Opening Maps…" : "Open in Maps"}
-          </Text>
-        </Pressable>
-        {mapsError ? <Text style={styles.muted}>{mapsError}</Text> : null}
       </View>
     </View>
   );
