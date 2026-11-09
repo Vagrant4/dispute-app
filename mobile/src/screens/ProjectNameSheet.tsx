@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles, theme } from "../styles";
 export function ProjectNameSheet({ name = "", onSave, onClose }: { name?: string; onSave: (name: string) => Promise<void>; onClose: () => void }) {
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const insets = useSafeAreaInsets();
   async function save() {
     if (!value.trim() || busy) return;
     setBusy(true);
@@ -14,7 +16,7 @@ export function ProjectNameSheet({ name = "", onSave, onClose }: { name?: string
   }
   return <Modal transparent animationType="slide" onRequestClose={onClose}>
     <View style={styles.projectSheetBackdrop}>
-      <View style={styles.projectSheet}>
+      <View style={[styles.projectSheet, { paddingBottom: Math.max(insets.bottom, 24) }]} testID="project-sheet">
         <Text style={styles.heading}>{name ? "Rename project" : "New project"}</Text>
         <Text style={styles.muted}>Just a name. Site and hours fill in when you start work.</Text>
         <TextInput accessibilityLabel="Project name" placeholder="Client or site name" placeholderTextColor={theme.colors.placeholder} value={value} onChangeText={setValue} style={styles.textInput} autoFocus />

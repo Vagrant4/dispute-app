@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { BackHandler, Pressable, Text, View } from "react-native";
 import type { LocalAccount } from "../auth/localAuth";
 import type { ProjectSummary } from "../work/workRepository";
 import { currentWeekStart, getProjectScreenStore } from "../work/projectScreenStore";
@@ -17,6 +17,14 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
   const [error, setError] = useState("");
   async function refresh() { try { const store = await getProjectScreenStore(userId); setSummaries(await store.listProjectSummaries(userId, currentWeekStart())); } catch (cause) { setError("Could not load projects."); } }
   useEffect(() => { void refresh(); }, [userId]);
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (creating) { setCreating(false); return true; }
+      if (openProjectId) { setOpenProjectId(null); void refresh(); return true; }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [creating, openProjectId]);
   async function create(name: string) {
     if (!access.canCreateRecords) throw new Error(access.message);
     const store = await getProjectScreenStore(userId);

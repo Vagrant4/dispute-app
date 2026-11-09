@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
-import { Image, type ImageSourcePropType, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BackHandler, Image, type ImageSourcePropType, Pressable, ScrollView, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
@@ -72,6 +72,7 @@ function renderScreen(
 }
 
 export default function App() {
+  const lastBackPress = useRef(0);
   const [photoProjectId, setPhotoProjectId] = useState<string | undefined>();
   const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login" | "forgot">("logo");
   const [account, setAccount] = useState<LocalAccount | null>(null);
@@ -88,6 +89,26 @@ export default function App() {
   const photosVisible = !!account && activeTab === "evidence";
   const ScreenContainer = photosVisible ? View : ScrollView;
   const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (account && activeTab !== "home") {
+        setSettingsInitialPanel(undefined);
+        setActiveTab("home");
+        return true;
+      }
+      if (!account && authMode !== "logo") {
+        setAuthMode("logo");
+        return true;
+      }
+      const now = Date.now();
+      if (now - lastBackPress.current <= 2_000) return false;
+      lastBackPress.current = now;
+      ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [account, activeTab, authMode]);
 
   useEffect(() => {
     let cancelled = false;

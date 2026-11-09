@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { BackHandler, Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
 import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
@@ -9,7 +9,6 @@ import { DeleteAccountScreen } from "./DeleteAccountScreen";
 import { PlanBillingPanel } from "./PlanBillingPanel";
 import { PrivacyScreen } from "./PrivacyScreen";
 import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
-import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
   planTrialLine,
@@ -28,15 +27,14 @@ type SettingsScreenProps = {
   initialPanel?: SettingPanel;
 };
 
-export type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
+export type SettingPanel = "profile" | "work_hours" | "subscription" | "privacy_data";
 
-type SettingsPage = "main" | "name" | "pay_rate" | "language" | "plan" | "support" | "more" | "referrals" | "privacy_data" | "backup" | "delete_account";
+type SettingsPage = "main" | "name" | "pay_rate" | "language" | "plan" | "support" | "more" | "privacy_data" | "backup" | "delete_account";
 
 const INITIAL_PANEL_PAGES: Record<SettingPanel, SettingsPage> = {
   profile: "name",
   work_hours: "pay_rate",
   subscription: "plan",
-  referrals: "referrals",
   privacy_data: "privacy_data",
 };
 
@@ -78,16 +76,28 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     setPanel(initialPanel ? INITIAL_PANEL_PAGES[initialPanel] : "main");
   }, [initialPanel]);
 
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
+      if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }
+      if (panel !== "main") {
+        setPanel(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen]);
+
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
     { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : rateBasis === "hourly" ? "hour" : "day"}` : "Not set" },
     { id: "language", label: "Language", value: "English" },
     { id: "plan", label: "Plan", value: planTrialLine(subscription) ?? (subscription?.planName || "Checking plan…") },
     { id: "support", label: "Support", value: "Help and policies" },
-    { id: "more", label: "More", value: "Referrals, privacy, backup" },
+    { id: "more", label: "More", value: "Privacy and backup" },
   ];
   const moreRows: { id: SettingsPage; label: string; value: string }[] = [
-    { id: "referrals", label: "Refer a friend", value: "Invite another worker" },
     { id: "privacy_data", label: "Privacy & data", value: "Your privacy and account" },
     { id: "backup", label: "Keep a copy", value: "Save or restore your records" },
   ];
@@ -98,11 +108,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     plan: require("../../assets/icons/set-plan.png"),
     support: require("../../assets/icons/set-support.png"),
     more: require("../../assets/icons/set-more.png"),
-    referrals: require("../../assets/icons/set-refer.png"),
     privacy_data: require("../../assets/icons/set-privacy.png"),
     backup: require("../../assets/icons/set-backup.png"),
   };
-  const insideMore = panel === "referrals" || panel === "privacy_data" || panel === "backup";
+  const insideMore = panel === "privacy_data" || panel === "backup";
 
   async function handleSubscribe() {
     setSubscriptionActionStatus("Opening store subscription...");
@@ -406,8 +415,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           exportNote={exportNote}
         />
       ) : null}
-
-      {panel === "referrals" ? <ReferralScreen /> : null}
 
       {panel === "backup" ? <SettingsBackupScreen account={account} exportOnly={!hasFullAccess} /> : null}
 
