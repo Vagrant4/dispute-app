@@ -5,9 +5,9 @@ const { formatProjectSite } = createLoader()("src/work/projectSite.ts");
 
 test("project site labels distinguish a named site, unnamed GPS and missing fix", () => {
   const fix = { lastSiteAddress: null, lastSiteLatitude: 0, lastSiteLongitude: 0, lastSiteAccuracyM: 12.6 };
-  assert.equal(formatProjectSite(fix), "GPS ±13 m");
+  assert.equal(formatProjectSite(fix), "GPS");
   assert.equal(formatProjectSite({ ...fix, lastSiteAddress: "  Road 1 " }), "Road 1");
-  assert.equal(formatProjectSite({ ...fix, lastSiteAddress: " " }), "GPS ±13 m");
+  assert.equal(formatProjectSite({ ...fix, lastSiteAddress: " " }), "GPS");
   for (const accuracy of [null, -1, NaN, Infinity]) assert.equal(formatProjectSite({ ...fix, lastSiteAccuracyM: accuracy }), "GPS");
   assert.equal(formatProjectSite({ ...fix, lastSiteLatitude: null }), "No GPS site recorded");
   assert.equal(formatProjectSite(null), "No GPS site recorded");
@@ -20,7 +20,7 @@ for (const kind of ["sqlite", "web"]) test(`${kind}: latest unnamed stop fix tak
   assert.equal(formatProjectSite(summary), "Start street");
   await store.clockOut({ userId, entryId: entry.id, clockOutAt: new Date("2026-10-26T09:00:00Z"), gpsLatitude: 1.4, gpsLongitude: 103.9, gpsAccuracyM: 22.7 });
   summary = (await store.listProjectSummaries(userId, "2026-10-26")).find((row) => row.id === projectId);
-  assert.equal(formatProjectSite(summary), "GPS ±23 m");
+  assert.equal(formatProjectSite(summary), "GPS");
 });
 
 test("bottom tabs use stacked PNG icons, theme colours, accessible targets and bottom safe area", () => {

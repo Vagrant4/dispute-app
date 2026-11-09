@@ -104,13 +104,13 @@ test("fresh schema and every migration have matching columns; legacy and backup 
   assert.equal(after.time_entries[0].clock_in_location_source, "gps");
   assert.equal(after.time_entries[0].location_note, "Worker note");
 });
-test("chip covers locating, GPS time/accuracy, approximate and no GPS", () => {
+test("chip covers locating, GPS time without an on-screen accuracy readout, and no GPS", () => {
   const { formatLocationChip } = createLoader()("src/work/locationEvidence.ts");
   assert.equal(formatLocationChip(null, true), "Locating…");
   assert.equal(formatLocationChip(null), "No GPS · Turn on location");
   const fix = { source: "gps", address: "Site", accuracy: 51, locatedAt: "2026-10-29T01:00:00Z" };
-  assert.match(formatLocationChip(fix), /Site · ±51 m · approximate · .+ ⟳/);
-  assert.doesNotMatch(formatLocationChip({ ...fix, accuracy: 50 }), /approximate/);
+  assert.match(formatLocationChip(fix), /Site · .+ ⟳/);
+  assert.doesNotMatch(formatLocationChip(fix), /±|approximate|51 m/);
 });
 test("GPS captures high accuracy and records sensor accuracy/time without inventing an address", async () => {
   let options;

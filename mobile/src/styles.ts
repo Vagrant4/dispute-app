@@ -34,6 +34,8 @@ export const styles = StyleSheet.create({
   projectRenameIcon: { color: theme.colors.primary, ...type.heading },
   locationMapScreen: { gap: space.md },
   locationMapFrame: { borderColor: theme.colors.border, borderRadius: radius.md, borderWidth: 1 },
+  locationMapLocateButton: { alignItems: "center", backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: radius.pill, borderWidth: 1, height: control.height, justifyContent: "center", position: "absolute", right: space.md, top: space.md, width: control.height, zIndex: 3 },
+  locationMapLocateIcon: { color: theme.colors.primary, ...type.heading },
   locationMap: { flex: 1 },
   locationMapContent: { backgroundColor: theme.colors.surfaceMuted },
   locationMapEmpty: { alignItems: "center", backgroundColor: theme.colors.surfaceMuted, justifyContent: "center", minHeight: 260, padding: space.lg },

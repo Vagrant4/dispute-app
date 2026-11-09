@@ -1,6 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import { Alert, Image, Modal, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   buildEvidencePhotoPath,
@@ -27,6 +28,7 @@ const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
 const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 
 export function PhotoEvidenceScreen({ account, initialProjectId }: { account: LocalAccount; initialProjectId?: string }) {
+  const insets = useSafeAreaInsets();
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState("");
@@ -77,7 +79,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
 
   async function handlePhotoAction(action: PhotoAction) {
     try {
-      if (!access.hasCurrentCreateAccess()) throw new Error("An active trial, subscription or fulfilled referral reward is required to capture new evidence.");
+      if (!access.hasCurrentCreateAccess()) throw new Error("An active trial or subscription is required to capture new evidence.");
       if (!projectId) throw new Error("Choose a project before adding evidence.");
       const permission = action === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -257,7 +259,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       {!projectId ? <Text style={styles.muted}>Start work on Today to create your first project.</Text> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <Modal visible={captureSheetOpen} transparent animationType="slide" onRequestClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
-        <View style={styles.photoSheetBackdrop}><ScrollView style={styles.photoSheet} contentContainerStyle={styles.photoSheetContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.photoSheetBackdrop}><ScrollView style={styles.photoSheet} contentContainerStyle={[styles.photoSheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled" testID="photo-proof-sheet">
           <Text style={styles.heading}>Photo proof</Text>
           {pendingUri ? <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} /> : null}
           <Text style={styles.muted}>{pendingUri ? photoTimeLabel({ captured_at: pendingCapturedAt, capture_source: captureSource, capture_time_source: captureTimeSource }) : "Choose a photo to save."}</Text>
@@ -272,12 +274,12 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
         </ScrollView></View>
       </Modal>
       <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)}>
-        {detail ? <ScrollView style={styles.photoDetail} contentContainerStyle={styles.photoSheetContent}>
+        {detail ? <ScrollView style={styles.photoDetail} contentContainerStyle={[styles.photoSheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           <Pressable onPress={() => setDetail(null)}><Text style={styles.body}>Close</Text></Pressable>
           <Image accessibilityLabel="Photo evidence" resizeMode="contain" source={{ uri: detail.local_uri }} style={styles.photoDetailImage} />
           <Text style={styles.heading}>{photoTimeLabel(detail)}</Text>
           <Text style={styles.body}>{detail.captured_at ? new Date(detail.captured_at).toLocaleDateString() : "Capture date unknown"}</Text>
-          <Text style={styles.body}>{photoAddress(detail)}{detail.gps_accuracy_m != null ? ` · ±${Math.round(detail.gps_accuracy_m)} m` : ""}</Text>
+          <Text style={styles.body}>{photoAddress(detail)}</Text>
           <Text style={styles.body}>Type: {formatEvidenceType(detail.evidence_type)}</Text>
           <Text style={styles.body}>Note: {detail.caption || "No note"}</Text>
           <Text style={styles.body}>Project: {projects.find((project) => project.id === detail.project_id)?.name ?? "Project"}</Text>

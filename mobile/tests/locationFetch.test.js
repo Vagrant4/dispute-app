@@ -40,12 +40,12 @@ test("current position timeout falls back to a recent last-known fix", async () 
   assert.equal(result.longitude, lastKnown.coords.longitude);
 });
 
-test("home map refresh works while running and auto-locates an empty map", () => {
+test("home map refresh works while running from the embedded locate control", () => {
   const home = readFileSync(path.join(__dirname, "..", "src", "screens", "HomeScreen.tsx"), "utf8");
   const handler = home.slice(home.indexOf("async function handleLocateMe"), home.indexOf("function useTestLocation"));
   assert.doesNotMatch(handler, /if \(isRunning \|\|/);
-  assert.match(home, /locationMapOpen && locationFix\?\.latitude == null/);
-  assert.match(home, /void handleLocateMe\(\)/);
+  assert.match(home, /accessibilityLabel="Show my location"/);
+  assert.match(home, /onPress=\{\(\) => void handleLocateMe\(\)\}/);
 });
 
 test("sparse reverse geocode like 377 Singapore yields null address keeping coordinates", async () => {

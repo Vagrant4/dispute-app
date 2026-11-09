@@ -16,8 +16,8 @@ test("idle clock is local time and worked clock includes seconds", () => {
 test("location rows use address or friendly saved fallback", () => {
   const fix = { source: "gps", address: null, accuracy: 8, locatedAt: new Date(2026, 9, 29, 7, 58).toISOString() };
   const idle = { working: false, locating: false, locationOff: false };
-  assert.deepEqual(formatLocationRow(fix, idle), { title: "Location saved", subtitle: "±8 m · 7:58 AM" });
-  assert.equal(formatLocationRow({ ...fix, address: "Bayfront Ave" }, idle).subtitle, "Tap to update · ±8 m");
+  assert.deepEqual(formatLocationRow(fix, idle), { title: "Location saved", subtitle: "Saved at 7:58 AM" });
+  assert.equal(formatLocationRow({ ...fix, address: "Bayfront Ave" }, idle).subtitle, "Tap to update location");
   assert.equal(formatLocationRow(fix, { ...idle, working: true }).subtitle, "Saved at 7:58 AM");
   assert.equal(formatLocationRow(null, { ...idle, locationOff: true }).subtitle, "Location is off · Open settings");
   assert.doesNotMatch(source("src/work/locationEvidence.ts"), /GPS point/);
@@ -139,11 +139,12 @@ test("shortAddress rejects bare house-number + country labels like 377, Singapor
   );
 });
 
-test("View on map stays in-app and does not mount react-native-maps MapView", () => {
+test("Today embeds the fixed-pin map without a separate map screen", () => {
   const home = source("src/screens/HomeScreen.tsx");
   const nativeMap = source("src/screens/LocationMap.native.tsx");
-  assert.match(home, /setLocationMapOpen\(true\)/);
-  assert.match(nativeMap, /openDeviceMaps/);
+  assert.match(home, /testID="today-map"/);
+  assert.doesNotMatch(home, /View on map|setLocationMapOpen/);
+  assert.doesNotMatch(nativeMap, /openDeviceMaps|Open in Maps/);
   assert.match(nativeMap, /GPS pin is fixed/);
   assert.doesNotMatch(nativeMap, /from "react-native-maps"/);
   assert.doesNotMatch(nativeMap, /<MapView/);

@@ -22,7 +22,6 @@ export function formatWorkedClock(seconds: number): string {
 }
 export function formatLocationRow(reading: LocationReading | null, options: { working: boolean; locating: boolean; locationOff: boolean }): { title: string; subtitle: string } {
   const time = reading?.locatedAt ? formatClockTime(new Date(reading.locatedAt)) : "time unknown";
-  const accuracy = reading?.accuracy == null ? "Accuracy unknown" : `±${Math.round(reading.accuracy)} m`;
   if (!reading || reading.source !== "gps") return { title: "Add your location", subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating…" : options.locationOff ? "Location is off · Open settings" : "Tap to take a GPS reading" };
   const title =
     shortAddress(reading) ||
@@ -30,7 +29,7 @@ export function formatLocationRow(reading: LocationReading | null, options: { wo
       ? formatCoordinateLabel(reading.latitude, reading.longitude)
       : null) ||
     "Location saved";
-  return { title, subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating…" : (reading.address || reading.latitude != null) ? `Tap to update · ${accuracy}` : `${accuracy} · ${time}` };
+  return { title, subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating..." : (reading.address || reading.latitude != null) ? "Tap to update location" : `Saved at ${time}` };
 }
 
 export function workedSecondsToday(completedMinutes: number, clockInAt: Date | null, now: Date): number {

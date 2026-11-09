@@ -1,6 +1,7 @@
 import { defaultDayType } from "../work/defaultDayType";
 import { useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
   Image,
   Platform,
   Pressable,
@@ -45,7 +46,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const [dayType, setDayType] = useState<WorkDayType>(() => defaultDayType(new Date()));
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
-  const [locationMapOpen, setLocationMapOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), clockInAt && !clockOutAt ? 1000 : 15_000);
@@ -55,12 +55,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   useEffect(() => {
     void refreshWorkState();
   }, []);
-
-  useEffect(() => {
-    if (locationMapOpen && locationFix?.latitude == null && !locating) {
-      void handleLocateMe();
-    }
-  }, [locationMapOpen]);
 
   const activeProject = selectedProjectId
     ? projects.find((project) => project.id === selectedProjectId) ?? null
@@ -73,6 +67,14 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const locationRow = formatLocationRow(locationFix, { working: isRunning, locating, locationOff });
   const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? formatTrialDaysLeft(access.subscription.trialEndsAt, now.getTime()) : null;
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (projectSheetOpen) { setProjectSheetOpen(false); return true; }
+      if (projectPickerOpen) { setProjectPickerOpen(false); return true; }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [projectPickerOpen, projectSheetOpen]);
   async function refreshWorkState() {
     try {
       const store = await getWorkStore(userId);
@@ -238,19 +240,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     } finally { setLocating(false); setStopping(false); }
   }
 
-  if (locationMapOpen) return (
-    <View style={styles.locationMapScreen}>
-      <Pressable accessibilityRole="button" onPress={() => setLocationMapOpen(false)} style={styles.textButton}><Text style={styles.body}>‹ Today</Text></Pressable>
-      <Text style={styles.heading}>Location map</Text>
-      <Text style={styles.muted}>Current GPS reading. The pin cannot be moved.</Text>
-      <View style={styles.locationMapFrame}><LocationMap reading={locationFix} locating={locating} /></View>
-      {locationFix?.accuracy != null ? <Text style={styles.locationMapAccuracy}>{`±${Math.round(locationFix.accuracy)} m`}</Text> : null}
-      <Pressable accessibilityRole="button" disabled={locating} onPress={() => void handleLocateMe()} style={[styles.actionButtonSecondary, locating && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, locating && styles.disabledButtonText]}>{locating ? "Refreshing…" : "Refresh"}</Text></Pressable>
-      {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
-      {Platform.OS === "web" && locationFix?.address?.startsWith("Test location") ? <Text style={styles.muted}>Test location · not live GPS</Text> : null}
-    </View>
-  );
-
   return (
     <View style={styles.todayScreen}>
       <View style={styles.todayHeader}>
@@ -273,6 +262,12 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
           </View>
         </View>
       </View>
+      <View style={styles.locationMapFrame} testID="today-map">
+        <LocationMap reading={locationFix} locating={locating} />
+        <Pressable accessibilityLabel="Show my location" accessibilityRole="button" disabled={locating} onPress={() => void handleLocateMe()} style={[styles.locationMapLocateButton, locating && styles.disabledButton]} testID="today-locate-button">
+          <Text style={[styles.locationMapLocateIcon, locating && styles.disabledButtonText]}>◎</Text>
+        </Pressable>
+      </View>
       <View style={styles.todayRows}>
         <Pressable accessibilityRole="button" accessibilityLabel="Get location" accessibilityState={{ disabled: isRunning || locating || stopping }} disabled={isRunning || locating || stopping} onPress={() => { if (locationOff) void Linking.openSettings(); else void handleLocateMe(); }} style={styles.todayEvidenceRow}>
           <View style={styles.todayIconTile}><Image source={require("../../assets/icons/pin.png")} style={styles.todayRowIcon} /></View>
@@ -283,7 +278,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
           {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
         </Pressable>
         {!isRunning ? <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" onPress={() => setLocationMapOpen(true)} style={styles.textButton}><Text style={styles.body}>View on map</Text></Pressable>
           {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
         </View> : null}
         <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
