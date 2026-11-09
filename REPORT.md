@@ -160,3 +160,32 @@ Settings now owns the report-period control (`SettingsScreen.tsx:288`) and per-p
 - Added `entitlement.test.ts`, `projectPage.test.tsx`, and `settingsPayRate.test.tsx`; updated obsolete source-contract tests to the new trial and minimal-project behavior.
 - Implementation/test commit: `a62980b`. Documentation/verification commit: the following local commit.
 - Verification passed: mobile strict typecheck; mobile Node 302/302; Jest 13/13 in 7 suites. Full root `npm test` passed with shared 32/32, server 171/171, client 24/24, mobile 302 Node + 12 Jest before the final store-sync refresh regression; the post-change mobile typecheck and mobile 302 + 13 suites also passed.
+
+## Follow-up 5: keyboard + swipe-down sheets + attribution (0.3.4)
+
+### Changes by commit
+
+- `708d59e` — shared `KeyboardAwareScroll`, app/auth/Settings coverage, and the Settings per-project-rate label.
+- `9061f8f` — shared animated `SwipeDownSheet`, grab handles, threshold/velocity dismissal, spring-back, and migration of all three modal surfaces.
+- `741f6fc` — real U+00A9 OSM attribution; the tile User-Agent contact placeholder is unchanged.
+- `bb45c21` — app/package/native/map version 0.3.4 and Android versionCode 6.
+- `0b28325` — RNTL coverage for focused keyboard inputs and exact attribution.
+- `9fa17c7` — obsolete 0.3.3 and raw-`Modal` guards aligned with 0.3.4 and `SwipeDownSheet`.
+- `ca1bc6c` — narrow design-token test exception for the required copyright sign.
+- Documentation and final verification are in the following local report commit.
+
+### Keyboard coverage
+
+The app-level shared container covers Login (email, password), Create account (name, email, mobile number, password), Forgot password (email, reset code, new password, confirm password), Verify email (code), Settings pay fields (project hourly rate, base rate, normal start/end, overtime/off-day/holiday multipliers), and Settings account deletion (current password, DELETE confirmation). New/Rename project name and Photo proof note use sheet-local containers. Each uses `KeyboardAvoidingView`, a handled-taps `ScrollView`, safe-area bottom padding, and keyboard-open scrolling to the focused native input. No font was reduced.
+
+### Sheet coverage
+
+- New/Rename project: `project-sheet-grab-handle`; swipe, Cancel, and Android back.
+- Photo proof: `photo-proof-sheet-grab-handle`; swipe, Cancel, and Android back, retaining the existing no-dismiss-while-saving rule.
+- Photo detail: `photo-detail-sheet-grab-handle`; swipe, Close, and Android back.
+
+### Tests and constraints
+
+Focused tests exposed the missing gesture and keyboard behavior before completion. Final verification passed: mobile strict TypeScript; mobile Node 302/302; Jest/RNTL 43/43 across 9 suites; full root `npm test` with shared 32/32, server 171/171, client 24/24, mobile Node 302/302, and mobile Jest 43/43. Obsolete tests updated: `followUp3Guards.test.js` (0.3.4), `photoSeal.test.js` (`SwipeDownSheet` boundary), and `designTokens.test.js` (required-copyright exception).
+
+The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, and `react-best-practices` skills were not installed, and no Expo/React Native skill was available. Their practices were followed manually. No push, PR, remote, deploy, store, Play, RevenueCat, billing/account action, production/server data change, or other checkout was touched. Existing entitlement, auth/trial gates, fixed GPS pin, Android back ordering, and safe-area behavior were preserved.

@@ -37,3 +37,11 @@ Run after setting the emulator's mock GPS: `maestro test mobile/.maestro`.
 
 - `python mobile/scripts/ui-sweep.py dump.xml --bottom-reserved 144` or `python mobile/scripts/ui-sweep.py --serial SERIAL`: flags clickable overlap, off-screen/bottom-region controls, and text ending in `...` or `…`.
 - `python mobile/scripts/tile-check.py screenshot.png --crop left,top,right,bottom`: with Pillow available, returns exit 1 when the crop matches the yellow/black/white OSM block image heuristic.
+
+## Follow-up 5
+
+- `mobile/__tests__/keyboardInputs.test.tsx`: 23 listed inputs exercise the shared keyboard-aware container and keyboard-open scroll-to-focused-input path; source contracts confirm the app screens and both input-bearing sheets use it.
+- `mobile/__tests__/sheetsDismiss.test.tsx`: New/Rename project, Photo proof, and Photo detail each expose an accessible grab handle; large drags dismiss, small drags spring back, and Cancel plus `onRequestClose` remain wired.
+- `mobile/__tests__/tileMap.test.tsx`: requires the exact `© OpenStreetMap contributors` attribution and rejects the obsolete `(c)` form.
+- Obsolete source contracts updated: `followUp3Guards.test.js` expects 0.3.4; `photoSeal.test.js` recognizes `SwipeDownSheet`; `designTokens.test.js` permits only the required map copyright sign.
+- Verified: mobile strict typecheck passed; mobile Node 302/302 and Jest/RNTL 43/43 in 9 suites passed; full root passed shared 32/32, server 171/171, client 24/24, mobile 302/302 + 43/43.
