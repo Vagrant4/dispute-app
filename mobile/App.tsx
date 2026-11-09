@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Image, type ImageSourcePropType, Pressable, ScrollView, Text, ToastAndroid, View } from "react-native";
+import { BackHandler, Image, type ImageSourcePropType, Pressable, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
@@ -25,6 +25,7 @@ import {
   saveActiveSession,
 } from "./src/auth/localAuthStorageExpo";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
+import { KeyboardAwareScroll } from "./src/components/KeyboardAwareScroll";
 
 const tabIcons: Record<TabId, ImageSourcePropType> = {
   home: require("./assets/icons/tab-today.png"),
@@ -87,7 +88,6 @@ export default function App() {
     [activeTab],
   );
   const photosVisible = !!account && activeTab === "evidence";
-  const ScreenContainer = photosVisible ? View : ScrollView;
   const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
 
   useEffect(() => {
@@ -186,9 +186,12 @@ export default function App() {
           </View>
         ) : null}
 
-        <ScreenContainer
-          style={photosVisible ? [styles.content, styles.photoScreenContainer] : styles.content}
-          {...(photosVisible ? {} : { contentContainerStyle: styles.contentInner, showsVerticalScrollIndicator: false })}
+        {photosVisible ? <View style={[styles.content, styles.photoScreenContainer]}>
+          <PhotoEvidenceScreen account={account} initialProjectId={photoProjectId} />
+        </View> : <KeyboardAwareScroll
+          style={styles.content}
+          contentContainerStyle={styles.contentInner}
+          showsVerticalScrollIndicator={false}
         >
           {account ? (
             renderScreen(
@@ -276,7 +279,7 @@ export default function App() {
               />
             </>
           )}
-        </ScreenContainer>
+        </KeyboardAwareScroll>}
         {account ? (
           <SafeAreaView style={styles.bottomTabBar} edges={["bottom"]}>
             {tabs.map((tab) => {

@@ -283,7 +283,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             <Text style={styles.settingsDropdownChevron}>▼</Text>
           </Pressable>
           <Text style={styles.inputLabel}>Project hourly rate ({currency})</Text>
-          <TextInput testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onChangeText={setProjectRate} style={styles.textInput} value={projectRate} />
+          <TextInput accessibilityLabel="Project hourly rate" testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onChangeText={setProjectRate} style={styles.textInput} value={projectRate} />
           <Text style={styles.inputLabel}>Report period</Text>
           <Pressable testID="settings-report-period" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setReportPeriod((value) => value === "week" ? "month" : "week")}>
             <Text style={styles.dropdownValue}>{reportPeriod === "week" ? "This week" : "This month"}</Text>
