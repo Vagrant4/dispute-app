@@ -7,6 +7,7 @@ import {
   type SubscriptionEntitlement,
 } from "./subscriptionClient";
 import type { LocalAccount } from "../auth/localAuth";
+import { subscribeToEntitlementRefresh } from "./entitlementRefresh";
 import { buildGuestEntitlement, type GuestTrialState, guestTrialStatus, loadGuestTrial, observeClock, saveGuestTrial, startGuestTrial } from "./guestTrial";
 
 export function useSubscriptionAccess(account: LocalAccount) {
@@ -49,6 +50,8 @@ export function useSubscriptionAccess(account: LocalAccount) {
       appState.remove();
     };
   }, [refresh]);
+
+  useEffect(() => subscribeToEntitlementRefresh(() => { void refresh(); }), [refresh]);
 
   const canCreateRecords = hasCurrentFullAccess(subscription, nowMs);
   const hasCurrentCreateAccess = useCallback(

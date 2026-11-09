@@ -36,3 +36,10 @@ test("Today and the project PDF gate read the same entitlement source", () => {
   expect(reports).not.toMatch(/fetchSubscriptionStatus/);
 });
 
+test("successful purchase or restore sync notifies the shared source", () => {
+  const client = fs.readFileSync(path.resolve(__dirname, "../src/subscription/subscriptionClient.ts"), "utf8");
+  const hook = fs.readFileSync(path.resolve(__dirname, "../src/subscription/useSubscriptionAccess.ts"), "utf8");
+  expect(client).toMatch(/requestEntitlementRefresh\(\)/);
+  expect(hook).toMatch(/subscribeToEntitlementRefresh/);
+});
+

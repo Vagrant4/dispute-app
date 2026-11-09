@@ -6,6 +6,7 @@ import { getAuthApiBaseUrl } from "../auth/remoteAuth";
 import { matchesConfiguredStoreProductIdentifier } from "./subscriptionProduct";
 import { hasPaidSubscription } from "./recordAccess";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
+import { requestEntitlementRefresh } from "./entitlementRefresh";
 
 export type SubscriptionStatus =
   | "NONE"
@@ -309,6 +310,7 @@ async function syncStoreSubscriptionWithServer(
     if (!response.ok || body.synced !== true) {
       return storeSyncPendingResult;
     }
+    requestEntitlementRefresh();
     return { ok: true, message: successMessage };
   } catch {
     return storeSyncPendingResult;
