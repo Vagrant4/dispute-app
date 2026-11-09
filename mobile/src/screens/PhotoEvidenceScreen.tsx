@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
-import { Alert, Image, Modal, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -17,6 +17,8 @@ import { styles, theme } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
 import type { LocalAccount } from "../auth/localAuth";
+import { KeyboardAwareScroll } from "../components/KeyboardAwareScroll";
+import { SwipeDownSheet } from "../components/SwipeDownSheet";
 
 type PhotoAction = "camera" | "gallery";
 const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
@@ -258,8 +260,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
         <Pressable accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.actionButtonText, (!canCapture) && styles.disabledButtonText]}>Take photo</Text></Pressable>
       {!projectId ? <Text style={styles.muted}>Start work on Today to create your first project.</Text> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
-      <Modal visible={captureSheetOpen} transparent animationType="slide" onRequestClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
-        <View style={styles.photoSheetBackdrop}><ScrollView style={styles.photoSheet} contentContainerStyle={[styles.photoSheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled" testID="photo-proof-sheet">
+      <SwipeDownSheet visible={captureSheetOpen} backdropStyle={styles.photoSheetBackdrop} sheetStyle={styles.photoSheet} testID="photo-proof-sheet" onClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
+        <KeyboardAwareScroll contentContainerStyle={styles.photoSheetContent} bottomPadding={Math.max(insets.bottom, 24)}>
           <Text style={styles.heading}>Photo proof</Text>
           {pendingUri ? <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} /> : null}
           <Text style={styles.muted}>{pendingUri ? photoTimeLabel({ captured_at: pendingCapturedAt, capture_source: captureSource, capture_time_source: captureTimeSource }) : "Choose a photo to save."}</Text>
@@ -271,10 +273,10 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           <Pressable disabled={saving} onPress={() => void handlePhotoAction("gallery")} style={[styles.actionButtonSecondary, (saving) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, (saving) && styles.disabledButtonText]}>Import from gallery</Text></Pressable>
           {status ? <Text style={styles.muted}>{status}</Text> : null}
           <Pressable style={[(saving) && styles.disabledButton]} disabled={saving} onPress={() => setCaptureSheetOpen(false)}><Text style={[styles.muted, (saving) && styles.disabledButtonText]}>Cancel</Text></Pressable>
-        </ScrollView></View>
-      </Modal>
-      <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)}>
-        {detail ? <ScrollView style={styles.photoDetail} contentContainerStyle={[styles.photoSheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        </KeyboardAwareScroll>
+      </SwipeDownSheet>
+      <SwipeDownSheet visible={!!detail} transparent={false} backdropStyle={styles.photoDetail} sheetStyle={styles.photoDetail} testID="photo-detail-sheet" onClose={() => setDetail(null)}>
+        {detail ? <ScrollView contentContainerStyle={[styles.photoSheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           <Pressable onPress={() => setDetail(null)}><Text style={styles.body}>Close</Text></Pressable>
           <Image accessibilityLabel="Photo evidence" resizeMode="contain" source={{ uri: detail.local_uri }} style={styles.photoDetailImage} />
           <Text style={styles.heading}>{photoTimeLabel(detail)}</Text>
@@ -288,7 +290,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           <Text style={styles.muted}>Seal: {detail.lock_hash ?? "Unavailable"}{detail.locked_at ? ` · ${new Date(detail.locked_at).toLocaleString()}` : ""}</Text>
           <Pressable disabled={!access.canCreateRecords} onPress={() => confirmDelete(detail)} style={[styles.actionButtonSecondary, !access.canCreateRecords && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, (!access.canCreateRecords) && styles.disabledButtonText]}>Delete</Text></Pressable>
         </ScrollView> : null}
-      </Modal>
+      </SwipeDownSheet>
     </View>
   );
 }

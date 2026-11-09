@@ -68,6 +68,7 @@ export const styles = StyleSheet.create({
   settingsDropdownOptionSelected: { backgroundColor: theme.colors.surfaceMuted, borderBottomColor: theme.colors.border, borderBottomWidth: 1, paddingHorizontal: space.md, paddingVertical: space.md },
   projectSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.photoScrim },
   projectSheet: { backgroundColor: theme.colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.md },
+  projectSheetContent: { gap: space.md },
   projectExportLockNote: { color: theme.colors.textMuted, ...type.caption },
   projectPhoto: { width: 70, height: 70, borderRadius: radius.sm },
 
