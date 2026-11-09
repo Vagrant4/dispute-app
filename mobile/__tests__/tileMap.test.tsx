@@ -16,5 +16,7 @@ test("tile images carry the app User-Agent and versioned Fresco cache key", () =
   expect(tiles.length).toBeGreaterThan(0);
   expect(tiles[0].headers["User-Agent"]).toBe(TILE_USER_AGENT);
   expect(tiles[0].uri).toContain(`#${TILE_CACHE_VERSION}`);
+  expect(screen.getByText("© OpenStreetMap contributors")).toBeTruthy();
+  expect(screen.queryByText("(c) OpenStreetMap contributors")).toBeNull();
   expect(screen.queryByText(/Open in Maps|View on map|±|meters/i)).toBeNull();
 });
