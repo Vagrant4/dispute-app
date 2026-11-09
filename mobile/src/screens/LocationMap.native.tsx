@@ -129,7 +129,7 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
           onPress={() => void Linking.openURL("https://www.openstreetmap.org/copyright")}
           style={styles.locationMapAttribution}
         >
-          <Text style={styles.locationMapAttributionText}>(c) OpenStreetMap contributors</Text>
+          <Text style={styles.locationMapAttributionText}>© OpenStreetMap contributors</Text>
         </Pressable>
       </View>
       <View style={styles.locationMapDetails}>
