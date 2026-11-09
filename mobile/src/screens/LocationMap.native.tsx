@@ -9,9 +9,14 @@ import type { LocationReading } from "../work/locationEvidence";
 const TILE_SIZE = 256;
 const MAP_ZOOM = 16;
 const EARTH_CIRCUMFERENCE_M = 40_075_016.686;
+export const TILE_USER_AGENT = "DISPUTE/0.3.2 (sg.claimproof.mobile; Android)";
 
 type MapSize = { width: number; height: number };
 type StreetTile = { key: string; left: number; top: number; url: string };
+
+export function getTileRequestSource(uri: string) {
+  return { uri, headers: { "User-Agent": TILE_USER_AGENT } };
+}
 
 function longitudeToWorldX(longitude: number, zoom: number): number {
   return ((longitude + 180) / 360) * TILE_SIZE * 2 ** zoom;
@@ -127,7 +132,7 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
         {tiles.map((tile) => (
           <Image
             key={tile.key}
-            source={{ uri: tile.url }}
+            source={getTileRequestSource(tile.url)}
             style={[styles.locationMapTile, { left: tile.left, top: tile.top }]}
           />
         ))}
