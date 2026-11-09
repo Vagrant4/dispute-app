@@ -95,3 +95,46 @@ The requested skills `test-driven-development`, `systematic-debugging`, `verific
 - **Regression coverage:** Extended `mobile/tests/textBoxMapLayout.test.js` to require HTTPS `tile.openstreetmap.org` sources with a non-okhttp User-Agent containing `DISPUTE`.
 - **Verification:** Shared passed 32 tests, server passed 171 tests, client passed 24 tests, mobile passed 302 tests, and the mobile TypeScript check passed. All suites reported 0 failures.
 - **Implementation commit:** `bb23d0fc9779d1723bd757ef690a80ef6350dd8a` (`fix(mobile): identify OpenStreetMap tile requests`).
+## Follow-up 3: tile fix 0.3.3 + Today map + back + safe-area
+
+### Root cause
+
+The 5b76eb4 implementation supplied a User-Agent only through the React Native `<Image source={{ uri, headers }}>` path. On the real phone, OSM answers okhttp/empty-UA tile requests with HTTP 200 and a valid 6,725-byte "Access blocked" PNG. Fresco caches that successful PNG by URI despite the response's `no-cache`, and an app upgrade preserves Fresco storage. That explains both why the bad tile survived the b371a23-to-5b76eb4 upgrade and why a normal HTTP-error fallback could never detect it. Fabric header delivery also had not been proven on-device.
+
+The fix installs `OkHttpClientProvider.setOkHttpClientFactory` before `loadReactNative`. It starts with `createClientBuilder(applicationContext)` so the default cookie jar/cache/timeouts and existing behavior are retained, and a network interceptor replaces User-Agent only when the request host is `tile.openstreetmap.org`; API requests are untouched. JS headers remain as defense in depth. Tile URLs now carry `#osm-v2`: HTTP never sends a URL fragment, while Fresco includes the complete URI in its cache key, so every stale 0.3.2 block image is bypassed without clearing unrelated image caches. This deterministic key bump is more targeted and reliable than trying to race a process-wide Fresco clear after initialization.
+
+### Changes by commit
+
+- `a100708` - native host-scoped tile User-Agent, shared 0.3.3 JS identity, `osm-v2` Fresco cache key, OSM attribution, versionCode 5/versionName 0.3.3, and initial failing guards.
+- `5d87086` - embedded fixed-pin Today map, 48dp "Show my location" control, removed separate map/deep-link UI and all on-screen accuracy numbers while retaining stored/report accuracy evidence.
+- `b60b6d9` - Android back ordering and safe bottom insets for New project and Photo proof/detail sheets.
+- `a152857` - removed the mobile referral screen, Settings/Create account entry/copy, navigation types, module, and obsolete referral tests; server referral code and schema were not changed.
+- `da31582` - Jest/RNTL, Maestro flows, and the two device screenshot audit scripts.
+
+### Back and popup audit
+
+- `ProjectNameSheet` (New/Rename project): React Native `Modal.onRequestClose`; parent custom picker/sheet state is also consumed by `BackHandler` before app navigation.
+- Photo proof capture sheet: `Modal.onRequestClose` closes unless a save is in flight; swipe-down/Cancel paths remain.
+- Photo detail modal: `Modal.onRequestClose` clears the selected detail.
+- Projects detail: screen `BackHandler` invokes the same pop-to-project-list state transition as its visible back control.
+- Settings sub-pages and currency/rate dropdown overlays: screen `BackHandler` closes the open dropdown first, then pops delete -> Privacy, More children -> More, and other pages -> Settings.
+- App root: after child handlers, a non-home tab returns to Today; Today shows "Press back again to exit" and only the second press inside two seconds exits.
+
+### Safe-area fixes
+
+- New project sheet applies `max(bottomInset, 24)` below Save/Cancel.
+- Photo proof and photo detail scroll content apply `max(bottomInset, 24)` below Save, Import, Cancel, and detail actions.
+- The existing bottom tab bar remains a bottom-edged `SafeAreaView`, so sheet content and tabs independently account for gesture and 3-button navigation.
+
+### Test results
+
+- Mobile strict typecheck: passed.
+- Mobile Node suite: 302/302 passed.
+- Jest/RNTL: 4 suites, 4 tests passed.
+- Full root `npm test`: shared 32/32, server 171/171, client 24/24, mobile typecheck, mobile 306/306 all passed.
+- Maestro was intentionally not run because this PC has no emulator; the box owns those flows and device/TLS header proof.
+- Extra `:app:compileDebugKotlin` attempt stopped before compilation because this PC has no Android SDK configured (`ANDROID_HOME`/`mobile/android/local.properties`), not because of a Kotlin diagnostic.
+
+### Skill availability and remaining device proof
+
+The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, `react-best-practices`, and Expo/React Native/Android skills were not installed in this environment. Their practices were followed manually: root cause and cache behavior first, failing tests before production edits, small scoped components/host-only networking, and full available verification before completion. No provider account/key, debug network override, push, PR, deploy, billing/auth/account configuration change, or other checkout was touched. The box still needs to prove the header on its TLS logger, run Maestro with mocked GPS, and run the screenshot sweeps against the APK.
