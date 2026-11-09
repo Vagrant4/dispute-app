@@ -18,6 +18,12 @@ The existing Node suite is one test file per mobile subsystem under `mobile/test
 
 Run: `npm run test:components --workspace mobile`.
 
+Follow-up 4 adds:
+
+- `mobile/__tests__/entitlement.test.ts`: extended trial, expired trial, active subscription, and Today/project shared-source agreement.
+- `mobile/__tests__/projectPage.test.tsx`: only the project picker and PDF action remain; report generation reads the Settings period.
+- `mobile/__tests__/settingsPayRate.test.tsx`: stable Settings controls, per-project update path, and PDF use of project rate plus Settings period.
+
 ## Maestro (run on the box, not this PC)
 
 - `mobile/.maestro/today_map.yaml`: Today map, locate control, and screenshot.

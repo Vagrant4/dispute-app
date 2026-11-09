@@ -138,3 +138,25 @@ The fix installs `OkHttpClientProvider.setOkHttpClientFactory` before `loadReact
 ### Skill availability and remaining device proof
 
 The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, `react-best-practices`, and Expo/React Native/Android skills were not installed in this environment. Their practices were followed manually: root cause and cache behavior first, failing tests before production edits, small scoped components/host-only networking, and full available verification before completion. No provider account/key, debug network override, push, PR, deploy, billing/auth/account configuration change, or other checkout was touched. The box still needs to prove the header on its TLS logger, run Maestro with mocked GPS, and run the screenshot sweeps against the APK.
+
+## Follow-up 4: single entitlement source
+
+### Root cause and gate trace
+
+- The server status/cache adapter is `mobile/src/subscription/subscriptionClient.ts:42`; it reads `/subscription/status` and only falls back to a still-current cached entitlement after a network failure.
+- Today used `useSubscriptionAccess` (`HomeScreen.tsx:30`) and derived its banner from that hook's `trialEndsAt` (`HomeScreen.tsx:68-69`) and `canCreateRecords` (`HomeScreen.tsx:303-305`). Settings and Plan used another hook instance (`SettingsScreen.tsx:72-77`) and `planTrialLine` (`SettingsScreen.tsx:103`, `PlanBillingPanel.tsx:26`). Each hook instance previously owned independent React state, so mounted screens could disagree until their own refresh ran.
+- Reports had a third, independent entitlement state plus its own direct status request. The old `ProgressClaimReportsScreen.tsx:54-60,164-183` path could retain a different response than Today/Settings. Its PDF/CSV/file actions all reached `ensureCanExport`, but `canExportProgressClaim` and `getDisputePackExportAccess` additionally required `hasPaidSubscription`; that helper explicitly excluded `TRIALING`. Thus an extended server trial could display as current in one screen while the report gate remained locked even when `canExportReports` was true.
+- The fixed source is the shared external store in `useSubscriptionAccess.ts:12-78`. App start and foreground-active refresh are at `useSubscriptionAccess.ts:34-49`; Settings refreshes it after a completed purchase at `SettingsScreen.tsx:116-132`. Today, Projects, Photos, Settings/Plan, and Reports now read that same snapshot. Reports no longer import or directly call `fetchSubscriptionStatus`.
+- The canonical rules are now `hasCurrentFullAccess` plus the server's `canExportReports` flag (`subscriptionClient.ts:108-136`, `recordAccess.ts:26-38`): current extended/active trial unlocks signed-in PDF and CSV, expired trial without subscription locks, and a current active subscription unlocks. Guest/account-required behavior remains (`recordAccess.ts:31`), and Today still renders the real ended state (`HomeScreen.tsx:303-305`). No server or billing/trial rule was changed.
+
+### Project page proposal implemented
+
+What stays: the selected-project picker (`ProjectDetailScreen.tsx:25`) and the single `Create & share PDF` action (`ProjectDetailScreen.tsx:35`). The page ends there. What was removed from this render: period/week line, Preview/CSV, Status/lock card, Earlier reports, Show sessions, Sessions and its empty text, pay rate, metric tiles, project-complete/rename/site summary, and Photos/See all. Their data/repositories and reusable report components remain for other screens; the minimal option was to stop rendering them in the compact project route.
+
+Settings now owns the report-period control (`SettingsScreen.tsx:288`) and per-project pay-rate controls (`SettingsScreen.tsx:277-294`). The rate still writes `project.hourlyRateCents`; it is not global. PDF construction loads the saved period and the selected project's rate (`ProgressClaimReportsScreen.tsx:121-139`). Stable Maestro IDs are `project-picker`, `create-share-pdf`, `settings-report-period`, `settings-pay-rate-project-picker`, `settings-pay-rate-input`, and `settings-pay-rate-save`.
+
+### Tests and commits
+
+- Added `entitlement.test.ts`, `projectPage.test.tsx`, and `settingsPayRate.test.tsx`; updated obsolete source-contract tests to the new trial and minimal-project behavior.
+- Implementation/test commit: `a62980b`. Documentation/verification commit: the following local commit.
+- Verification passed: mobile strict typecheck; mobile Node 302/302; Jest 12/12 in 7 suites; full root `npm test` with shared 32/32, server 171/171, client 24/24, mobile 302 Node + 12 Jest.
