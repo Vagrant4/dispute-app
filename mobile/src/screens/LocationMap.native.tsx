@@ -65,7 +65,7 @@ export function getOpenStreetMapTiles(
   return tiles;
 }
 
-export function LocationMap({ reading, locating = false }: { reading: LocationReading | null; locating?: boolean }) {
+export function LocationMap({ reading, locating = false, showDetails = false }: { reading: LocationReading | null; locating?: boolean; showDetails?: boolean }) {
   const [mapSize, setMapSize] = useState<MapSize>({ width: 360, height: 260 });
 
   const tiles = useMemo(
@@ -89,7 +89,7 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
   if (reading?.latitude == null || reading.longitude == null) {
     return (
       <View style={styles.locationMapEmpty}>
-        <Text style={styles.muted}>{locating ? "Getting GPS…" : "No GPS reading yet. Tap Refresh."}</Text>
+        <Text style={styles.muted}>{locating ? "Getting GPS…" : "No GPS reading yet. Tap the crosshair."}</Text>
       </View>
     );
   }
@@ -132,11 +132,11 @@ export function LocationMap({ reading, locating = false }: { reading: LocationRe
           <Text style={styles.locationMapAttributionText}>{"\u00A9 OpenStreetMap contributors"}</Text>
         </Pressable>
       </View>
-      <View style={styles.locationMapDetails}>
+      {showDetails ? <View style={styles.locationMapDetails}>
         <Text style={styles.heading}>{label}</Text>
         <Text style={styles.body}>{coordinateLabel}</Text>
         <Text style={styles.muted}>GPS pin is fixed · cannot be moved</Text>
-      </View>
+      </View> : null}
     </View>
   );
 }

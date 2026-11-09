@@ -40,7 +40,7 @@ test("disabled controls use disabled text colours and no opacity dimming", () =>
       }
       if (ts.isJsxOpeningElement(node) && node.tagName.getText(ast) === "Pressable" && node.attributes.properties.some((prop) => prop.name?.getText(ast) === "disabled") && !node.getText(ast).includes("styles.todayEvidenceRow")) {
         assert.match(node.getText(ast), /styles.disabledButton/, file);
-        assert.match(node.parent.getText(ast), /styles.disabledButtonText/, file);
+        assert.match(node.parent.getText(ast), /styles.disabledButtonText|styles.locationReticle(?:Circle|Line)Disabled/, file);
       }
       ts.forEachChild(node, scan);
     }

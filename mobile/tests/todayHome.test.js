@@ -47,13 +47,13 @@ test("Clock in directs missing requirements to GPS or the picker", () => {
   assert.match(home, /store.refreshLocation\(params\)/);
   assert.match(home, /Linking.openSettings\(\)/);
 });
-test("both evidence rows lock during work with normal text and real icons", () => {
+test("project evidence row locks during work and standalone location chrome is removed", () => {
   const home = source("src/screens/HomeScreen.tsx");
-  assert.match(home, /disabled=\{isRunning \|\| locating \|\| stopping\}/);
   assert.match(home, /accessibilityState=\{\{ disabled: isRunning \}\}/);
   assert.match(home, /Locked during shift/);
-  for (const icon of ["pin", "briefcase", "lock"]) assert.ok(home.includes(`assets/icons/${icon}.png`));
-  assert.equal((home.match(/!isRunning \? <Text style=\{styles.todayChevron\}/g) || []).length, 2);
+  for (const icon of ["briefcase", "lock"]) assert.ok(home.includes(`assets/icons/${icon}.png`));
+  assert.doesNotMatch(home, /assets\/icons\/pin\.png|accessibilityLabel="Get location"|formatLocationRow/);
+  assert.equal((home.match(/!isRunning \? <Text style=\{styles.todayChevron\}/g) || []).length, 1);
 });
 
 test("today timer includes completed shifts and only today's part of an overnight shift", () => {
@@ -143,6 +143,8 @@ test("Today embeds the fixed-pin map without a separate map screen", () => {
   const home = source("src/screens/HomeScreen.tsx");
   const nativeMap = source("src/screens/LocationMap.native.tsx");
   assert.match(home, /testID="today-map"/);
+  assert.match(nativeMap, /showDetails[\s\S]*\{showDetails \? <View style=\{styles\.locationMapDetails\}>/);
+  assert.match(nativeMap, /Tap the crosshair/);
   assert.doesNotMatch(home, /View on map|setLocationMapOpen/);
   assert.doesNotMatch(nativeMap, /openDeviceMaps|Open in Maps/);
   assert.match(nativeMap, /GPS pin is fixed/);

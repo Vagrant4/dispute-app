@@ -5,7 +5,7 @@ test("Home has a GPS chip without typed location input", () => {
   const home = source("src/screens/HomeScreen.tsx");
   for (const input of home.matchAll(/<TextInput[\s\S]*?\/>/g)) assert.doesNotMatch(input[0], /value=\{location|setLocationText|site address/i);
   assert.doesNotMatch(home, /TextInput/);
-  assert.match(home, /formatLocationRow\(locationFix,/);
+  assert.doesNotMatch(home, /formatLocationRow\(locationFix,/);
   assert.doesNotMatch(home, /GPS attached:|toFixed\(5\)/);
   assert.ok(home.indexOf("await store.clockIn(") < home.indexOf("await getWorkLocationWithTimeout(20_000)"));
 });

@@ -6,12 +6,19 @@ const test = require("node:test");
 const mobile = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(mobile, name), "utf8");
 
-test("0.3.4 tile identity is shared by JS and native Android", () => {
+test("0.3.5 tile identity and versionCode 7 are shared by JS and native Android", () => {
   const app = JSON.parse(read("app.json"));
+  const pkg = JSON.parse(read("package.json"));
   const tileConfig = read("src/maps/tileConfig.ts");
+  const gradle = read("android/app/build.gradle");
   const native = read("android/app/src/main/java/sg/claimproof/mobile/MainApplication.kt");
-  assert.equal(app.expo.version, "0.3.4");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.4"/);
+  assert.equal(app.expo.version, "0.3.5");
+  assert.equal(app.expo.android.versionCode, 7);
+  assert.equal(pkg.version, "0.3.5");
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.5"/);
+  assert.match(gradle, /versionCode 7/);
+  assert.match(gradle, /versionName "0\.3\.5"/);
+  assert.match(gradle, /versionNameSuffix "-test"/);
   assert.match(native, /OkHttpClientProvider\.setOkHttpClientFactory/);
   assert.match(native, /tile\.openstreetmap\.org/);
   assert.match(native, /User-Agent/);
@@ -29,6 +36,13 @@ test("Today embeds the map and accessible locate control without old map UI", ()
   const home = read("src/screens/HomeScreen.tsx");
   assert.match(home, /<LocationMap/);
   assert.match(home, /accessibilityLabel="Show my location"/);
+  const mapFrame = home.slice(home.indexOf('<View style={styles.locationMapFrame} testID="today-map">'), home.indexOf('<View style={styles.todayRows}>'));
+  assert.match(mapFrame, /testID="today-locate-button"/);
+  assert.match(mapFrame, /testID="today-locate-reticle"/);
+  assert.match(mapFrame, /locationReticleHorizontal/);
+  assert.match(mapFrame, /locationReticleVertical/);
+  assert.doesNotMatch(mapFrame, /◎|pin\.png|navigation|arrow|>\s*[+xX]\s*</);
+  assert.doesNotMatch(home, /accessibilityLabel="Get location"|formatLocationRow|assets\/icons\/pin\.png|Add your location|At your location/);
   assert.doesNotMatch(home, /View on map/);
   assert.doesNotMatch(home, /locationMapOpen/);
   assert.doesNotMatch(read("src/screens/LocationMap.native.tsx"), /Open in Maps/);

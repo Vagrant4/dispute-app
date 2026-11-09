@@ -17,7 +17,7 @@ import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { locationReading, type LocationReading } from "../work/locationEvidence";
 import { getWorkLocationWithTimeout } from "../work/workLocation";
-import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime, formatLocationRow } from "../work/todayDisplay";
+import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
@@ -37,6 +37,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [workStatus, setWorkStatus] = useState("");
   const [locationFix, setLocationFix] = useState<LocationReading | null>(null);
+  const [showLocationDetails, setShowLocationDetails] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationEntryId, setLocationEntryId] = useState<string | null>(null);
   const [locationPhase, setLocationPhase] = useState<"start" | "stop">("start");
@@ -64,7 +65,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const startDisabled = isRunning ? stopping : !access.canCreateRecords;
   const idleClock = formatIdleClock(now);
   const workedSeconds = workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now);
-  const locationRow = formatLocationRow(locationFix, { working: isRunning, locating, locationOff });
   const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? formatTrialDaysLeft(access.subscription.trialEndsAt, now.getTime()) : null;
   useEffect(() => {
@@ -175,16 +175,25 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     try {
       const location = await getWorkLocationWithTimeout(20_000);
       if (request !== locationRequest.current) return;
-      const store = await getWorkStore(userId);
       const canRefreshEntry = locationEntryId && (locationPhase === "start" || (clockOutAt && now.getTime() - clockOutAt.getTime() <= 600_000));
       const params = { userId, entryId: locationEntryId!, phase: locationPhase, locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
       const fix = locationReading(params, canRefreshEntry ? locationPhase : "start");
       setLocationOff(fix.source !== "gps");
-      if (canRefreshEntry) await store.refreshLocation(params);
+      if (canRefreshEntry) {
+        const store = await getWorkStore(userId);
+        await store.refreshLocation(params);
+      }
       else if (fix.source === "gps") pendingLocations.current.push(fix);
       setLocationFix(fix);
+      if (fix.source === "gps") setShowLocationDetails(true);
     } catch (error) { setWorkStatus(getErrorMessage(error, "refresh the location")); }
     finally { if (request === locationRequest.current) setLocating(false); }
+  }
+
+  function handleLocatePress() {
+    if (locationFix?.source === "gps") setShowLocationDetails(true);
+    if (locationOff) void Linking.openSettings();
+    else void handleLocateMe();
   }
 
   function useTestLocation() {
@@ -263,20 +272,17 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         </View>
       </View>
       <View style={styles.locationMapFrame} testID="today-map">
-        <LocationMap reading={locationFix} locating={locating} />
-        <Pressable accessibilityLabel="Show my location" accessibilityRole="button" disabled={locating} onPress={() => void handleLocateMe()} style={[styles.locationMapLocateButton, locating && styles.disabledButton]} testID="today-locate-button">
-          <Text style={[styles.locationMapLocateIcon, locating && styles.disabledButtonText]}>◎</Text>
+        <LocationMap reading={locationFix} locating={locating} showDetails={showLocationDetails} />
+        <Pressable accessibilityLabel="Show my location" accessibilityRole="button" disabled={locating || stopping} onPress={handleLocatePress} style={[styles.locationMapLocateButton, (locating || stopping) && styles.disabledButton]} testID="today-locate-button">
+          <View accessible={false} style={styles.locationReticle} testID="today-locate-reticle">
+            <View style={[styles.locationReticleCircle, (locating || stopping) && styles.locationReticleCircleDisabled]} />
+            <View style={[styles.locationReticleHorizontal, (locating || stopping) && styles.locationReticleLineDisabled]} />
+            <View style={[styles.locationReticleVertical, (locating || stopping) && styles.locationReticleLineDisabled]} />
+            <View style={[styles.locationReticleDot, (locating || stopping) && styles.locationReticleLineDisabled]} />
+          </View>
         </Pressable>
       </View>
       <View style={styles.todayRows}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Get location" accessibilityState={{ disabled: isRunning || locating || stopping }} disabled={isRunning || locating || stopping} onPress={() => { if (locationOff) void Linking.openSettings(); else void handleLocateMe(); }} style={styles.todayEvidenceRow}>
-          <View style={styles.todayIconTile}><Image source={require("../../assets/icons/pin.png")} style={styles.todayRowIcon} /></View>
-          <View style={styles.todayRowContent}>
-            <Text style={styles.todayRowTitle}>{locationRow.title}</Text>
-            <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{locationRow.subtitle}</Text></View>
-          </View>
-          {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
-        </Pressable>
         {!isRunning ? <View style={styles.actionRow}>
           {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
         </View> : null}
