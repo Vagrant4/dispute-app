@@ -22,9 +22,8 @@ test("Settings main rows are exactly Name, Pay rate, Language, Plan, Support, Mo
   assert.match(styles, /settingsRowLabel: \{[^\n]*\.\.\.type.label/);
 });
 
-test("More keeps referrals, privacy and the wired record copy tools", () => {
-  assert.deepEqual([...moreRows.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), ["Refer a friend", "Privacy & data", "Keep a copy"]);
-  assert.match(source, /panel === "referrals" \? <ReferralScreen/);
+test("More keeps privacy and the wired record copy tools", () => {
+  assert.deepEqual([...moreRows.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), ["Privacy & data", "Keep a copy"]);
   assert.match(source, /panel === "privacy_data"/);
   assert.match(source, /<DeleteAccountScreen\s+embedded/);
   assert.match(source, /panel === "backup" \? <SettingsBackupScreen account=\{account\} exportOnly=\{!hasFullAccess\}/);
@@ -43,12 +42,12 @@ test("main list uses plain wording and no segmented Account menu", () => {
 
 test("all legacy initialPanel ids map to their panels with More back navigation", () => {
   const mapping = source.slice(source.indexOf("const INITIAL_PANEL_PAGES:"), source.indexOf("export function SettingsScreen"));
-  for (const [oldId, page] of Object.entries({ profile: "name", work_hours: "pay_rate", subscription: "plan", referrals: "referrals", privacy_data: "privacy_data" })) {
+  for (const [oldId, page] of Object.entries({ profile: "name", work_hours: "pay_rate", subscription: "plan", privacy_data: "privacy_data" })) {
     assert.match(mapping, new RegExp(`${oldId}: "${page}"`));
   }
   assert.match(source, /useState<SettingsPage>\(initialPanel \? INITIAL_PANEL_PAGES\[initialPanel\] : "main"\)/);
   assert.match(source, /setPanel\(initialPanel \? INITIAL_PANEL_PAGES\[initialPanel\] : "main"\);\s*\}, \[initialPanel\]\)/);
-  assert.match(source, /const insideMore = panel === "referrals" \|\| panel === "privacy_data" \|\| panel === "backup"/);
+  assert.match(source, /const insideMore = panel === "privacy_data" \|\| panel === "backup"/);
 });
 
 test("Language stays English-only and Support reuses policy and deletion links", () => {
@@ -92,7 +91,7 @@ test("each Settings sub-page owns exactly one title and no Settings header", () 
   for (const title of ["More", "Pay rate", "Language"]) {
     assert.equal((rest.match(new RegExp(`styles.todayTitle}>${title}<`, "g")) || []).length, 1);
   }
-  for (const [file, title] of [["PlanBillingPanel", "Plan"], ["ProfileSettingsPanel", "Name"], ["ReferralScreen", "Refer a friend"], ["SettingsBackupScreen", "Keep a copy"]]) {
+  for (const [file, title] of [["PlanBillingPanel", "Plan"], ["ProfileSettingsPanel", "Name"], ["SettingsBackupScreen", "Keep a copy"]]) {
     const panel = read(`screens/${file}.tsx`);
     assert.equal((panel.match(/styles.todayTitle/g) || []).length, 1);
     assert.match(panel, new RegExp(`styles.todayTitle}>${title}<`));

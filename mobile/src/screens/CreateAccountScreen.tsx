@@ -22,7 +22,6 @@ export function CreateAccountScreen({
   const [countryCode, setCountryCode] = useState("+65");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [phone, setPhone] = useState("");
-  const [referralCode, setReferralCode] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,7 +39,6 @@ export function CreateAccountScreen({
         email,
         phone: formatPhoneNumber(countryCode, phone),
         password,
-        referralCode,
       });
       if (result.ok) {
         await saveGuestTrial(startGuestTrial(Date.now())).catch(() => undefined);
@@ -147,20 +145,6 @@ export function CreateAccountScreen({
           style={styles.textInput}
           value={phone}
         />
-
-        <Text style={styles.inputLabel}>Referral code (optional)</Text>
-        <TextInput
-          accessibilityLabel="Referral code"
-          autoCapitalize="characters"
-          onChangeText={setReferralCode}
-          placeholder="DSP-XXXXXXXXXX"
-          placeholderTextColor={theme.colors.placeholder}
-          style={styles.textInput}
-          value={referralCode}
-        />
-        <Text style={styles.muted}>
-          Optional. It cannot be changed after registration.
-        </Text>
 
         <Text style={styles.inputLabel}>Password</Text>
         <View style={styles.passwordInputRow}>

@@ -3,7 +3,7 @@ const { readFileSync, existsSync } = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const read = (file) => readFileSync(path.join(__dirname, "..", file), "utf8");
-const files = ["SettingsScreen", "ProfileSettingsPanel", "PlanBillingPanel", "PrivacyScreen", "ReferralScreen", "SettingsBackupScreen"];
+const files = ["SettingsScreen", "ProfileSettingsPanel", "PlanBillingPanel", "PrivacyScreen", "SettingsBackupScreen"];
 const settings = read("src/screens/SettingsScreen.tsx");
 const styles = read("src/styles.ts");
 
@@ -22,8 +22,8 @@ test("Settings and its panels use plain sections without card boxes", () => {
   assert.doesNotMatch(settings, /numberOfLines=\{1\} style=\{styles.settingsRowSubtitle\}/);
 });
 
-test("all six main and three More rows use the supplied PNG line icons", () => {
-  for (const icon of ["name", "pay", "language", "plan", "support", "more", "refer", "privacy", "backup"]) {
+test("all six main and two More rows use the supplied PNG line icons", () => {
+  for (const icon of ["name", "pay", "language", "plan", "support", "more", "privacy", "backup"]) {
     assert.ok(settings.includes(`require("../../assets/icons/set-${icon}.png")`));
     for (const scale of ["", "@2x", "@3x"]) assert.ok(existsSync(path.join(__dirname, `../assets/icons/set-${icon}${scale}.png`)));
   }
