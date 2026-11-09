@@ -6,11 +6,11 @@ const test = require("node:test");
 const mobile = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(mobile, name), "utf8");
 
-test("0.3.3 tile identity is shared by JS and native Android", () => {
+test("0.3.4 tile identity is shared by JS and native Android", () => {
   const app = JSON.parse(read("app.json"));
   const tileConfig = read("src/maps/tileConfig.ts");
   const native = read("android/app/src/main/java/sg/claimproof/mobile/MainApplication.kt");
-  assert.equal(app.expo.version, "0.3.3");
+  assert.equal(app.expo.version, "0.3.4");
   assert.match(tileConfig, /APP_VERSION = "0\.3\.3"/);
   assert.match(native, /OkHttpClientProvider\.setOkHttpClientFactory/);
   assert.match(native, /tile\.openstreetmap\.org/);
