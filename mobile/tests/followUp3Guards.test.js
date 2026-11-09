@@ -6,18 +6,18 @@ const test = require("node:test");
 const mobile = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(mobile, name), "utf8");
 
-test("0.3.5 tile identity and versionCode 7 are shared by JS and native Android", () => {
+test("0.3.6 tile identity and versionCode 8 are shared by JS and native Android", () => {
   const app = JSON.parse(read("app.json"));
   const pkg = JSON.parse(read("package.json"));
   const tileConfig = read("src/maps/tileConfig.ts");
   const gradle = read("android/app/build.gradle");
   const native = read("android/app/src/main/java/sg/claimproof/mobile/MainApplication.kt");
-  assert.equal(app.expo.version, "0.3.5");
-  assert.equal(app.expo.android.versionCode, 7);
-  assert.equal(pkg.version, "0.3.5");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.5"/);
-  assert.match(gradle, /versionCode 7/);
-  assert.match(gradle, /versionName "0\.3\.5"/);
+  assert.equal(app.expo.version, "0.3.6");
+  assert.equal(app.expo.android.versionCode, 8);
+  assert.equal(pkg.version, "0.3.6");
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.6"/);
+  assert.match(gradle, /versionCode 8/);
+  assert.match(gradle, /versionName "0\.3\.6"/);
   assert.match(gradle, /versionNameSuffix "-test"/);
   assert.match(native, /OkHttpClientProvider\.setOkHttpClientFactory/);
   assert.match(native, /tile\.openstreetmap\.org/);

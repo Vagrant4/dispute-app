@@ -54,7 +54,11 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   }, [clockInAt, clockOutAt]);
 
   useEffect(() => {
-    void refreshWorkState();
+    let active = true;
+    void refreshWorkState().then(() => {
+      if (active) void handleLocateMe(false);
+    });
+    return () => { active = false; };
   }, []);
 
   const activeProject = selectedProjectId
@@ -168,7 +172,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     } finally { savingStart.current = false; }
   }
 
-  async function handleLocateMe() {
+  async function handleLocateMe(revealDetails = true) {
     if (locating || stopping) return;
     const request = ++locationRequest.current;
     setLocating(true);
@@ -184,8 +188,8 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         await store.refreshLocation(params);
       }
       else if (fix.source === "gps") pendingLocations.current.push(fix);
-      setLocationFix(fix);
-      if (fix.source === "gps") setShowLocationDetails(true);
+      if (revealDetails || fix.source === "gps") setLocationFix(fix);
+      if (fix.source === "gps" && revealDetails) setShowLocationDetails(true);
     } catch (error) { setWorkStatus(getErrorMessage(error, "refresh the location")); }
     finally { if (request === locationRequest.current) setLocating(false); }
   }

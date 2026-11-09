@@ -8,6 +8,8 @@ import { buildOpenStreetMapTileUrl, TILE_CACHE_VERSION, TILE_USER_AGENT } from "
 
 const TILE_SIZE = 256;
 const MAP_ZOOM = 16;
+const DEFAULT_LATITUDE = 1.3521;
+const DEFAULT_LONGITUDE = 103.8198;
 const EARTH_CIRCUMFERENCE_M = 40_075_016.686;
 export { TILE_CACHE_VERSION, TILE_USER_AGENT } from "../maps/tileConfig";
 
@@ -67,12 +69,13 @@ export function getOpenStreetMapTiles(
 
 export function LocationMap({ reading, locating = false, showDetails = false }: { reading: LocationReading | null; locating?: boolean; showDetails?: boolean }) {
   const [mapSize, setMapSize] = useState<MapSize>({ width: 360, height: 260 });
+  const hasFix = reading?.latitude != null && reading.longitude != null;
+  const latitude = reading?.latitude ?? DEFAULT_LATITUDE;
+  const longitude = reading?.longitude ?? DEFAULT_LONGITUDE;
 
   const tiles = useMemo(
-    () => reading?.latitude == null || reading.longitude == null
-      ? []
-      : getOpenStreetMapTiles(reading.latitude, reading.longitude, mapSize),
-    [mapSize, reading?.latitude, reading?.longitude],
+    () => getOpenStreetMapTiles(latitude, longitude, mapSize),
+    [latitude, longitude, mapSize],
   );
   const ringSize = useMemo(() => {
     const accuracy = reading?.accuracy;
@@ -86,16 +89,8 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
     return Math.max(24, Math.min(Math.min(mapSize.width, mapSize.height) * 0.8, diameter));
   }, [mapSize, reading?.accuracy, reading?.latitude]);
 
-  if (reading?.latitude == null || reading.longitude == null) {
-    return (
-      <View style={styles.locationMapEmpty}>
-        <Text style={styles.muted}>{locating ? "Getting GPS…" : "No GPS reading yet. Tap the crosshair."}</Text>
-      </View>
-    );
-  }
-
-  const coordinateLabel = formatCoordinateLabel(reading.latitude, reading.longitude);
-  const label = shortAddress(reading) || coordinateLabel;
+  const coordinateLabel = hasFix ? formatCoordinateLabel(latitude, longitude) : null;
+  const label = hasFix ? shortAddress(reading) || coordinateLabel : null;
 
   function handleMapLayout(event: LayoutChangeEvent) {
     const { width, height } = event.nativeEvent.layout;
@@ -105,7 +100,7 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
   return (
     <View style={styles.locationMapContent}>
       <View
-        accessibilityLabel="Street map with fixed GPS pin and accuracy circle"
+        accessibilityLabel={hasFix ? "Street map with fixed GPS pin and accuracy circle" : "Street map centered on Singapore"}
         onLayout={handleMapLayout}
         style={styles.locationMapCanvas}
       >
@@ -116,14 +111,14 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
             style={[styles.locationMapTile, { left: tile.left, top: tile.top }]}
           />
         ))}
-        <View
+        {hasFix ? <View
           pointerEvents="none"
           style={[
             styles.locationMapAccuracyRing,
             { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
           ]}
-        />
-        <View pointerEvents="none" style={styles.locationMapPin} />
+        /> : null}
+        {hasFix ? <View pointerEvents="none" style={styles.locationMapPin} /> : null}
         <Pressable
           accessibilityRole="link"
           onPress={() => void Linking.openURL("https://www.openstreetmap.org/copyright")}
@@ -132,7 +127,7 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
           <Text style={styles.locationMapAttributionText}>{"\u00A9 OpenStreetMap contributors"}</Text>
         </Pressable>
       </View>
-      {showDetails ? <View style={styles.locationMapDetails}>
+      {showDetails && hasFix ? <View style={styles.locationMapDetails}>
         <Text style={styles.heading}>{label}</Text>
         <Text style={styles.body}>{coordinateLabel}</Text>
         <Text style={styles.muted}>GPS pin is fixed · cannot be moved</Text>

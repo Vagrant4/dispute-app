@@ -47,6 +47,7 @@ test("home map refresh works while running from the embedded locate control", ()
   assert.match(home, /accessibilityLabel="Show my location"/);
   assert.match(home, /onPress=\{handleLocatePress\}/);
   assert.match(home, /function handleLocatePress\(\)[\s\S]*handleLocateMe\(\)/);
+  assert.match(home, /refreshWorkState\(\)[\s\S]*handleLocateMe\(false\)/);
 });
 
 test("sparse reverse geocode like 377 Singapore yields null address keeping coordinates", async () => {

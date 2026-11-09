@@ -143,8 +143,11 @@ test("Today embeds the fixed-pin map without a separate map screen", () => {
   const home = source("src/screens/HomeScreen.tsx");
   const nativeMap = source("src/screens/LocationMap.native.tsx");
   assert.match(home, /testID="today-map"/);
-  assert.match(nativeMap, /showDetails[\s\S]*\{showDetails \? <View style=\{styles\.locationMapDetails\}>/);
-  assert.match(nativeMap, /Tap the crosshair/);
+  assert.match(nativeMap, /showDetails[\s\S]*\{showDetails && hasFix \? <View style=\{styles\.locationMapDetails\}>/);
+  assert.match(nativeMap, /1\.3521/);
+  assert.match(nativeMap, /103\.8198/);
+  assert.match(nativeMap, /getOpenStreetMapTiles/);
+  assert.doesNotMatch(nativeMap, /No GPS reading yet\. Tap the crosshair\./);
   assert.doesNotMatch(home, /View on map|setLocationMapOpen/);
   assert.doesNotMatch(nativeMap, /openDeviceMaps|Open in Maps/);
   assert.match(nativeMap, /GPS pin is fixed/);
