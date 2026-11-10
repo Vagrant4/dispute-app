@@ -13,6 +13,7 @@ import type { PhotoEvidenceRow } from "../photos/photoEvidenceRepository";
 import { type PhotoEvidenceType, type PhotoGpsResult } from "../photos/photoEvidenceTypes";
 import { photoEvidenceContent } from "../screenContent";
 import { photoCaptureMetadata, photoSealBadge, photoTimeLabel, sealPhoto } from "../photos/photoSeal";
+import { projectPickerLabel } from "../work/projectLabels";
 import { styles, theme } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
@@ -228,7 +229,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View>
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
-        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.name}</Text></Pressable>)}
+        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.id ? projectPickerLabel(project, projects) : project.name}</Text></Pressable>)}
       </ScrollView>
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
         <Text style={styles.photoEmptyIcon}>▧</Text>

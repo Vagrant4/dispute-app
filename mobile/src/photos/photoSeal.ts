@@ -34,7 +34,8 @@ export async function sealPhoto(params: { localUri: string; capturedAt: string |
 export function photoSealBadge(photo: Pick<PhotoEvidenceRow, "capture_source" | "capture_time_source" | "lock_hash" | "gps_latitude" | "gps_longitude">): string {
   if (photo.capture_source === "gallery") return photo.capture_time_source !== "exif" ? "Gallery · time unknown" : "Gallery · not sealed at capture";
   if (photo.capture_source === "camera" && photo.lock_hash) return `Sealed on this phone${photo.gps_latitude != null && photo.gps_longitude != null ? " · GPS" : ""}`;
-  return "Seal unavailable";
+  if (photo.capture_source === "camera") return "Not sealed · sealing failed";
+  return "Not sealed · older record has no seal";
 }
 
 export function photoTimeLabel(photo: Pick<PhotoEvidenceRow, "captured_at" | "capture_source" | "capture_time_source">): string {
