@@ -303,6 +303,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       <Text style={styles.todayStarted} testID="today-started">
         {isRunning && clockInAt ? `Started ${formatClockTime(clockInAt)}` : "Not clocked in"}
       </Text>
+      {workStatus ? <Text style={styles.todayStatusLine} testID="today-work-status">{workStatus}</Text> : null}
       {onBreak ? <Text style={styles.todayStarted}>On break · {formatWorkedClock(breakSummary.seconds)}</Text> : null}
       {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
       <View style={styles.todayProjectActions} testID="today-project-actions">

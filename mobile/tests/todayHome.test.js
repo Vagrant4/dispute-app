@@ -150,10 +150,18 @@ test("Today keeps the address hidden until the locate crosshair requests Android
   const home = source("src/screens/HomeScreen.tsx");
   const location = source("src/work/workLocation.ts");
   assert.match(home, /handleLocateMe\(false/);
-  assert.match(home, /getWorkLocationWithTimeout\(20_000, \{ geocode: revealDetails \}\)/);
+  assert.match(home, /getWorkLocationWithTimeout\(25_000, \{ geocode: revealDetails \}\)/);
   assert.match(location, /reverseGeocodeAddress/);
   assert.match(location, /Location\.reverseGeocodeAsync/);
   assert.doesNotMatch(location, /maps\.googleapis\.com\/maps\/api\/geocode\/json/);
+});
+
+test("Today renders clock and location failures and passes the selected task to clock-in", () => {
+  const home = source("src/screens/HomeScreen.tsx");
+  const handler = home.slice(home.indexOf("async function handleClockIn"), home.indexOf("async function handleLocateMe"));
+  assert.match(handler, /clockIn\(\{[^}]*taskId: selectedTaskId/);
+  assert.match(home, /testID="today-work-status"/);
+  assert.match(home, /\{workStatus \? <Text[^>]*>\{workStatus\}<\/Text> : null\}/);
 });
 
 test("App restores the signed-in session from SecureStore on cold start", () => {

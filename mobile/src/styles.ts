@@ -355,6 +355,7 @@ export const styles = StyleSheet.create({
   todayTimerCard: { backgroundColor: theme.colors.surface, borderRadius: radius.md, padding: todayLayout.cardPadding },
   todayClock: { ...today.clock, color: theme.colors.text, fontVariant: ["tabular-nums"], textAlign: "center" },
   todayStarted: { ...type.caption, color: theme.colors.textMuted, textAlign: "center" },
+  todayStatusLine: { ...type.caption, color: theme.colors.textMuted, textAlign: "center" },
   todayTrial: { ...type.caption, marginTop: space.xs, color: theme.colors.textMuted, textAlign: "center" },
   todaySections: { flex: 1, gap: todayLayout.gap },
   todayClockAction: { gap: todayLayout.gap, marginBottom: todayLayout.clockGap },
