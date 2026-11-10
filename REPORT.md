@@ -218,3 +218,23 @@ Tests were updated before implementation and first failed against the old empty 
 - Client: 24/24 passed.
 
 Gradle assemble was not run and no APK is claimed. Implementation, tests, and version bump commit: `b244e50` (`fix: show Today map tiles on open`). This report is the subsequent local documentation commit. No push, PR, deploy, store/billing/account action, paid account/API key, or other checkout was touched.
+
+## Follow-up 8: pay-rate first Save (0.3.7-test, versionCode 9)
+
+The first Save failed when the Settings load had not populated its local project array and selected project ID. Although the user's project already existed in owned storage, `handleSaveProjectRate` only searched that empty in-memory array and silently returned. When a write did succeed, the handler immediately ran the full pay-rate load again; any transient failure in that cosmetic reload replaced `Saved` with `Couldn't load pay rate. Reopen the app and try again.` This made a successful or recoverable first attempt appear to have failed while a later tap worked after state settled.
+
+The save path now prefers the valid selected in-memory project, but if it is missing it reopens the existing user-scoped project store, calls `listProjects(userId)`, and uses the first already-stored project, matching the load path's fallback. It does not create or guess a project. A missing/zero existing hourly rate is accepted and the entered valid rate is written through the existing `updateProject` update. After the project and report period writes succeed, local project/selection state is updated and the status remains `Saved`; the clobbering post-save full reload was removed.
+
+The RNTL regression starts with a transient first `listProjects` failure, an empty/null UI selection, and an existing stored `1111.` project whose rate is zero. It enters `150`, presses `settings-pay-rate-save` once, verifies the owned project receives `15000` cents, verifies `Saved`, and verifies the reopen-app load error is no longer the save outcome. Existing test IDs, per-project update, report-period ownership, and PDF project-rate guards remain covered.
+
+Version declarations are now 0.3.7 with Android versionCode 9. The existing internal `versionNameSuffix "-test"` remains, so the internal build name is `0.3.7-test` and its application ID suffix remains unchanged. The map User-Agent contact remains `+https://github.com/`; no map, address, geocoder, LocationMap, project-name, add-project, dropdown-menu, or photo-refresh behavior was changed.
+
+Final verification passed:
+
+- Mobile strict TypeScript: passed.
+- Mobile Node: 302/302 passed.
+- Mobile Jest/RNTL: 44/44 across 9 suites passed (one new behavioral test).
+- Full root `npm test`: shared 32/32, server 171/171, client 24/24, mobile typecheck, mobile Node 302/302, and mobile Jest 44/44 passed.
+- Gradle assemble was not run and no APK is claimed.
+
+Implementation, regression test, and version bump commit: `e62e771` (`fix: save project pay rate on first tap`). This report is the subsequent local documentation commit. The requested debugging, TDD, verification, and React practices were followed manually because their named skills were not installed. No push, PR, deploy, store/billing/account action, paid account/API key, other checkout, or out-of-scope map/dropdown work was touched.
