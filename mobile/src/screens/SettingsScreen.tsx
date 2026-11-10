@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
@@ -72,6 +72,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const [rateProjectId, setRateProjectId] = useState<string | null>(null);
   const [rateProjectPickerOpen, setRateProjectPickerOpen] = useState(false);
   const [projectRate, setProjectRate] = useState("");
+  const rateDirty = useRef(false);
+  const rateValue = useRef("");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
   const [reportPeriodPickerOpen, setReportPeriodPickerOpen] = useState(false);
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
@@ -187,31 +189,38 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
 
   useEffect(() => {
     const selected = projects.find((item) => item.id === rateProjectId);
-    setProjectRate(formatRateAmount(selected?.hourlyRateCents ?? 0));
+    const value = formatRateAmount(selected?.hourlyRateCents ?? 0);
+    rateValue.current = value; rateDirty.current = false; setProjectRate(value);
   }, [projects, rateProjectId]);
 
-  async function handleSaveProjectRate() {
+  async function handleSaveProjectRate(projectId = rateProjectId, value = rateValue.current || projectRate) {
     setProjectRateStatus("");
     try {
       const store = await getProjectScreenStore(userId);
-      const selectedProject = projects.find((item) => item.id === rateProjectId);
+      const selectedProject = projects.find((item) => item.id === projectId);
       const storedProjects = selectedProject ? projects : await store.listProjects(userId);
       const project = selectedProject ?? storedProjects.find((item) => item.status !== "archived");
       if (!project) {
         setProjectRateStatus("Add a project first.");
         return;
       }
-      const hourlyRateCents = parseRateAmountCents(projectRate);
+      const hourlyRateCents = parseRateAmountCents(value);
       await store.updateProject({ userId, projectId: project.id, name: project.name, description: project.description, hourlyRateCents });
-      await saveReportPeriod(userId, reportPeriod);
       setProjects(storedProjects.map((item) => item.id === project.id ? { ...item, hourlyRateCents } : item));
       setRateProjectId(project.id);
       setProjectRateStatus("Saved");
+      rateDirty.current = false;
       setWorkHoursStatus("");
     } catch {
       setProjectRateStatus("Couldn't save. Try again.");
     }
   }
+
+  useEffect(() => {
+    if (!rateDirty.current || !rateProjectId) return;
+    const timer = setTimeout(() => void handleSaveProjectRate(rateProjectId, rateValue.current), 600);
+    return () => clearTimeout(timer);
+  }, [projectRate, rateProjectId]);
 
   useEffect(() => {
     const initialLoad = setTimeout(() => void loadWorkHours(), 0);
@@ -309,12 +318,12 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           </Pressable>
           {rateProjectPickerOpen ? <ProjectPickerSheet
             onClose={() => setRateProjectPickerOpen(false)}
-            onSelect={(projectId) => { setRateProjectId(projectId); setRateProjectPickerOpen(false); }}
+            onSelect={async (projectId) => { if (rateDirty.current) await handleSaveProjectRate(rateProjectId, rateValue.current); setRateProjectId(projectId); setRateProjectPickerOpen(false); }}
             projects={projects.filter((project) => project.status !== "archived")}
             testID="settings-pay-rate-project-sheet"
           /> : null}
           <Text style={styles.inputLabel}>Project hourly rate ({currency})</Text>
-          <TextInput accessibilityLabel="Project hourly rate" testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onChangeText={setProjectRate} style={styles.textInput} value={projectRate} />
+          <TextInput accessibilityLabel="Project hourly rate" testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onBlur={() => { if (rateDirty.current) void handleSaveProjectRate(rateProjectId, rateValue.current); }} onChangeText={(value) => { rateDirty.current = true; rateValue.current = value; setProjectRate(value); setProjectRateStatus(""); }} style={styles.textInput} value={projectRate} />
           <Text style={styles.inputLabel}>Report period</Text>
           <Pressable testID="settings-report-period" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setReportPeriodPickerOpen(true)}>
             <Text style={styles.dropdownValue}>{reportPeriod === "week" ? "This week" : "This month"}</Text>
@@ -322,13 +331,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           </Pressable>
           {reportPeriodPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setReportPeriodPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-report-period-sheet">
             <Text style={styles.heading}>Report period</Text>
-            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
+            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); void saveReportPeriod(userId, period).then(() => setProjectRateStatus("Saved")).catch(() => setProjectRateStatus("Couldn't save. Try again.")); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
               <Text style={styles.body}>{period === "week" ? "This week" : "This month"}{period === reportPeriod ? " ✓" : ""}</Text>
             </Pressable>)}
           </SwipeDownSheet> : null}
-          <Pressable testID="settings-pay-rate-save" accessibilityRole="button" onPress={() => void handleSaveProjectRate()} style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Save project rate &amp; report period</Text>
-          </Pressable>
           <Text style={styles.statusMessage}>{projectRateStatus}</Text>
           <Text style={styles.inputLabel}>Currency</Text>
           <View style={styles.dropdownContainer}>
