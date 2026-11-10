@@ -55,7 +55,7 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
     const rows = summaries.filter((project) => statusFilter === "archived" ? project.status === "archived" : project.status !== "archived");
     return filterProjects(rows, query, statusFilter === "archived" ? "all" : statusFilter, groupFilter);
   }, [summaries, query, statusFilter, groupFilter]);
-  if (openProjectId) return <ProjectDetailScreen key={openProjectId} account={account} projectId={openProjectId} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} onSelectProject={setOpenProjectId} />;
+  if (openProjectId) return <ProjectDetailScreen key={openProjectId} account={account} projectId={openProjectId} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} onSelectProject={(nextProjectId) => { setOpenProjectId(nextProjectId || null); if (!nextProjectId) void refresh(); }} />;
   const card = (project: ProjectSummary) => {
     const distance = formatSiteDistance(haversineMetres(position, project.siteLatitude != null && project.siteLongitude != null ? { latitude: project.siteLatitude, longitude: project.siteLongitude } : null));
     return <Pressable accessibilityRole="button" key={project.id} onPress={() => setOpenProjectId(project.id)} style={styles.projectListCard}>

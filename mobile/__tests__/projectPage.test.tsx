@@ -2,14 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 const mockListProjects = jest.fn(async () => [
   { id: "project-1111", userId: "u1", name: "1111.", description: "", hourlyRateCents: 0 },
   { id: "project-2222", userId: "u1", name: "2222.", description: "", hourlyRateCents: 0 },
 ]);
+const mockSetProjectStatus = jest.fn(async () => undefined);
 
 jest.mock("../src/work/projectScreenStore", () => ({
-  getProjectScreenStore: async () => ({ listProjects: mockListProjects }),
+  getProjectScreenStore: async () => ({ listProjects: mockListProjects, setProjectStatus: mockSetProjectStatus }),
 }));
 jest.mock("../src/screens/ProgressClaimReportsScreen", () => ({
   ProgressClaimReportsScreen: () => null,
@@ -48,6 +50,27 @@ test("project picker opens a project sheet and selects another project", async (
   expect(screen.getByTestId("project-detail-picker-sheet")).toBeTruthy();
   fireEvent.press(screen.getByText("2222."));
   expect(onSelectProject).toHaveBeenCalledWith("project-2222");
+});
+
+test("archive confirmation persists and returns to the project list", async () => {
+  const onSelectProject = jest.fn();
+  jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => buttons?.find((button) => button.text === "Archive")?.onPress?.());
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={onSelectProject} projectId="project-1111" />);
+  await waitFor(() => screen.getByText("Delete project"));
+  fireEvent.press(screen.getByText("Delete project"));
+  await waitFor(() => expect(mockSetProjectStatus).toHaveBeenCalledWith("u1", "project-1111", "archived"));
+  expect(onSelectProject).toHaveBeenCalledWith("");
+});
+
+test("archive failure stays on detail and shows a visible error", async () => {
+  mockSetProjectStatus.mockRejectedValueOnce(new Error("database unavailable"));
+  const onSelectProject = jest.fn();
+  jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => buttons?.find((button) => button.text === "Archive")?.onPress?.());
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={onSelectProject} projectId="project-1111" />);
+  await waitFor(() => screen.getByText("Delete project"));
+  fireEvent.press(screen.getByText("Delete project"));
+  await waitFor(() => expect(screen.getByText("Could not archive this project. Try again.")).toBeTruthy());
+  expect(onSelectProject).not.toHaveBeenCalled();
 });
 
 test("PDF builder reads the Settings report period", () => {

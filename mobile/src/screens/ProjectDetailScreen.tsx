@@ -25,6 +25,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
   const [entries, setEntries] = useState<WorkEntry[]>([]);
   const [groups, setGroups] = useState<ProjectGroup[]>([]);
   const [siteAddress, setSiteAddress] = useState("");
+  const [actionError, setActionError] = useState("");
   async function refreshTasks() { const store = await getProjectScreenStore(userId); if ("listTasks" in store) setTasks(await store.listTasks(userId, projectId)); }
   async function refreshEntries() { const store = await getProjectScreenStore(userId); if ("listProjectEntries" in store) setEntries(await store.listProjectEntries(userId, projectId)); }
   useEffect(() => {
@@ -41,23 +42,38 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
   useEffect(() => { void getProjectScreenStore(userId).then((store) => (store as typeof store & { listProjectGroups?: (id: string) => Promise<ProjectGroup[]> }).listProjectGroups?.(userId) ?? []).then(setGroups); }, [projectId, userId]);
 
   async function assignGroup(groupId: string | null) {
-    const store = await getProjectScreenStore(userId) as Awaited<ReturnType<typeof getProjectScreenStore>> & { assignProjectGroup?: (userId: string, projectId: string, groupId: string | null) => Promise<void> };
-    await store.assignProjectGroup?.(userId, projectId, groupId);
-    setProject((current) => current ? { ...current, groupId } : current);
+    try {
+      const store = await getProjectScreenStore(userId);
+      if (!("assignProjectGroup" in store) || typeof store.assignProjectGroup !== "function") throw new Error("Project groups are unavailable.");
+      await store.assignProjectGroup(userId, projectId, groupId);
+      setProject((current) => current ? { ...current, groupId } : current);
+      setActionError("");
+    } catch { setActionError("Could not update the project group. Try again."); }
   }
 
   async function saveDiscovery(status = project?.projectStatus ?? "active") {
-    const store = await getProjectScreenStore(userId) as Awaited<ReturnType<typeof getProjectScreenStore>> & { updateProjectDiscovery?: (userId: string, projectId: string, fields: { status: "lead" | "active" | "completed"; siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null }) => Promise<void> };
-    const address = siteAddress.trim();
-    const location = await import("expo-location");
-    const result = address ? (await location.geocodeAsync(address).catch(() => []))[0] : undefined;
-    await store.updateProjectDiscovery?.(userId, projectId, { status, siteAddress: address || null, siteLatitude: result?.latitude ?? project?.siteLatitude ?? null, siteLongitude: result?.longitude ?? project?.siteLongitude ?? null });
-    setProject((current) => current ? { ...current, projectStatus: status, siteAddress: address || null, siteLatitude: result?.latitude ?? current.siteLatitude, siteLongitude: result?.longitude ?? current.siteLongitude } : current);
+    try {
+      const store = await getProjectScreenStore(userId);
+      if (!("updateProjectDiscovery" in store) || typeof store.updateProjectDiscovery !== "function") throw new Error("Project discovery is unavailable.");
+      const address = siteAddress.trim();
+      const location = await import("expo-location");
+      const result = address ? (await location.geocodeAsync(address).catch(() => []))[0] : undefined;
+      await store.updateProjectDiscovery(userId, projectId, { status, siteAddress: address || null, siteLatitude: result?.latitude ?? project?.siteLatitude ?? null, siteLongitude: result?.longitude ?? project?.siteLongitude ?? null });
+      setProject((current) => current ? { ...current, projectStatus: status, siteAddress: address || null, siteLatitude: result?.latitude ?? current.siteLatitude, siteLongitude: result?.longitude ?? current.siteLongitude } : current);
+      setActionError("");
+    } catch { setActionError("Could not save the project site. Try again."); }
   }
 
   function confirmArchive() {
     const message = "The project is archived (hidden from lists and pickers), all shifts, photos and reports are kept, and it can be restored from the Archived filter.";
-    const archive = async () => { const store = await getProjectScreenStore(userId); await store.setProjectStatus(userId, projectId, "archived"); onSelectProject(""); };
+    const archive = async () => {
+      try {
+        const store = await getProjectScreenStore(userId);
+        await store.setProjectStatus(userId, projectId, "archived");
+        setActionError("");
+        onSelectProject("");
+      } catch { setActionError("Could not archive this project. Try again."); }
+    };
     if (Platform.OS === "web") { if (globalThis.confirm(message)) void archive(); }
     else Alert.alert("Delete project", message, [{ text: "Cancel", style: "cancel" }, { text: "Archive", style: "destructive", onPress: () => void archive() }]);
   }
@@ -80,7 +96,8 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
     <View style={styles.chipRow}>{(["lead", "active", "completed"] as const).map((status) => <Pressable key={status} onPress={() => void saveDiscovery(status)} style={project?.projectStatus === status ? styles.chipSelected : styles.chip}><Text style={project?.projectStatus === status ? styles.selectedSecondaryText : styles.chipText}>{status}</Text></Pressable>)}</View>
     <Pressable onPress={() => void saveDiscovery()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save site</Text></Pressable>
     <Pressable accessibilityRole="button" onPress={() => setTasksOpen(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Tasks ({tasks.length})</Text></Pressable>
-    <Pressable accessibilityRole="button" onPress={confirmArchive} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Delete project</Text></Pressable>
+    <Pressable accessibilityRole="button" onPress={confirmArchive} style={styles.dangerButtonSecondary}><Text style={styles.dangerButtonSecondaryText}>Delete project</Text></Pressable>
+    {actionError ? <Text accessibilityRole="alert" style={styles.projectActionError}>{actionError}</Text> : null}
     </View>
     {tasksOpen ? <TaskPickerSheet manage tasks={tasks} onClose={() => setTasksOpen(false)} onAdd={async (name) => { const store = await getProjectScreenStore(userId); await store.addTask({ userId, projectId, name }); await refreshTasks(); }} onRename={async (taskId, name) => { const store = await getProjectScreenStore(userId); await store.renameTask({ userId, taskId, name }); await refreshTasks(); }} /> : null}
     {entries.map((entry) => <Text key={entry.id} style={styles.muted}>Shift record: {entry.workDate} · {entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}{entry.locationNote ? ` · Note: ${entry.locationNote}` : ""}</Text>)}

@@ -30,6 +30,7 @@ export const theme = {
 export const styles = StyleSheet.create({
   projectTitleRow: { alignItems: "center", flexDirection: "row", gap: space.sm },
   projectDetailActions: { gap: space.md },
+  projectActionError: { color: theme.colors.danger, ...type.body },
   projectTitle: { flexShrink: 1 },
   projectRenameButton: { alignItems: "center", borderColor: theme.colors.border, borderRadius: radius.pill, borderWidth: 1, height: 36, justifyContent: "center", width: 36 },
   projectRenameIcon: { color: theme.colors.primary, ...type.heading },
