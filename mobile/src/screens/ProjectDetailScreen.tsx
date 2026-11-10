@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { LocalAccount } from "../auth/localAuth";
-import type { WorkEntry, WorkProject, WorkTask } from "../work/workRepository";
+import type { ProjectGroup, WorkEntry, WorkProject, WorkTask } from "../work/workRepository";
 import { getProjectScreenStore } from "../work/projectScreenStore";
 import { styles } from "../styles";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
@@ -22,6 +22,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [tasksOpen, setTasksOpen] = useState(false);
   const [entries, setEntries] = useState<WorkEntry[]>([]);
+  const [groups, setGroups] = useState<ProjectGroup[]>([]);
   async function refreshTasks() { const store = await getProjectScreenStore(userId); if ("listTasks" in store) setTasks(await store.listTasks(userId, projectId)); }
   async function refreshEntries() { const store = await getProjectScreenStore(userId); if ("listProjectEntries" in store) setEntries(await store.listProjectEntries(userId, projectId)); }
   useEffect(() => {
@@ -34,8 +35,16 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
   }, [projectId, userId]);
   useEffect(() => { void refreshTasks(); }, [projectId, userId]);
   useEffect(() => { void refreshEntries(); }, [projectId, userId]);
+  useEffect(() => { void getProjectScreenStore(userId).then((store) => (store as typeof store & { listProjectGroups?: (id: string) => Promise<ProjectGroup[]> }).listProjectGroups?.(userId) ?? []).then(setGroups); }, [projectId, userId]);
+
+  async function assignGroup(groupId: string | null) {
+    const store = await getProjectScreenStore(userId) as Awaited<ReturnType<typeof getProjectScreenStore>> & { assignProjectGroup?: (userId: string, projectId: string, groupId: string | null) => Promise<void> };
+    await store.assignProjectGroup?.(userId, projectId, groupId);
+    setProject((current) => current ? { ...current, groupId } : current);
+  }
 
   return <>
+    <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{project?.name ?? "Project"}</Text>{project?.siteAddress ? <Text style={styles.muted}>{project.siteAddress}</Text> : null}<View style={styles.projectStatusBadge}><Text style={styles.projectStatusText}>{project?.projectStatus ?? "active"}</Text></View></View>
     <Pressable testID="project-picker" accessibilityRole="button" onPress={() => setPickerOpen(true)} style={styles.dropdownBox}>
       <Text style={styles.dropdownValue}>{project?.name ?? "Choose project"}</Text>
       <Text style={styles.settingsDropdownChevron}>▼</Text>
@@ -46,6 +55,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
       projects={projects}
       testID="project-detail-picker-sheet"
     /> : null}
+    <Text style={styles.inputLabel}>Group</Text><View style={styles.chipRow}><Pressable onPress={() => void assignGroup(null)} style={!project?.groupId ? styles.chipSelected : styles.chip}><Text style={!project?.groupId ? styles.selectedSecondaryText : styles.chipText}>None</Text></Pressable>{groups.map((group) => <Pressable key={group.id} onPress={() => void assignGroup(group.id)} style={project?.groupId === group.id ? styles.chipSelected : styles.chip}><Text style={project?.groupId === group.id ? styles.selectedSecondaryText : styles.chipText}>{group.name}</Text></Pressable>)}</View>
     <Pressable accessibilityRole="button" onPress={() => setTasksOpen(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Tasks ({tasks.length})</Text></Pressable>
     {tasksOpen ? <TaskPickerSheet manage tasks={tasks} onClose={() => setTasksOpen(false)} onAdd={async (name) => { const store = await getProjectScreenStore(userId); await store.addTask({ userId, projectId, name }); await refreshTasks(); }} onRename={async (taskId, name) => { const store = await getProjectScreenStore(userId); await store.renameTask({ userId, taskId, name }); await refreshTasks(); }} /> : null}
     {entries.map((entry) => <Text key={entry.id} style={styles.muted}>Shift record: {entry.workDate} · {entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}{entry.locationNote ? ` · Note: ${entry.locationNote}` : ""}</Text>)}

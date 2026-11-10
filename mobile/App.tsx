@@ -56,6 +56,7 @@ function renderScreen(
           account={account}
           onCreateAccount={onCreateAccount}
           onOpenPlanBilling={() => onNavigate("settings", "subscription")}
+          onBack={() => onNavigate("home")}
         />
       );
     case "settings":

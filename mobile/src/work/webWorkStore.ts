@@ -86,13 +86,16 @@ export const webWorkStore = {
   async listProjectSummaries(userId: string, weekStart: string): Promise<ProjectSummary[]> {
     const state = readState(userId);
     const end = new Date(`${weekStart}T00:00:00Z`); end.setUTCDate(end.getUTCDate() + 7);
-    const photos = JSON.parse(globalThis.localStorage?.getItem(`dispute-web-saved-photo-evidence:${encodeURIComponent(userId)}`) || "[]") as Array<{ project_id: string }>;
+    const photos = JSON.parse(globalThis.localStorage?.getItem(`dispute-web-saved-photo-evidence:${encodeURIComponent(userId)}`) || "[]") as Array<{ project_id: string; local_uri?: string }>;
     return state.projects.map((project) => {
       const entries = state.entries.filter((entry) => entry.projectId === project.id).sort((a, b) => (b.startTime || "").localeCompare(a.startTime || ""));
       const last = entries[0];
       const stopFix = last?.clockOutGpsLatitude != null && last?.clockOutGpsLongitude != null;
       const startFix = last?.clockInGpsLatitude != null && last?.clockInGpsLongitude != null;
       return { id: project.id, name: project.name, status: project.status,
+        projectStatus: project.projectStatus ?? "active", groupId: project.groupId ?? null,
+        siteAddress: project.siteAddress ?? null, siteLatitude: project.siteLatitude ?? null, siteLongitude: project.siteLongitude ?? null,
+        latestPhotoUri: photos.find((photo) => photo.project_id === project.id)?.local_uri ?? null,
         lastSiteAddress: stopFix ? last.clockOutLocationText ?? null : startFix ? last.locationText : null,
         lastSiteLatitude: stopFix ? last.clockOutGpsLatitude : startFix ? last.clockInGpsLatitude : null,
         lastSiteLongitude: stopFix ? last.clockOutGpsLongitude : startFix ? last.clockInGpsLongitude : null,
@@ -156,6 +159,11 @@ export const webWorkStore = {
       hourlyRateCents,
       currency: normalizeCurrency(params.currency),
       status: "active",
+      projectStatus: "active",
+      groupId: null,
+      siteAddress: normalizeOptionalText(params.siteAddress),
+      siteLatitude: params.siteLatitude ?? null,
+      siteLongitude: params.siteLongitude ?? null,
     };
     writeState({
       ...state,

@@ -1,12 +1,13 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
   "app_settings",
   "clients",
   "projects",
+  "project_groups",
   "project_tasks",
   "time_entries",
   "photo_evidence",
@@ -220,6 +221,9 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  overtime_multiplier REAL NOT NULL,\n  rate_basis",
   "  work_hours_saved INTEGER NOT NULL DEFAULT 0,\n  report_name TEXT,\n  overtime_multiplier REAL NOT NULL,\n  rate_basis",
 ).replace(
+  "  description TEXT,\n  hourly_rate_cents INTEGER,",
+  "  description TEXT,\n  group_id TEXT,\n  site_address TEXT,\n  site_latitude REAL,\n  site_longitude REAL,\n  project_status TEXT NOT NULL DEFAULT 'active',\n  hourly_rate_cents INTEGER,",
+).replace(
   "  caption TEXT,\n  captured_at TEXT,",
   "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,\n  gps_accuracy_m REAL,\n  capture_source TEXT,\n  capture_time_source TEXT,",
 ).replace(
@@ -243,6 +247,16 @@ CREATE TABLE IF NOT EXISTS project_tasks (
   FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_project_tasks_owner ON project_tasks(user_id, project_id);
+CREATE TABLE IF NOT EXISTS project_groups (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_groups_owner ON project_groups(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_group_owner ON projects(user_id, group_id);
 `;
 
 export const REPORT_PAY_MIGRATION_SQL = `
@@ -269,6 +283,24 @@ CREATE INDEX IF NOT EXISTS idx_project_tasks_owner ON project_tasks(user_id, pro
 ALTER TABLE time_entries ADD COLUMN break_intervals_json TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE time_entries ADD COLUMN task_switches_json TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE time_entries ADD COLUMN current_task_id TEXT;
+`;
+
+export const PROJECT_DISCOVERY_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS project_groups (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_groups_owner ON project_groups(user_id);
+ALTER TABLE projects ADD COLUMN group_id TEXT;
+ALTER TABLE projects ADD COLUMN site_address TEXT;
+ALTER TABLE projects ADD COLUMN site_latitude REAL;
+ALTER TABLE projects ADD COLUMN site_longitude REAL;
+ALTER TABLE projects ADD COLUMN project_status TEXT NOT NULL DEFAULT 'active';
+CREATE INDEX IF NOT EXISTS idx_projects_group_owner ON projects(user_id, group_id);
 `;
 
 export const REPOSITORY_HEALTH_SQL = {
@@ -316,4 +348,5 @@ export const LOCAL_MIGRATIONS = [
   { version: 9, name: "photo_capture_seal", sql: PHOTO_SEAL_MIGRATION_SQL },
   { version: 10, name: "report_pay_preferences", sql: REPORT_PAY_MIGRATION_SQL },
   { version: 11, name: "shift_breaks_and_tasks", sql: SHIFT_TASKS_MIGRATION_SQL },
+  { version: 12, name: "project_groups_sites_and_status", sql: PROJECT_DISCOVERY_MIGRATION_SQL },
 ] as const;

@@ -21,7 +21,7 @@ type SwipeDownSheetProps = {
   children: ReactNode;
   onClose: () => void;
   sheetStyle?: StyleProp<ViewStyle>;
-  testID: string;
+  testID?: string;
   transparent?: boolean;
   visible?: boolean;
   backdropStyle?: StyleProp<ViewStyle>;

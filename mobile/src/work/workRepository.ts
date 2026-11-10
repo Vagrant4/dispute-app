@@ -17,12 +17,21 @@ export type WorkProject = {
   hourlyRateCents: number;
   currency: string;
   status: string;
+  projectStatus: "lead" | "active" | "completed";
+  groupId: string | null;
+  siteAddress: string | null;
+  siteLatitude: number | null;
+  siteLongitude: number | null;
 };
+
+export type ProjectGroup = { id: string; name: string };
 
 export type ProjectSummary = {
   id: string; name: string; lastSiteAddress: string | null; lastWorkedAt: string | null;
   lastSiteLatitude: number | null; lastSiteLongitude: number | null; lastSiteAccuracyM: number | null;
   minutesThisWeek: number; photoCount: number; isActive: boolean; status: string;
+  projectStatus: "lead" | "active" | "completed"; groupId: string | null;
+  siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null; latestPhotoUri: string | null;
 };
 
 export type WorkClient = {
@@ -111,6 +120,9 @@ export type CreateProjectParams = {
   description?: string;
   hourlyRateCents: number;
   currency?: string;
+  siteAddress?: string;
+  siteLatitude?: number | null;
+  siteLongitude?: number | null;
 };
 
 export type UpdateProjectParams = {
@@ -181,6 +193,11 @@ type ProjectRow = {
   currency: string;
   client_name: string;
   status: string;
+  project_status: "lead" | "active" | "completed";
+  group_id: string | null;
+  site_address: string | null;
+  site_latitude: number | null;
+  site_longitude: number | null;
 };
 
 type ClientRow = {
@@ -493,7 +510,9 @@ ORDER BY updated_at DESC, name ASC
     const weekEnd = new Date(`${weekStart}T00:00:00Z`);
     weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
     const rows = await this.database.getAllAsync<Omit<ProjectSummary, "isActive"> & { isActive: number }>(`
-SELECT p.id, p.name, p.status,
+SELECT p.id, p.name, p.status, p.project_status AS projectStatus, p.group_id AS groupId,
+ p.site_address AS siteAddress, p.site_latitude AS siteLatitude, p.site_longitude AS siteLongitude,
+ (SELECT f.local_uri FROM photo_evidence f WHERE f.user_id = p.user_id AND f.project_id = p.id ORDER BY COALESCE(f.captured_at, f.created_at) DESC LIMIT 1) AS latestPhotoUri,
  (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_location_text WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.location_text END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAddress,
  (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_latitude WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_latitude END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteLatitude,
  (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_longitude WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_longitude END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteLongitude,
@@ -528,6 +547,11 @@ SELECT projects.id,
        projects.hourly_rate_cents,
        projects.currency,
        projects.status,
+       projects.project_status,
+       projects.group_id,
+       projects.site_address,
+       projects.site_latitude,
+       projects.site_longitude,
        clients.name AS client_name
 FROM projects
 JOIN clients ON clients.id = projects.client_id AND clients.user_id = projects.user_id
@@ -538,6 +562,24 @@ ORDER BY projects.updated_at DESC, projects.name ASC
     );
 
     return rows.map(mapProjectRow);
+  }
+
+  async listProjectGroups(userId: string): Promise<ProjectGroup[]> {
+    return this.database.getAllAsync<ProjectGroup>("SELECT id, name FROM project_groups WHERE user_id = ? ORDER BY name", [userId]);
+  }
+
+  async addProjectGroup(userId: string, name: string): Promise<ProjectGroup> {
+    const group = { id: createLocalId("group"), name: requireText(name, "Group name") };
+    await this.database.runAsync("INSERT INTO project_groups (id, user_id, name) VALUES (?, ?, ?)", [group.id, userId, group.name]);
+    return group;
+  }
+
+  async assignProjectGroup(userId: string, projectId: string, groupId: string | null): Promise<void> {
+    await this.database.runAsync("UPDATE projects SET group_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [groupId, projectId, userId]);
+  }
+
+  async updateProjectDiscovery(userId: string, projectId: string, fields: { status: "lead" | "active" | "completed"; siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null }): Promise<void> {
+    await this.database.runAsync("UPDATE projects SET project_status = ?, site_address = ?, site_latitude = ?, site_longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [fields.status, fields.siteAddress, fields.siteLatitude, fields.siteLongitude, projectId, userId]);
   }
 
   async createClient(params: CreateClientParams): Promise<WorkClient> {
@@ -593,8 +635,11 @@ INSERT INTO projects (
   description,
   hourly_rate_cents,
   currency,
-  status
-) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+  status,
+  site_address,
+  site_latitude,
+  site_longitude
+) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 `,
       [
         id,
@@ -604,6 +649,9 @@ INSERT INTO projects (
         normalizeOptionalText(params.description),
         hourlyRateCents,
         currency,
+        normalizeOptionalText(params.siteAddress),
+        params.siteLatitude ?? null,
+        params.siteLongitude ?? null,
       ],
     );
 
@@ -834,6 +882,11 @@ function mapProjectRow(row: ProjectRow): WorkProject {
     hourlyRateCents: row.hourly_rate_cents ?? 0,
     currency: row.currency,
     status: row.status,
+    projectStatus: row.project_status ?? "active",
+    groupId: row.group_id ?? null,
+    siteAddress: row.site_address ?? null,
+    siteLatitude: row.site_latitude ?? null,
+    siteLongitude: row.site_longitude ?? null,
   };
 }
 
