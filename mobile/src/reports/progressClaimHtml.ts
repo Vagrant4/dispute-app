@@ -112,6 +112,9 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     </tbody>
   </table>
 
+  <h2>Shift evidence</h2>
+  <table><thead><tr><th>Date</th><th>Note</th><th>Break</th><th>Task segments</th></tr></thead><tbody>${snapshot.dailyWorkLog.flatMap((day) => (day.locationEntries ?? []).map((entry) => `<tr><td>${escapeHtml(day.workDate)}</td><td>${escapeHtml(entry.locationNote ?? "")}</td><td>${entry.breakMinutes ?? 0} min</td><td>${escapeHtml((entry.taskSegments ?? []).map((segment) => `${segment.taskName}: ${segment.start} - ${segment.end} (${segment.durationMinutes} min)`).join("; "))}</td></tr>`)).join("")}</tbody></table>
+
   <h2>Work sites</h2>
   ${buildWorkSites(snapshot)}
 

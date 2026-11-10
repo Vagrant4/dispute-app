@@ -52,7 +52,7 @@ test("Today excludes unsupported controls and map detail text", () => {
   const home = read("src/screens/HomeScreen.tsx");
   const map = read("src/screens/LocationMap.native.tsx");
   const rendered = `${home}\n${map}`;
-  for (const text of ["Task", "Daily sign offs", "Notes", "Break", "Signature", "Switch Task", "Geofence", "Chat", "Schedule", "View on map", "Open in Maps", "±", " m away", "miles", "km"])
+  for (const text of ["Daily sign offs", "Signature", "Geofence", "Chat", "Schedule", "View on map", "Open in Maps", "±", " m away", "miles", "km"])
     assert.ok(!rendered.includes(`> ${text} <`) && !rendered.includes(`>${text}<`) && !rendered.includes(`"${text}"`), `Today must not render ${text}`);
   assert.doesNotMatch(map, /formatCoordinateLabel|latitude\.toFixed|longitude\.toFixed/);
 });

@@ -1,12 +1,13 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
   "app_settings",
   "clients",
   "projects",
+  "project_tasks",
   "time_entries",
   "photo_evidence",
   "generated_documents",
@@ -208,7 +209,7 @@ ALTER TABLE photo_evidence ADD COLUMN capture_time_source TEXT;
 
 export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  end_time TEXT,\n  duration_minutes INTEGER NOT NULL,",
-  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  clock_out_location_text TEXT,\n  clock_in_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_out_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_in_gps_accuracy_m REAL,\n  clock_out_gps_accuracy_m REAL,\n  clock_in_located_at TEXT,\n  clock_out_located_at TEXT,\n  location_note TEXT,\n  location_history_json TEXT NOT NULL DEFAULT '[]',\n  duration_minutes INTEGER NOT NULL,",
+  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  clock_out_location_text TEXT,\n  clock_in_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_out_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_in_gps_accuracy_m REAL,\n  clock_out_gps_accuracy_m REAL,\n  clock_in_located_at TEXT,\n  clock_out_located_at TEXT,\n  location_note TEXT,\n  location_history_json TEXT NOT NULL DEFAULT '[]',\n  break_intervals_json TEXT NOT NULL DEFAULT '[]',\n  task_switches_json TEXT NOT NULL DEFAULT '[]',\n  current_task_id TEXT,\n  duration_minutes INTEGER NOT NULL,",
 ).replace(
   "  activity TEXT NOT NULL,\n  status TEXT NOT NULL DEFAULT 'draft',",
   "  activity TEXT NOT NULL,\n  day_type TEXT NOT NULL DEFAULT 'normal',\n  status TEXT NOT NULL DEFAULT 'draft',",
@@ -230,7 +231,19 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
 ).replace(
   "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);",
   "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);\nCREATE INDEX IF NOT EXISTS idx_generated_documents_project_id ON generated_documents(project_id);",
+) + `
+CREATE TABLE IF NOT EXISTS project_tasks (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
 );
+CREATE INDEX IF NOT EXISTS idx_project_tasks_owner ON project_tasks(user_id, project_id);
+`;
 
 export const REPORT_PAY_MIGRATION_SQL = `
 ALTER TABLE app_settings ADD COLUMN work_hours_saved INTEGER NOT NULL DEFAULT 0;
@@ -239,6 +252,23 @@ UPDATE app_settings SET work_hours_saved = 1
 WHERE updated_at <> created_at OR base_rate_cents > 0
    OR normal_work_start_time <> '08:00' OR normal_work_end_time <> '17:00'
    OR overtime_multiplier <> 1.5 OR off_day_multiplier <> 2 OR holiday_multiplier <> 2;
+`;
+
+export const SHIFT_TASKS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS project_tasks (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_tasks_owner ON project_tasks(user_id, project_id);
+ALTER TABLE time_entries ADD COLUMN break_intervals_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE time_entries ADD COLUMN task_switches_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE time_entries ADD COLUMN current_task_id TEXT;
 `;
 
 export const REPOSITORY_HEALTH_SQL = {
@@ -285,4 +315,5 @@ export const LOCAL_MIGRATIONS = [
   { version: 8, name: "location_evidence", sql: LOCATION_EVIDENCE_MIGRATION_SQL },
   { version: 9, name: "photo_capture_seal", sql: PHOTO_SEAL_MIGRATION_SQL },
   { version: 10, name: "report_pay_preferences", sql: REPORT_PAY_MIGRATION_SQL },
+  { version: 11, name: "shift_breaks_and_tasks", sql: SHIFT_TASKS_MIGRATION_SQL },
 ] as const;

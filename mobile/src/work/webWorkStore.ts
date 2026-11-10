@@ -14,7 +14,9 @@ import type {
   UpdateProjectParams,
   CreateManualEntryParams,
   DeleteEntryParams,
+  WorkTask,
 } from "./workRepository";
+import { buildTaskSegments, closeOpenBreak, summarizeBreaks } from "./shiftTimeline";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
 import {
   PAY_REPORT_HOURLY_RATE_ERROR,
@@ -32,6 +34,7 @@ type WebWorkState = {
   projects: WorkProject[];
   project: WorkProject | null;
   entries: WorkEntry[];
+  tasks: WorkTask[];
 };
 
 export const webWorkStore = {
@@ -65,6 +68,12 @@ export const webWorkStore = {
     entry.locationNote = params.note.trim() || null;
     writeState(state, params.userId);
   },
+  async listTasks(userId: string, projectId: string): Promise<WorkTask[]> { return readState(userId).tasks.filter((task) => task.projectId === projectId); },
+  async addTask(params: { userId: string; projectId: string; name: string }): Promise<WorkTask> { const state = readState(params.userId); const task = { id: createLocalId("web-task"), projectId: params.projectId, name: requireText(params.name, "Task name") }; state.tasks.push(task); writeState(state, params.userId); return task; },
+  async renameTask(params: { userId: string; taskId: string; name: string }): Promise<void> { const state = readState(params.userId); const task = state.tasks.find((item) => item.id === params.taskId); if (!task) throw new Error("Task not found."); task.name = requireText(params.name, "Task name"); writeState(state, params.userId); },
+  async startBreak(params: { userId: string; entryId: string; at?: Date }): Promise<WorkEntry> { const state = readState(params.userId); const entry = state.entries.find((item) => item.id === params.entryId); if (!entry) throw new Error("Time entry not found."); if (!entry.breakIntervals.some((item) => !item.endedAt)) entry.breakIntervals.push({ startedAt: (params.at ?? new Date()).toISOString(), endedAt: null }); writeState(state, params.userId); return entry; },
+  async endBreak(params: { userId: string; entryId: string; at?: Date }): Promise<WorkEntry> { const state = readState(params.userId); const entry = state.entries.find((item) => item.id === params.entryId); if (!entry) throw new Error("Time entry not found."); entry.breakIntervals = closeOpenBreak(entry.breakIntervals, params.at ?? new Date()); entry.breakMinutes = summarizeBreaks(entry.breakIntervals).minutes; writeState(state, params.userId); return entry; },
+  async switchTask(params: { userId: string; entryId: string; taskId: string; at?: Date }): Promise<WorkEntry> { const state = readState(params.userId); const entry = state.entries.find((item) => item.id === params.entryId); if (!entry || !state.tasks.some((task) => task.id === params.taskId && task.projectId === entry.projectId)) throw new Error("Task not found."); entry.currentTaskId = params.taskId; entry.taskSwitches.push({ taskId: params.taskId, at: (params.at ?? new Date()).toISOString() }); writeState(state, params.userId); return entry; },
 
   async listClients(userId = DEFAULT_USER_ID): Promise<WorkClient[]> {
     return readState(userId).clients;
@@ -223,6 +232,9 @@ export const webWorkStore = {
       clockInLocatedAt: reading.locatedAt,
       locationNote: params.locationNote?.trim() || null,
       locationHistoryJson: "[]",
+      breakIntervals: [],
+      taskSwitches: [{ taskId: params.taskId ?? null, at: clockInAt.toISOString() }],
+      currentTaskId: params.taskId ?? null,
       clockInGpsLatitude: reading.latitude,
       clockInGpsLongitude: reading.longitude,
       clockOutGpsLatitude: null,
@@ -271,6 +283,7 @@ export const webWorkStore = {
       clockOutGpsLatitude: null,
       clockOutGpsLongitude: null,
       status: "finalized",
+      breakIntervals: [], taskSwitches: [], currentTaskId: null,
     };
     writeState({ ...state, entries: [entry, ...state.entries] }, userId);
     return entry;
@@ -291,7 +304,9 @@ export const webWorkStore = {
     const state = readState(userId);
     const reading = locationReading(params, "stop");
     const clockOutAt = params.clockOutAt ?? new Date();
-    const breakMinutes = Math.max(0, Math.floor(params.breakMinutes ?? 0));
+    const target = state.entries.find((entry) => entry.id === params.entryId);
+    if (target) target.breakIntervals = closeOpenBreak(target.breakIntervals, clockOutAt);
+    const breakMinutes = target?.breakIntervals.length ? summarizeBreaks(target.breakIntervals).minutes : Math.max(0, Math.floor(params.breakMinutes ?? 0));
     let updated: WorkEntry | null = null;
     const entries = state.entries.map((entry) => {
       if (entry.id !== params.entryId || entry.endTime || !entry.startTime) {
@@ -382,6 +397,10 @@ export function buildWebWorkProgressClaimSnapshot(params: {
         clockOutLocatedAt: entry.clockOutLocatedAt,
         locationNote: entry.locationNote,
         locationHistoryJson: entry.locationHistoryJson,
+        breakMinutes: entry.breakMinutes,
+        breakIntervals: entry.breakIntervals,
+        taskSwitches: entry.taskSwitches,
+        taskSegments: entry.startTime && entry.endTime ? buildTaskSegments({ shiftStart: entry.startTime, shiftEnd: entry.endTime, switches: entry.taskSwitches, breaks: entry.breakIntervals }).map((segment) => ({ ...segment, taskName: segment.taskId ? state.tasks.find((task) => task.id === segment.taskId)?.name ?? "Renamed task unavailable" : "Unassigned" })) : [],
 
         clockInGpsLatitude: entry.clockInGpsLatitude,
         clockInGpsLongitude: entry.clockInGpsLongitude,
@@ -435,6 +454,7 @@ function readState(userId = DEFAULT_USER_ID): WebWorkState {
     projects: [],
     project: null,
     entries: [],
+    tasks: [],
   });
 }
 
@@ -491,6 +511,7 @@ function normalizeState(state: WebWorkState): WebWorkState {
   return {
     clients,
     projects,
+    tasks: Array.isArray(state.tasks) ? state.tasks : [],
     project,
     entries: Array.isArray(state.entries)
       ? state.entries.filter(
@@ -502,6 +523,9 @@ function normalizeState(state: WebWorkState): WebWorkState {
           clockInGpsLongitude: entry.clockInGpsLongitude ?? null,
           clockOutGpsLatitude: entry.clockOutGpsLatitude ?? null,
           clockOutGpsLongitude: entry.clockOutGpsLongitude ?? null,
+          breakIntervals: entry.breakIntervals ?? [],
+          taskSwitches: entry.taskSwitches ?? [],
+          currentTaskId: entry.currentTaskId ?? null,
         }))
       : [],
   };

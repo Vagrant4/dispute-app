@@ -1,4 +1,5 @@
 import type { LocationSource } from "../work/locationEvidence";
+import type { BreakInterval, TaskSwitch } from "../work/shiftTimeline";
 export const PROGRESS_CLAIM_DISCLAIMER =
   "This app helps you record work, time, pay, and evidence for reference. It does not replace legal, accounting, or MOM advice.";
 
@@ -43,6 +44,10 @@ export type TimeEntrySnapshotInput = {
   clockOutLocatedAt?: string | null;
   locationNote?: string | null;
   locationHistoryJson?: string | null;
+  breakMinutes?: number;
+  breakIntervals?: BreakInterval[];
+  taskSwitches?: TaskSwitch[];
+  taskSegments?: Array<{ taskId: string | null; taskName: string; start: string; end: string; durationMinutes: number }>;
 
   clockInGpsLatitude?: number | null;
   clockInGpsLongitude?: number | null;

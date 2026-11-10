@@ -12,12 +12,15 @@ import {
 
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProjectPickerSheet } from "./ProjectPickerSheet";
+import { NoteSheet } from "./NoteSheet";
+import { TaskPickerSheet } from "./TaskPickerSheet";
 import { LocationMap } from "./LocationMap";
 import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
-import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
+import type { WorkDayType, WorkHomeState, WorkProject, WorkTask } from "../work/workRepository";
 import { locationReading, type LocationReading } from "../work/locationEvidence";
-import { getWorkLocationWithTimeout } from "../work/workLocation";
+import { getWorkLocationWithTimeout, locationRetryAction, type WorkLocationReason } from "../work/workLocation";
+import { summarizeBreaks } from "../work/shiftTimeline";
 import { formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
@@ -28,7 +31,7 @@ const TODAY_SECTIONS = ["timerCard", "quickActions", "map", "clock"] as const;
 export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; onOpenPhotos?: (projectId?: string) => void }) {
   const locationRequest = useRef(0);
   const pendingLocations = useRef<LocationReading[]>([]);
-  const [locationOff, setLocationOff] = useState(false);
+  const [locationReason, setLocationReason] = useState<WorkLocationReason | null>(null);
   const savingStart = useRef(false);
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
@@ -37,6 +40,8 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
   const [now, setNow] = useState(() => new Date());
   const [homeState, setHomeState] = useState<WorkHomeState | null>(null);
   const [projects, setProjects] = useState<WorkProject[]>([]);
+  const [tasks, setTasks] = useState<WorkTask[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [workStatus, setWorkStatus] = useState("");
   const [locationFix, setLocationFix] = useState<LocationReading | null>(null);
@@ -50,6 +55,8 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
   const [dayType, setDayType] = useState<WorkDayType>(() => defaultDayType(new Date()));
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), clockInAt && !clockOutAt ? 1000 : 15_000);
@@ -70,7 +77,9 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
   const isRunning = Boolean(clockInAt && !clockOutAt);
   const readiness = startReadiness({ hasLocation: locationFix?.source === "gps", hasProject: Boolean(activeProject) });
   const startDisabled = isRunning ? stopping : !access.canCreateRecords;
-  const workedSeconds = workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now);
+  const breakSummary = summarizeBreaks(homeState?.activeEntry?.breakIntervals ?? [], now);
+  const onBreak = Boolean(homeState?.activeEntry?.breakIntervals.some((item) => !item.endedAt));
+  const workedSeconds = Math.max(0, workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now) - breakSummary.seconds);
   const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? formatTrialDaysLeft(access.subscription.trialEndsAt, now.getTime()) : null;
   useEffect(() => {
@@ -98,6 +107,8 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         setClockOutAt(null);
         setLocationEntryId(nextState.activeEntry.id);
         setLocationPhase("start");
+        setSelectedTaskId(nextState.activeEntry.currentTaskId);
+        setTasks(await store.listTasks(userId, nextState.activeEntry.projectId));
         const entry = nextState.activeEntry;
         const history = JSON.parse(entry.locationHistoryJson || "[]") as LocationReading[];
         setLocationFix(history.filter((fix) => fix.phase === "start").at(-1) ?? {
@@ -125,6 +136,8 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
             ? current
             : activeProjects.length === 1 ? activeProjects[0].id : null,
         );
+        const nextProjectId = activeProjects.some((project) => project.id === selectedProjectId) ? selectedProjectId : activeProjects.length === 1 ? activeProjects[0].id : null;
+        setTasks(nextProjectId ? await store.listTasks(userId, nextProjectId) : []);
       }
     } catch (error) {
       setWorkStatus(getErrorMessage(error, "load today's work"));
@@ -134,8 +147,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
   async function handleClockIn() {
     if (savingStart.current) return;
     if (readiness.missing === "location" || readiness.missing === "both") {
-      if (locationOff) void Linking.openSettings();
-      else await handleLocateMe();
+      if ((locationRetryAction?.(locationReason) ?? (locationReason === "denied" || locationReason === "services_off" ? "settings" : "retry")) === "settings") void Linking.openSettings(); else await handleLocateMe();
       return;
     }
     if (readiness.missing === "project") { setProjectPickerOpen(true); return; }
@@ -149,7 +161,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
     try {
       const store = await getWorkStore(userId);
       const projectId = selectedProjectId!;
-      const entry = await store.clockIn({ userId, projectId, clockInAt: nextClockIn, dayType });
+      const entry = await store.clockIn({ userId, projectId, clockInAt: nextClockIn, dayType, taskId: selectedTaskId });
       for (const fix of pendingLocations.current) {
         await store.refreshLocation({ userId, entryId: entry.id, phase: "start", locationText: fix.address ?? undefined, gpsLatitude: fix.latitude, gpsLongitude: fix.longitude, gpsAccuracyM: fix.accuracy, locatedAt: fix.locatedAt });
       }
@@ -184,7 +196,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       const canRefreshEntry = locationEntryId && (locationPhase === "start" || (clockOutAt && now.getTime() - clockOutAt.getTime() <= 600_000));
       const params = { userId, entryId: locationEntryId!, phase: locationPhase, locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
       const fix = locationReading(params, canRefreshEntry ? locationPhase : "start");
-      setLocationOff(fix.source !== "gps");
+      setLocationReason(location.reason);
       if (canRefreshEntry) {
         const store = await getWorkStore(userId);
         await store.refreshLocation(params);
@@ -198,8 +210,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
 
   function handleLocatePress() {
     if (locationFix?.source === "gps") setShowLocationDetails(true);
-    if (locationOff) void Linking.openSettings();
-    else void handleLocateMe();
+    if ((locationRetryAction?.(locationReason) ?? (locationReason === "denied" || locationReason === "services_off" ? "settings" : "retry")) === "settings") void Linking.openSettings(); else void handleLocateMe();
   }
 
   function useTestLocation() {
@@ -214,7 +225,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
     };
     pendingLocations.current.push(fix);
     setLocationFix(fix);
-    setLocationOff(false);
+    setLocationReason(null);
     setWorkStatus("Test location selected. This is not a live GPS reading.");
   }
 
@@ -235,7 +246,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         userId,
         entryId: homeState.activeEntry.id,
         clockOutAt: nextClockOut,
-        breakMinutes: parseBreakMinutes(breakMinutes),
+        breakMinutes: breakSummary.minutes,
         activity: activityText,
         clockOutLocationText: location?.address ?? undefined,
         gpsAccuracyM: location?.accuracy ?? null,
@@ -255,6 +266,25 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
     } finally { setLocating(false); setStopping(false); }
   }
 
+  async function handleBreak() {
+    if (!homeState?.activeEntry) return;
+    const store = await getWorkStore(userId);
+    if (onBreak) await store.endBreak({ userId, entryId: homeState.activeEntry.id }); else await store.startBreak({ userId, entryId: homeState.activeEntry.id });
+    await refreshWorkState();
+  }
+
+  async function handleSwitchTask(taskId: string) {
+    const store = await getWorkStore(userId);
+    if (homeState?.activeEntry) await store.switchTask({ userId, entryId: homeState.activeEntry.id, taskId });
+    setSelectedTaskId(taskId); setTaskPickerOpen(false); await refreshWorkState();
+  }
+
+  async function handleAddTask(name: string) {
+    if (!activeProject) throw new Error("Choose a project first.");
+    const store = await getWorkStore(userId); const task = await store.addTask({ userId, projectId: activeProject.id, name });
+    setTasks(await store.listTasks(userId, activeProject.id)); setSelectedTaskId(task.id);
+  }
+
   const renderTimerCard = (key: string) => (
     <View key={key} style={styles.todayTimerCard} testID="today-timer-card">
       <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.todayClock} testID="today-timer">
@@ -263,6 +293,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       <Text style={styles.todayStarted} testID="today-started">
         {isRunning && clockInAt ? `Started ${formatClockTime(clockInAt)}` : "Not clocked in"}
       </Text>
+      {onBreak ? <Text style={styles.todayStarted}>On break · {formatWorkedClock(breakSummary.seconds)}</Text> : null}
       {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
       <View style={styles.todayProjectActions} testID="today-project-actions">
         <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
@@ -271,6 +302,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
             <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
           </View>
         </Pressable>
+        {tasks.length ? <Pressable accessibilityRole="button" accessibilityLabel="Choose task" onPress={() => setTaskPickerOpen(true)} style={styles.todayEvidenceRow}><View style={styles.todayRowContent}><Text style={styles.todayProjectLabel}>Task</Text><Text style={styles.todayRowTitle}>{tasks.find((task) => task.id === selectedTaskId)?.name ?? "Choose task"}</Text></View></Pressable> : null}
         {!isRunning ? <Pressable accessibilityLabel="Add project" accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]} testID="today-add-project"><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
       </View>
     </View>
@@ -282,11 +314,13 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         <Image source={require("../../assets/icons/tab-photos.png")} style={styles.todayPhotoIcon} />
         <Text style={styles.todayPhotoLabel}>Photo</Text>
       </Pressable>
+      {isRunning ? <Pressable accessibilityLabel="Open shift notes" accessibilityRole="button" onPress={() => setNoteOpen(true)} style={styles.todayPhotoAction} testID="today-note-action"><Text style={styles.todayPhotoLabel}>Notes</Text></Pressable> : null}
     </View>
   );
 
   const renderClock = (key: string) => (
     <View key={key} style={styles.todayClockAction}>
+      {isRunning ? <View style={styles.todayProjectActions}><Pressable onPress={() => void handleBreak()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>{onBreak ? "End break" : "Break"}</Text></Pressable>{tasks.length ? <Pressable onPress={() => setTaskPickerOpen(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Switch task</Text></Pressable> : null}</View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayClockButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
         <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
       </Pressable>
@@ -322,7 +356,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         {projectPickerOpen ? <ProjectPickerSheet
           footer={<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => { setProjectPickerOpen(false); setProjectSheetOpen(true); }}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable>}
           onClose={() => setProjectPickerOpen(false)}
-          onSelect={(projectId) => { setSelectedProjectId(projectId); setProjectPickerOpen(false); }}
+          onSelect={(projectId) => { setSelectedProjectId(projectId); setSelectedTaskId(null); setProjectPickerOpen(false); void getWorkStore(userId).then((store) => store.listTasks(userId, projectId)).then(setTasks); }}
           projects={projects.filter((project) => project.status !== "archived")}
           testID="today-project-picker-sheet"
         /> : null}
@@ -334,6 +368,8 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
           const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
           await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
         }} /> : null}
+        {taskPickerOpen && activeProject ? <TaskPickerSheet tasks={tasks} selectedId={selectedTaskId} onClose={() => setTaskPickerOpen(false)} onSelect={(id) => void handleSwitchTask(id)} onAdd={handleAddTask} /> : null}
+        {noteOpen && homeState?.activeEntry ? <NoteSheet initialValue={homeState.activeEntry.locationNote ?? ""} readOnly={false} onClose={() => setNoteOpen(false)} onSave={async (note) => { const store = await getWorkStore(userId); await store.saveLocationNote({ userId, entryId: homeState.activeEntry!.id, note }); await refreshWorkState(); }} /> : null}
       </View>
     </View>
   );

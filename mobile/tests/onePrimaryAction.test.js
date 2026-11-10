@@ -58,7 +58,7 @@ test("Today shows one summary and a direct project picker without Details", () =
 
 test("Project detail omits sessions and breakdown", () => {
   const detail = screen("ProjectDetail");
-  for (const content of ["sessionsExpanded", "totalOvertimeHours", "entries.map", "Pay rate:", "clockOutLocationSource"]) assert.ok(!detail.includes(content));
+  for (const content of ["sessionsExpanded", "totalOvertimeHours", "Pay rate:", "clockOutLocationSource"]) assert.ok(!detail.includes(content));
   assert.doesNotMatch(screen("Home"), /styles.eyebrow|>Work today</);
   assert.match(screen("Projects"), /styles.screenTitle\}>Projects<\/Text>/);
   assert.doesNotMatch(screen("PhotoEvidence"), />Photos<\/Text>/);

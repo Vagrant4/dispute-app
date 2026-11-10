@@ -12,6 +12,7 @@ import type {
   ProgressClaimSnapshotInput,
   TimeEntrySnapshotInput,
 } from "./progressClaimTypes";
+import { buildTaskSegments, type BreakInterval, type TaskSwitch } from "../work/shiftTimeline";
 
 type SettingsRow = {
   report_name?: string | null;
@@ -57,6 +58,9 @@ type TimeEntryRow = {
   clock_out_located_at: string | null;
   location_note: string | null;
   location_history_json: string | null;
+  break_minutes: number;
+  break_intervals_json: string;
+  task_switches_json: string;
 
   clock_in_gps_latitude: number | null;
   clock_in_gps_longitude: number | null;
@@ -120,7 +124,7 @@ export class ProgressClaimSourceRepository {
     }
     const hourlyRateCents = normalizeProjectHourlyRateCents(project.hourly_rate_cents);
 
-    const [client, timeEntries, photoEvidence] = await Promise.all([
+    const [client, timeEntries, photoEvidence, taskRows] = await Promise.all([
       this.database.getFirstAsync<ClientRow>(
         `SELECT name, contact_name, contact_email
         FROM clients
@@ -128,7 +132,7 @@ export class ProgressClaimSourceRepository {
         [project.client_id, params.userId],
       ),
       this.database.getAllAsync<TimeEntryRow>(
-        `SELECT id, work_date, start_time, end_time, duration_minutes, activity, day_type, location_text, clock_out_location_text, clock_in_location_source, clock_out_location_source, clock_in_gps_accuracy_m, clock_out_gps_accuracy_m, clock_in_located_at, clock_out_located_at, location_note, location_history_json, clock_in_gps_latitude, clock_in_gps_longitude, clock_out_gps_latitude, clock_out_gps_longitude
+        `SELECT id, work_date, start_time, end_time, duration_minutes, activity, day_type, location_text, clock_out_location_text, clock_in_location_source, clock_out_location_source, clock_in_gps_accuracy_m, clock_out_gps_accuracy_m, clock_in_located_at, clock_out_located_at, location_note, location_history_json, break_minutes, break_intervals_json, task_switches_json, clock_in_gps_latitude, clock_in_gps_longitude, clock_out_gps_latitude, clock_out_gps_longitude
         FROM time_entries
         WHERE project_id = ? AND user_id = ?
         ORDER BY work_date ASC, id ASC`,
@@ -141,6 +145,7 @@ export class ProgressClaimSourceRepository {
         ORDER BY COALESCE(captured_at, created_at) ASC, id ASC`,
         [project.id, params.userId],
       ),
+      this.database.getAllAsync<{ id: string; name: string }>("SELECT id, name FROM project_tasks WHERE project_id = ? AND user_id = ?", [project.id, params.userId]),
     ]);
 
     return {
@@ -159,7 +164,7 @@ export class ProgressClaimSourceRepository {
         hourlyRateCents,
         currency: project.currency,
       },
-      timeEntries: mapTimeEntries(timeEntries),
+      timeEntries: mapTimeEntries(timeEntries, new Map(taskRows.map((task) => [task.id, task.name]))),
       photoEvidence: mapPhotoEvidence(photoEvidence),
       pay: {
         currency: settings?.currency ?? project.currency,
@@ -189,8 +194,11 @@ function inferClaimPeriod(timeEntries: TimeEntryRow[]):
   };
 }
 
-function mapTimeEntries(rows: TimeEntryRow[]): TimeEntrySnapshotInput[] {
-  return rows.map((row) => ({
+function mapTimeEntries(rows: TimeEntryRow[], taskNames: Map<string, string>): TimeEntrySnapshotInput[] {
+  return rows.map((row) => {
+    const breaks = parseArray<BreakInterval>(row.break_intervals_json); const switches = parseArray<TaskSwitch>(row.task_switches_json);
+    const segments = row.start_time && row.end_time ? buildTaskSegments({ shiftStart: row.start_time, shiftEnd: row.end_time, switches, breaks }) : [];
+    return ({
     id: row.id,
     workDate: row.work_date,
     startTime: row.start_time,
@@ -208,13 +216,19 @@ function mapTimeEntries(rows: TimeEntryRow[]): TimeEntrySnapshotInput[] {
     clockOutLocatedAt: row.clock_out_located_at,
     locationNote: row.location_note,
     locationHistoryJson: row.location_history_json,
+    breakMinutes: row.break_minutes,
+    breakIntervals: breaks,
+    taskSwitches: switches,
+    taskSegments: segments.map((segment) => ({ ...segment, taskName: segment.taskId ? taskNames.get(segment.taskId) ?? "Renamed task unavailable" : "Unassigned" })),
 
     clockInGpsLatitude: row.clock_in_gps_latitude,
     clockInGpsLongitude: row.clock_in_gps_longitude,
     clockOutGpsLatitude: row.clock_out_gps_latitude,
     clockOutGpsLongitude: row.clock_out_gps_longitude,
-  }));
+  }); });
 }
+
+function parseArray<T>(value: string | null | undefined): T[] { try { const parsed = JSON.parse(value || "[]"); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
 
 function mapPhotoEvidence(rows: PhotoEvidenceRow[]): PhotoEvidenceSnapshotInput[] {
   return rows.map((row) => ({

@@ -11,7 +11,12 @@ export type WorkLocationResult = {
   timestamp: string | null;
   message: string;
   blocked: boolean;
+  reason: WorkLocationReason | null;
 };
+export type WorkLocationReason = "denied" | "services_off" | "timeout" | "unavailable";
+export function locationRetryAction(reason: WorkLocationReason | null): "retry" | "settings" {
+  return reason === "denied" || reason === "services_off" ? "settings" : "retry";
+}
 
 export async function getOptionalWorkLocationAddress(
   options: { prompt?: boolean; geocode?: boolean } = {},
@@ -20,6 +25,7 @@ export async function getOptionalWorkLocationAddress(
     if (!Location.requestForegroundPermissionsAsync) {
       return nonBlockingLocationResult(
         "Location is off. Turn on location and try again.",
+        "unavailable",
       );
     }
 
@@ -34,18 +40,21 @@ export async function getOptionalWorkLocationAddress(
     if (permission.status !== Location.PermissionStatus.GRANTED) {
       return nonBlockingLocationResult(
         "Location is off. Turn on location and try again.",
+        permission.canAskAgain === false ? "denied" : "unavailable",
       );
     }
 
     if (Location.hasServicesEnabledAsync && !(await Location.hasServicesEnabledAsync())) {
       return nonBlockingLocationResult(
         "Location services are off. Turn on Location in Android settings.",
+        "services_off",
       );
     }
 
     if (!Location.getCurrentPositionAsync) {
       return nonBlockingLocationResult(
         "Location is off. Turn on location and try again.",
+        "unavailable",
       );
     }
 
@@ -68,10 +77,12 @@ export async function getOptionalWorkLocationAddress(
         ? "Address filled from device location."
         : "Coordinates filled from device location. Address lookup was unavailable.",
       blocked: false,
+      reason: null,
     };
   } catch (error) {
     return nonBlockingLocationResult(
       "Location is off. Turn on location and try again.",
+      "unavailable",
     );
   }
 }
@@ -153,7 +164,7 @@ async function getCurrentPositionWithFallback(
   }
 }
 
-function nonBlockingLocationResult(message: string): WorkLocationResult {
+function nonBlockingLocationResult(message: string, reason: WorkLocationReason): WorkLocationResult {
   return {
     accuracy: null,
     timestamp: null,
@@ -162,15 +173,16 @@ function nonBlockingLocationResult(message: string): WorkLocationResult {
     longitude: null,
     message,
     blocked: false,
+    reason,
   };
 }
 
-export async function getWorkLocationWithTimeout(milliseconds: number, options: { prompt?: boolean; geocode?: boolean } = {}): Promise<WorkLocationResult | null> {
+export async function getWorkLocationWithTimeout(milliseconds: number, options: { prompt?: boolean; geocode?: boolean } = {}): Promise<WorkLocationResult> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       getOptionalWorkLocationAddress(options),
-      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), milliseconds); }),
+      new Promise<WorkLocationResult>((resolve) => { timer = setTimeout(() => resolve(nonBlockingLocationResult("Location timed out. Try again.", "timeout")), milliseconds); }),
     ]);
   } finally { if (timer) clearTimeout(timer); }
 }

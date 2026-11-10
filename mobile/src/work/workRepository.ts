@@ -4,6 +4,9 @@ import { calculateTotalHours } from "@claimproof/shared";
 import type { LocalDatabase } from "../db/localDatabase";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
 import { normalizeProjectHourlyRateCents } from "./projectRates";
+import { closeOpenBreak, summarizeBreaks, type BreakInterval, type TaskSwitch } from "./shiftTimeline";
+
+export type WorkTask = { id: string; projectId: string; name: string };
 
 export type WorkProject = {
   id: string;
@@ -52,6 +55,9 @@ export type WorkEntry = {
   clockOutLocatedAt?: string | null;
   locationNote?: string | null;
   locationHistoryJson?: string | null;
+  breakIntervals: BreakInterval[];
+  taskSwitches: TaskSwitch[];
+  currentTaskId: string | null;
 
   clockInGpsLatitude: number | null;
   clockInGpsLongitude: number | null;
@@ -77,6 +83,7 @@ export type ClockInParams = LocationParams & {
   locationText?: string;
   gpsLatitude?: number | null;
   gpsLongitude?: number | null;
+  taskId?: string | null;
 };
 
 export type ClockOutParams = LocationParams & {
@@ -154,6 +161,9 @@ type EntryRow = {
   clock_out_located_at: string | null;
   location_note: string | null;
   location_history_json: string | null;
+  break_intervals_json: string;
+  task_switches_json: string;
+  current_task_id: string | null;
 
   clock_in_gps_latitude: number | null;
   clock_in_gps_longitude: number | null;
@@ -261,6 +271,7 @@ INSERT INTO time_entries (
         params.locationNote?.trim() || null,
       ],
     );
+    if (params.taskId) await this.database.runAsync("UPDATE time_entries SET current_task_id = ?, task_switches_json = ? WHERE id = ? AND user_id = ?", [params.taskId, JSON.stringify([{ taskId: params.taskId, at: clockInAt.toISOString() }]), id, userId]);
 
     return this.getEntryOrThrow(userId, id);
   }
@@ -277,7 +288,8 @@ INSERT INTO time_entries (
 
     const reading = locationReading(params, "stop");
     const clockOutAt = params.clockOutAt ?? new Date();
-    const breakMinutes = Math.max(0, Math.floor(params.breakMinutes ?? 0));
+    const closedBreaks = closeOpenBreak(existing.breakIntervals, clockOutAt);
+    const breakMinutes = existing.breakIntervals.length ? summarizeBreaks(closedBreaks).minutes : Math.max(0, Math.floor(params.breakMinutes ?? 0));
     const totalHours = calculateTotalHours(
       new Date(existing.startTime),
       clockOutAt,
@@ -321,6 +333,7 @@ WHERE id = ? AND user_id = ? AND end_time IS NULL
         userId,
       ],
     );
+    if (existing.breakIntervals.length) await this.database.runAsync("UPDATE time_entries SET break_intervals_json = ? WHERE id = ? AND user_id = ?", [JSON.stringify(closedBreaks), params.entryId, userId]);
 
     return this.getEntryOrThrow(userId, params.entryId);
   }
@@ -355,6 +368,45 @@ WHERE id = ? AND user_id = ? AND end_time IS NULL
 
   async saveLocationNote(params: { userId: string; entryId: string; note: string }): Promise<void> {
     await this.database.runAsync(`UPDATE time_entries SET location_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`, [params.note.trim() || null, params.entryId, params.userId]);
+  }
+
+  async listTasks(userId: string, projectId: string): Promise<WorkTask[]> {
+    const rows = await this.database.getAllAsync<{ id: string; project_id: string; name: string }>("SELECT id, project_id, name FROM project_tasks WHERE user_id = ? AND project_id = ? ORDER BY created_at, name", [userId, projectId]);
+    return rows.map((row) => ({ id: row.id, projectId: row.project_id, name: row.name }));
+  }
+
+  async addTask(params: { userId: string; projectId: string; name: string }): Promise<WorkTask> {
+    await this.getProjectOrThrow(params.userId, params.projectId);
+    const task = { id: createLocalId("task"), projectId: params.projectId, name: requireText(params.name, "Task name") };
+    await this.database.runAsync("INSERT INTO project_tasks (id, user_id, project_id, name) VALUES (?, ?, ?, ?)", [task.id, params.userId, task.projectId, task.name]);
+    return task;
+  }
+
+  async renameTask(params: { userId: string; taskId: string; name: string }): Promise<void> {
+    await this.database.runAsync("UPDATE project_tasks SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [requireText(params.name, "Task name"), params.taskId, params.userId]);
+  }
+
+  async startBreak(params: { userId: string; entryId: string; at?: Date }): Promise<WorkEntry> {
+    const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+    if (!entry.endTime && !entry.breakIntervals.some((item) => !item.endedAt)) entry.breakIntervals.push({ startedAt: (params.at ?? new Date()).toISOString(), endedAt: null });
+    await this.database.runAsync("UPDATE time_entries SET break_intervals_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND end_time IS NULL", [JSON.stringify(entry.breakIntervals), params.entryId, params.userId]);
+    return this.getEntryOrThrow(params.userId, params.entryId);
+  }
+
+  async endBreak(params: { userId: string; entryId: string; at?: Date }): Promise<WorkEntry> {
+    const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+    const intervals = closeOpenBreak(entry.breakIntervals, params.at ?? new Date());
+    await this.database.runAsync("UPDATE time_entries SET break_intervals_json = ?, break_minutes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND end_time IS NULL", [JSON.stringify(intervals), summarizeBreaks(intervals).minutes, params.entryId, params.userId]);
+    return this.getEntryOrThrow(params.userId, params.entryId);
+  }
+
+  async switchTask(params: { userId: string; entryId: string; taskId: string; at?: Date }): Promise<WorkEntry> {
+    const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+    const tasks = await this.listTasks(params.userId, entry.projectId);
+    if (!tasks.some((task) => task.id === params.taskId)) throw new Error("Task not found for this project.");
+    const switches = [...entry.taskSwitches, { taskId: params.taskId, at: (params.at ?? new Date()).toISOString() }];
+    await this.database.runAsync("UPDATE time_entries SET current_task_id = ?, task_switches_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND end_time IS NULL", [params.taskId, JSON.stringify(switches), params.entryId, params.userId]);
+    return this.getEntryOrThrow(params.userId, params.entryId);
   }
 
   async createManualEntry(params: CreateManualEntryParams): Promise<WorkEntry> {
@@ -723,6 +775,9 @@ SELECT time_entries.id,
        time_entries.clock_out_located_at,
        time_entries.location_note,
        time_entries.location_history_json,
+       time_entries.break_intervals_json,
+       time_entries.task_switches_json,
+       time_entries.current_task_id,
 
        time_entries.clock_in_gps_latitude,
        time_entries.clock_in_gps_longitude,
@@ -757,6 +812,9 @@ function mapEntryRow(row: EntryRow): WorkEntry {
     clockOutLocatedAt: row.clock_out_located_at,
     locationNote: row.location_note,
     locationHistoryJson: row.location_history_json,
+    breakIntervals: parseJsonArray<BreakInterval>(row.break_intervals_json),
+    taskSwitches: parseJsonArray<TaskSwitch>(row.task_switches_json),
+    currentTaskId: row.current_task_id,
 
     clockInGpsLatitude: row.clock_in_gps_latitude,
     clockInGpsLongitude: row.clock_in_gps_longitude,
@@ -786,6 +844,10 @@ function dateOnly(value: Date): string {
 function normalizeOptionalText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function parseJsonArray<T>(value: string | null | undefined): T[] {
+  try { const parsed = JSON.parse(value || "[]"); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
 }
 
 function normalizeCurrency(value: string | null | undefined): string {

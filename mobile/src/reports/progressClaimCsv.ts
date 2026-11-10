@@ -50,6 +50,7 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
       ...( ["clockInLocationSource", "clockOutLocationSource", "clockInGpsAccuracyM", "clockOutGpsAccuracyM", "locationNote"] as const).map((field) => (item.locationEntries ?? []).map((entry) => String(entry[field] ?? (field.endsWith("Source") ? "legacy" : ""))).join(";")),
       ...(["clockInGpsLatitude", "clockInGpsLongitude", "clockOutGpsLatitude", "clockOutGpsLongitude"] as const).map((field) => (item.locationEntries ?? []).map((entry) => String(entry[field] ?? "")).join(";")),
     ]),
+    ...snapshot.dailyWorkLog.flatMap((item) => (item.locationEntries ?? []).flatMap((entry) => (entry.taskSegments ?? []).map((segment) => ["Task Segment", item.workDate, segment.taskName, segment.start, segment.end, String(segment.durationMinutes), entry.locationNote ?? "", String(entry.breakMinutes ?? 0)]))),
     [],
     ["Photo Evidence", "Photo Evidence ID", "Linked Time Entry ID", "Caption", "Type", "Captured At", "Local URI"],
     ...snapshot.photoEvidence.map((photo) => [
