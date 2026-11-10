@@ -238,3 +238,21 @@ Final verification passed:
 - Gradle assemble was not run and no APK is claimed.
 
 Implementation, regression test, and version bump commit: `e62e771` (`fix: save project pay rate on first tap`). This report is the subsequent local documentation commit. The requested debugging, TDD, verification, and React practices were followed manually because their named skills were not installed. No push, PR, deploy, store/billing/account action, paid account/API key, other checkout, or out-of-scope map/dropdown work was touched.
+
+## Follow-up 9: project picker sheets (0.3.8-test, versionCode 10)
+
+The Project detail top control now opens a slide-up list of the user's active projects instead of navigating back. Choosing a row switches the open project through the callback owned by `ProjectsScreen`. Settings -> Pay rate -> Project now opens the same readable list and selecting a row updates `rateProjectId`, which continues to refresh the displayed project rate. Today's project chooser is now a slide-up sheet as well; project names and `+ New project` use DISPUTE's existing light-on-dark text and surface styles, and `+ New project` still opens the existing name sheet.
+
+All three project pickers use the shared DISPUTE `SwipeDownSheet` primitive, `projectSheetBackdrop`, and `projectSheet` styling. The Scrapwho reference informed only the interaction pattern: a modal sheet, grab handle, option list, swipe-down dismissal, and Android-back dismissal. No Scrapwho module, code, colors, typography, layout, or chrome was copied. Stable sheet IDs are `project-detail-picker-sheet`, `settings-pay-rate-project-sheet`, and `today-project-picker-sheet`.
+
+Settings Report period was left working as before. The 0.3.7 first-Save upsert behavior is retained: when local selection is missing, Save re-reads the owned stored projects, uses the first stored project, updates local state, and preserves `Saved` without a post-save reload clobber. No map, address, geocoder, LocationMap, rename-project, photo-refresh, billing, or account behavior was changed.
+
+Tests were written/updated first and failed against the old controls before implementation. Final verification passed:
+
+- Mobile strict TypeScript: passed.
+- Mobile Node: 303/303 passed.
+- Mobile Jest/RNTL: 54/54 across 9 suites passed.
+- Full root `npm test`: shared 32/32, server 171/171, client 24/24, mobile typecheck, mobile Node 303/303, and mobile Jest 54/54 passed.
+- Gradle assemble was not run and no APK is claimed.
+
+Implementation, regression tests, and version bump commit: `1a57317` (`fix: add project picker sheets`). This report is the subsequent local documentation commit. Version declarations are 0.3.8 with Android versionCode 10; the existing `versionNameSuffix "-test"`, test package, and map User-Agent contact remain unchanged. The requested debugging, TDD, verification, and React practices were followed manually because their named skills were not installed. No push, PR, deploy, store/billing/account action, paid account/API key, other checkout, Scrapwho import, or out-of-scope map/address work was performed.
