@@ -28,6 +28,15 @@ import { formatTrialDaysLeft } from "../uiReviewFormatters";
 
 const TODAY_SECTIONS = ["timerCard", "quickActions", "map", "clock"] as const;
 
+export function TodayRunningControls({ onBreak, onBreakPress, tasks, onSwitchTask }: { onBreak: boolean; onBreakPress: () => void; tasks: WorkTask[]; onSwitchTask: (taskId: string) => void }) {
+  const [choosingTask, setChoosingTask] = useState(false);
+  return <View style={styles.todayProjectActions}>
+    <Pressable onPress={onBreakPress} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>{onBreak ? "End break" : "Break"}</Text></Pressable>
+    {tasks.length ? <Pressable onPress={() => setChoosingTask(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Switch task</Text></Pressable> : null}
+    {choosingTask ? <TaskPickerSheet tasks={tasks} onClose={() => setChoosingTask(false)} onSelect={(id) => { setChoosingTask(false); onSwitchTask(id); }} onAdd={async () => undefined} /> : null}
+  </View>;
+}
+
 export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; onOpenPhotos?: (projectId?: string) => void }) {
   const locationRequest = useRef(0);
   const pendingLocations = useRef<LocationReading[]>([]);
@@ -320,7 +329,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
 
   const renderClock = (key: string) => (
     <View key={key} style={styles.todayClockAction}>
-      {isRunning ? <View style={styles.todayProjectActions}><Pressable onPress={() => void handleBreak()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>{onBreak ? "End break" : "Break"}</Text></Pressable>{tasks.length ? <Pressable onPress={() => setTaskPickerOpen(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Switch task</Text></Pressable> : null}</View> : null}
+      {isRunning ? <TodayRunningControls onBreak={onBreak} onBreakPress={() => void handleBreak()} tasks={tasks} onSwitchTask={(id) => void handleSwitchTask(id)} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayClockButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
         <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
       </Pressable>

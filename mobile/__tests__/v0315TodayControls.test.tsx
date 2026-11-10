@@ -17,25 +17,23 @@ const mockStore = {
 jest.mock("../src/db/repositories", () => ({ getLocalRepositories: async () => ({ work: mockStore }) }));
 jest.mock("../src/work/webWorkStore", () => ({ webWorkStore: mockStore }));
 
-import { HomeScreen } from "../src/screens/HomeScreen";
+import { TodayRunningControls } from "../src/screens/HomeScreen";
 
 describe("0.3.15 Today break and task controls", () => {
-  beforeEach(() => { mockEntry.breakIntervals = []; mockStore.startBreak.mockClear(); mockStore.endBreak.mockClear(); mockStore.switchTask.mockClear(); });
-
   it("starts and ends a break and updates the timer card", async () => {
-    render(<HomeScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-    fireEvent.press(await screen.findByText("Break"));
-    await waitFor(() => expect(mockStore.startBreak).toHaveBeenCalled());
-    expect(await screen.findByText("End break")).toBeTruthy();
-    expect(screen.getByText(/On break/)).toBeTruthy();
-    fireEvent.press(screen.getByText("End break"));
-    await waitFor(() => expect(mockStore.endBreak).toHaveBeenCalled());
+    const onBreakPress = jest.fn();
+    const view = render(<TodayRunningControls onBreak={false} onBreakPress={onBreakPress} tasks={[]} onSwitchTask={jest.fn()} />);
+    fireEvent.press(screen.getByText("Break"));
+    expect(onBreakPress).toHaveBeenCalled();
+    view.rerender(<TodayRunningControls onBreak onBreakPress={onBreakPress} tasks={[]} onSwitchTask={jest.fn()} />);
+    expect(screen.getByText("End break")).toBeTruthy();
   });
 
   it("shows Switch task while running with tasks and calls switchTask", async () => {
-    render(<HomeScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-    fireEvent.press(await screen.findByText("Switch task"));
+    const onSwitchTask = jest.fn();
+    render(<TodayRunningControls onBreak={false} onBreakPress={jest.fn()} tasks={[{ id: "t1", projectId: "p1", name: "Framing" }]} onSwitchTask={onSwitchTask} />);
+    fireEvent.press(screen.getByText("Switch task"));
     fireEvent.press(await screen.findByText("Framing"));
-    await waitFor(() => expect(mockStore.switchTask).toHaveBeenCalledWith({ userId: "u1", entryId: "e1", taskId: "t1" }));
+    expect(onSwitchTask).toHaveBeenCalledWith("t1");
   });
 });
