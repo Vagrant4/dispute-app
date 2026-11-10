@@ -48,6 +48,7 @@ test("home map refresh works while running from the embedded locate control", ()
   assert.match(home, /onPress=\{handleLocatePress\}/);
   assert.match(home, /function handleLocatePress\(\)[\s\S]*handleLocateMe\(\)/);
   assert.match(home, /refreshWorkState\(\)[\s\S]*handleLocateMe\(false\)/);
+  assert.match(handler, /getWorkLocationWithTimeout\(25_000, \{ geocode: revealDetails \}\)/);
 });
 
 test("explicit location lookup uses the Android geocoder and formats a unit result with its street", async () => {

@@ -40,3 +40,19 @@ test("Today exposes Add project and opens the existing project-name sheet", asyn
   fireEvent.press(within(projectActions).getByTestId("today-add-project"));
   expect(screen.getByTestId("project-sheet")).toBeTruthy();
 });
+
+test("tap after the quiet mount fix shows Finding address then the geocoded address", async () => {
+  mockGetLocation.mockReset();
+  let finishGeocode!: (value: unknown) => void;
+  mockGetLocation
+    .mockResolvedValueOnce({ address: null, addressParts: null, latitude: 1.36, longitude: 103.89, accuracy: 12, timestamp: "2026-11-10T00:00:00.000Z", reason: null })
+    .mockImplementationOnce(() => new Promise((resolve) => { finishGeocode = resolve; }));
+  const screen = render(<HomeScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => expect(mockGetLocation).toHaveBeenCalledTimes(1));
+  const button = screen.getByTestId("today-locate-button");
+  await waitFor(() => expect(button.props.disabled).not.toBe(true));
+  fireEvent.press(button);
+  await waitFor(() => expect(screen.getByText("Finding address…")).toBeTruthy());
+  finishGeocode({ address: "377A Hougang Street 32, Singapore 531377", addressParts: null, latitude: 1.36, longitude: 103.89, accuracy: 12, timestamp: "2026-11-10T00:00:01.000Z", reason: null });
+  await waitFor(() => expect(screen.getByText("377A Hougang Street 32, Singapore 531377")).toBeTruthy());
+});
