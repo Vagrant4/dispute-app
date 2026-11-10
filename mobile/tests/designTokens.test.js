@@ -10,6 +10,7 @@ function screens(dir) {
 // OpenStreetMap requires the real copyright sign in its attribution.
 const exceptions = new Map([
   [`${path.join(mobile, "src/screens/LocationMap.native.tsx")}:emoji`, "required map attribution"],
+  [`${path.join(mobile, "src/screens/PhotoEvidenceScreen.tsx")}:emoji`, "required delete-photo dustbin icon"],
 ]);
 function violations(source, file) {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
