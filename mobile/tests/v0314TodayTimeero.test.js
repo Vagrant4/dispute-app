@@ -36,6 +36,8 @@ test("Today timer card and sections have spacing without divider lines", () => {
   }
   const projectActions = styles.match(/todayProjectActions:\s*\{([^\n]+)\}/)?.[1] ?? "";
   assert.match(projectActions, /marginTop:\s*todayLayout\.cardPadding/);
+  assert.match(projectActions, /flexDirection:\s*"column"/);
+  assert.match(projectActions, /gap:\s*todayLayout\.gap/);
   assert.match(styles, /todaySections:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
   assert.match(styles, /todayQuickActions:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
   assert.match(styles, /todayClockAction:\s*\{[^\n]*gap:\s*todayLayout\.gap/);

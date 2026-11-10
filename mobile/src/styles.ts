@@ -374,7 +374,7 @@ export const styles = StyleSheet.create({
   todayStopButton: { backgroundColor: theme.colors.danger },
   todayRoundText: { ...today.buttonText, color: theme.colors.ink },
   todayStopText: { color: theme.colors.onDanger },
-  todayProjectActions: { flexDirection: "row", alignItems: "center", gap: todayLayout.gap, marginTop: todayLayout.cardPadding },
+  todayProjectActions: { alignItems: "stretch", flexDirection: "column", gap: todayLayout.gap, marginTop: todayLayout.cardPadding },
   todayRunningControls: { flexDirection: "row", gap: todayLayout.gap, width: "100%" },
   todayEvidenceRow: { flex: 1, minHeight: todayLayout.projectHeight, flexDirection: "row", alignItems: "center", gap: today.rowGap },
   todayIconTile: { width: 40, height: 40, borderRadius: today.tileRadius, backgroundColor: theme.colors.surfaceMuted, alignItems: "center", justifyContent: "center" },
