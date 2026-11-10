@@ -76,6 +76,14 @@ test("tab ids remain stable and labels become Today Photos Projects Settings", (
   assert.deepEqual(tabs.map((tab) => tab.label), ["Today", "Photos", "Projects", "Settings"]);
 });
 
+test("Projects uses bundled back and filter glyphs and title-case statuses", () => {
+  const projects = source("src/screens/ProjectsScreen.tsx");
+  const detail = source("src/screens/ProjectDetailScreen.tsx");
+  assert.match(projects, /name="arrow-back"/);
+  assert.match(projects, /name="tune"/);
+  for (const label of ["Lead", "Active", "Completed"]) assert.ok(detail.includes(label));
+});
+
 test("needsPayStep only asks when both rate and saved work hours are absent", () => {
   const { needsPayStep, currentWeekStart } = createLoader({ "react-native": { Platform: { OS: "web" } } })("src/work/projectScreenStore.ts");
   assert.equal(needsPayStep({ hourlyRateCents: 0, hasWorkHours: false }), true);
