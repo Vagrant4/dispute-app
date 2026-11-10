@@ -55,22 +55,22 @@ beforeEach(() => {
 test("camera asset shows proof preview, saves, and appears in the list", async () => {
   mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-  await waitFor(() => expect(screen.getByText("Take photo")).toBeTruthy());
-  fireEvent.press(screen.getByText("Take photo"));
+  await waitFor(() => expect(screen.getByLabelText("Take photo")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Take photo"));
   await waitFor(() => expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy());
   expect(screen.getByLabelText("Selected evidence preview")).toBeTruthy();
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(mockInsert).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.getByText("Photo saved.")).toBeTruthy());
-  expect(screen.getByText("1 photos")).toBeTruthy();
+  expect(screen.getByLabelText(/Open photo:/)).toBeTruthy();
 });
 
 test("seal failure shows Retry and retry succeeds without retaking", async () => {
   mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
   mockSeal.mockRejectedValueOnce(new Error("seal failed")).mockResolvedValueOnce({ lockHash: "hash", lockedAt: "now" });
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-  await waitFor(() => screen.getByText("Take photo"));
-  fireEvent.press(screen.getByText("Take photo"));
+  await waitFor(() => screen.getByLabelText("Take photo"));
+  fireEvent.press(screen.getByLabelText("Take photo"));
   await waitFor(() => screen.getByText("Save"));
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(screen.getByText("Retry")).toBeTruthy());
@@ -83,8 +83,8 @@ test("database insert failure stays in the sheet and Retry succeeds", async () =
   const normalInsert = mockInsert.getMockImplementation();
   mockInsert.mockRejectedValueOnce(new Error("db failed")).mockImplementationOnce(normalInsert!);
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-  await waitFor(() => screen.getByText("Take photo"));
-  fireEvent.press(screen.getByText("Take photo"));
+  await waitFor(() => screen.getByLabelText("Take photo"));
+  fireEvent.press(screen.getByLabelText("Take photo"));
   await waitFor(() => screen.getByText("Save"));
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(screen.getByText("Retry")).toBeTruthy());
@@ -96,8 +96,8 @@ test("database insert failure stays in the sheet and Retry succeeds", async () =
 test("canceled camera leaves no proof sheet open", async () => {
   mockCamera.mockResolvedValue({ canceled: true, assets: [] });
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-  await waitFor(() => screen.getByText("Take photo"));
-  fireEvent.press(screen.getByText("Take photo"));
+  await waitFor(() => screen.getByLabelText("Take photo"));
+  fireEvent.press(screen.getByLabelText("Take photo"));
   await waitFor(() => expect(screen.getByText("No photo selected. Nothing was saved.")).toBeTruthy());
   expect(screen.queryByTestId("photo-proof-sheet")).toBeNull();
 });

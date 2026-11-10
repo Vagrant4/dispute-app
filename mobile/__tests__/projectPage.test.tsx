@@ -21,7 +21,7 @@ test("project page renders only its picker and PDF action", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProjectDetailScreen.tsx"), "utf8");
   expect(source).toMatch(/testID="project-picker"/);
   expect(source).toMatch(/testID="create-share-pdf"/);
-  for (const removed of ["No sessions yet", "Sessions", "Photos", "Earlier reports", "Show sessions", "Pay rate", "This week", "CSV", "Status", "Project complete"]) {
+  for (const removed of ["No sessions yet", "Sessions", "Photos", "Earlier reports", "Show sessions", "Pay rate", "This week", "CSV", "Project complete"]) {
     expect(source).not.toContain(removed);
   }
 });
@@ -37,7 +37,7 @@ test("project picker opens a project sheet and selects another project", async (
     />,
   );
 
-  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
+  await waitFor(() => expect(screen.getAllByText("1111.").length).toBeGreaterThan(0));
   fireEvent.press(screen.getByTestId("project-picker"));
   expect(screen.getByTestId("project-detail-picker-sheet")).toBeTruthy();
   fireEvent.press(screen.getByText("2222."));

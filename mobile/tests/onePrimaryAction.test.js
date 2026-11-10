@@ -13,16 +13,16 @@ test("Today reserves filled lime for Start / Stop, including expired access", ()
   assert.match(home, /startDisabled && styles.disabledButtonText/);
 });
 
-test("Projects open through plain rows; New project and name sheets are secondary", () => {
+test("Projects use data-backed cards and secondary add actions", () => {
   const projects = screen("Projects");
   assert.equal(primary(projects).length, 0);
   assert.match(projects, /onPress=\{\(\) => setOpenProjectId\(project.id\)\}/);
-  const row = projects.slice(projects.indexOf("const card ="), projects.indexOf("return <>"));
+  const row = projects.slice(projects.indexOf("const card ="), projects.indexOf("return <View"));
   assert.match(row, /project.name/);
-  assert.match(row, /minutesThisWeek/);
-  assert.match(row, /styles.settingsChevron/);
-  assert.doesNotMatch(row, /photoCount|isActive|lastWorkedAt|formatProjectSite/);
-  assert.match(projects, /styles.actionButtonSecondary[\s\S]*>New project<\/Text>/);
+  assert.match(row, /latestPhotoUri/);
+  assert.match(row, /projectStatus/);
+  assert.match(row, /siteAddress/);
+  assert.match(projects, /styles.actionButtonSecondary[\s\S]*>\+ Add project<\/Text>/);
   assert.equal(primary(source("src/screens/ProjectNameSheet.tsx")).length, 0);
 });
 
@@ -41,7 +41,7 @@ test("Project detail reserves filled lime for its gated PDF action", () => {
 test("Photos has one camera action for empty and populated galleries; sheet actions are secondary", () => {
   const photos = screen("PhotoEvidence");
   assert.equal(primary(photos).length, 1);
-  assert.match(photos, /handlePhotoAction\("camera"\)[^\n]*styles.photoFab[^\n]*>Take photo<\/Text>/);
+  assert.match(photos, /handlePhotoAction\("camera"\)[^\n]*styles.photoFab/);
   assert.match(photos, /onLongPress=\{\(\) => setCaptureSheetOpen\(true\)\}/);
   assert.match(photos, /handleSave\(\)[^\n]*styles.actionButtonSecondary/);
   assert.match(photos, /handlePhotoAction\("gallery"\)[^\n]*styles.actionButtonSecondary/);

@@ -47,7 +47,7 @@ test("Photos and Projects keep one title and inner count subtitles", () => {
   for (const title of ["Photos", "Projects"]) assert.equal(tabs.filter((tab) => tab.title === title).length, 1);
   assert.doesNotMatch(source("src/screens/PhotoEvidenceScreen.tsx"), />Photos<\/Text>/);
   assert.match(source("src/screens/ProjectsScreen.tsx"), /styles.screenTitle\}>Projects<\/Text>/);
-  assert.match(source("src/screens/PhotoEvidenceScreen.tsx"), /\{rows.length\} photos/);
-  assert.match(source("src/screens/ProjectsScreen.tsx"), /\{summaries.length\} \{summaries.length === 1 \? "project" : "projects"\}/);
+  assert.match(source("src/screens/PhotoEvidenceScreen.tsx"), /Sealed on this phone/);
+  assert.match(source("src/screens/ProjectsScreen.tsx"), /Search name or address/);
   assert.doesNotMatch(source("src/screens/ProjectDetailScreen.tsx"), /formatProjectSite\(/);
 });

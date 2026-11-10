@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "sg.claimproof.mobile",
-      "versionCode": 17,
+      "versionCode": 18,
       "allowBackup": false,
       "permissions": [
         "android.permission.CAMERA",

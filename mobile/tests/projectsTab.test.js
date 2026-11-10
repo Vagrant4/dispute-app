@@ -44,18 +44,18 @@ for (const kind of ["sqlite", "web"]) {
   });
 }
 
-test("project navigation, one-field sheet, Today picker and one primary PDF action", () => {
+test("project navigation, site sheet, Today picker and one primary PDF action", () => {
   const today = source("src/screens/HomeScreen.tsx");
   for (const input of today.matchAll(/<TextInput[\s\S]*?\/>/g)) assert.doesNotMatch(input[0], /projectName|projectDescription|projectHourlyRate|Project name|Project description|Project hourly rate/);
   assert.match(today, /ProjectNameSheet/);
   assert.match(today, />Project<\/Text>[\s\S]*Choose a project/);
   assert.match(today, /accessibilityState=\{\{ disabled: isRunning \}\}/);
   assert.doesNotMatch(today, /TextInput/);
-  assert.equal((source("src/screens/ProjectNameSheet.tsx").match(/<TextInput\b/g) || []).length, 1);
+  assert.equal((source("src/screens/ProjectNameSheet.tsx").match(/<TextInput\b/g) || []).length, 2);
   const projects = source("src/screens/ProjectsScreen.tsx");
   assert.match(projects, /openProjectId/);
   assert.match(projects, /ProjectDetailScreen/);
-  assert.match(projects, /Finished/);
+  assert.match(projects, /\+ Add group/);
   const detail = source("src/screens/ProjectDetailScreen.tsx");
   assert.equal((detail.match(/Create &amp; share PDF/g) || []).length, 1);
   assert.match(detail, /ProgressClaimReportsScreen/);
@@ -163,11 +163,11 @@ test("native report source uses the saved report name and project archives filte
   assert.equal((await repository.listRecentGeneratedDocuments({ userId: "other", projectId, limit: 1 })).length, 0);
 });
 
-test("project count uses singular only for one project", () => {
+test("Projects exposes search and status/group filters", () => {
   const projects = source("src/screens/ProjectsScreen.tsx");
-  const expression = projects.match(/\{(summaries.length === 1 \? "project" : "projects")\}/)[1];
-  const noun = new Function("summaries", `return ${expression};`);
-  for (const count of [0, 1, 2]) assert.equal(`${count} ${noun({ length: count })}`, `${count} ${count === 1 ? "project" : "projects"}`);
+  assert.match(projects, /Search name or address/);
+  assert.match(projects, /statusFilter/);
+  assert.match(projects, /groupFilter/);
 });
 
 test("Projects main title is skipped for minimal detail", () => {

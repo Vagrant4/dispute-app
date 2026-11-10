@@ -14,11 +14,11 @@ test("0.3.16 Google Maps identity and versionCode 18 are shared by JS and native
   const manifest = read("android/app/src/main/AndroidManifest.xml");
   const appConfig = read("app.config.js");
   assert.equal(app.expo.version, "0.3.16");
-  assert.equal(app.expo.android.versionCode, 17);
+  assert.equal(app.expo.android.versionCode, 18);
   assert.equal(pkg.version, "0.3.16");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.15"/);
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.16"/);
   assert.match(gradle, /versionCode 18/);
-  assert.match(gradle, /versionName "0\.3\.15"/);
+  assert.match(gradle, /versionName "0\.3\.16"/);
   assert.match(gradle, /versionNameSuffix "-test"/);
   assert.match(gradle, /manifestPlaceholders\.googleMapsApiKey/);
   assert.match(manifest, /android:name="com\.google\.android\.geo\.API_KEY"/);

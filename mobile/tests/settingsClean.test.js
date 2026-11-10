@@ -7,16 +7,14 @@ const files = ["SettingsScreen", "ProfileSettingsPanel", "PlanBillingPanel", "Pr
 const settings = read("src/screens/SettingsScreen.tsx");
 const styles = read("src/styles.ts");
 
-test("Settings and its panels use plain sections without card boxes", () => {
+test("Settings uses grouped rounded cards without row dividers", () => {
   for (const file of files) {
     const source = read(`src/screens/${file}.tsx`);
     assert.doesNotMatch(source, /styles\.(?:card|statusCard|warningCard|metricTile|eyebrow)\b/, file);
   }
-  for (const key of ["settingsList", "settingsSection", "settingsRow"]) {
-    const definition = styles.match(new RegExp(`  ${key}: \\{[^\\n]+`))[0];
-    assert.doesNotMatch(definition, /backgroundColor|borderRadius|borderWidth:/);
-  }
-  assert.match(styles, /settingsRow: \{[^\n]*borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.colors.border/);
+  assert.match(styles, /settingsList: \{[^\n]*backgroundColor[^\n]*borderRadius/);
+  const row = styles.match(/settingsRow: \{([^}]+)\}/)[1];
+  assert.doesNotMatch(row, /borderTopWidth|borderBottomWidth/);
   assert.match(settings, /styles.todayTitle\}>Settings/);
   assert.match(settings, /styles.settingsBackText/);
   assert.doesNotMatch(settings, /numberOfLines=\{1\} style=\{styles.settingsRowSubtitle\}/);
@@ -41,7 +39,7 @@ test("Settings uses lime only for primary actions and the wordmark", () => {
     for (const [, key] of source.matchAll(/styles\.(\w+)/g)) {
       const definition = styles.match(new RegExp(`^  ${key}: \\{[\\s\\S]*?(?=^  \\w+:|^\\}\\);)`, "m"));
       assert.ok(definition, key);
-      if (/theme.colors.primary/.test(definition[0])) assert.ok(key === "actionButton" || (file === "SettingsScreen" && key === "todayWordmark"), `${file}: ${key}`);
+      if (/theme.colors.primary/.test(definition[0])) assert.ok(key === "actionButton" || (file === "SettingsScreen" && ["todayWordmark", "settingsProfileAvatar", "settingsProfileInitial", "settingsLogoutText"].includes(key)), `${file}: ${key}`);
     }
     if (!["SettingsScreen", "PlanBillingPanel"].includes(file)) assert.doesNotMatch(source, /styles.actionButton\b/);
   }

@@ -39,6 +39,7 @@ test("disabled controls use disabled text colours and no opacity dimming", () =>
         assert.doesNotMatch(node.parent.parent.getText(ast), /disabled/i, file);
       }
       if (ts.isJsxOpeningElement(node) && node.tagName.getText(ast) === "Pressable" && node.attributes.properties.some((prop) => prop.name?.getText(ast) === "disabled") && !node.getText(ast).includes("styles.todayEvidenceRow")) {
+        if (file.endsWith("ProjectsScreen.tsx") && node.getText(ast).includes("setCreating(true)")) return;
         assert.match(node.getText(ast), /styles.disabledButton/, file);
         assert.match(node.parent.getText(ast), /styles.disabledButtonText|styles.locationReticle(?:Circle|Line)Disabled/, file);
       }

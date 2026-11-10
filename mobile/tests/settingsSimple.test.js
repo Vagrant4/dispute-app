@@ -8,9 +8,10 @@ const source = read("screens/SettingsScreen.tsx");
 const mainRows = source.slice(source.indexOf("  const mainRows:"), source.indexOf("  const moreRows:"));
 const moreRows = source.slice(source.indexOf("  const moreRows:"), source.indexOf("  const insideMore"));
 
-test("Settings main rows are exactly Name, Pay rate, Language, Plan, Support, More", () => {
-  assert.deepEqual([...mainRows.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), ["Name", "Pay rate", "Language", "Plan", "Support", "More"]);
-  assert.match(mainRows, /account\.name\?\.trim\(\) \|\| "Not set"/);
+test("Settings profile is above Pay rate, Language, Plan, Support and More", () => {
+  assert.deepEqual([...mainRows.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), ["Pay rate", "Language", "Plan", "Support", "More"]);
+  assert.match(source, /styles\.settingsProfile/);
+  assert.match(source, /account\.email/);
   assert.match(mainRows, /\$\{currency\} \$\{baseRate/);
   assert.match(mainRows, /value: "English"/);
   assert.match(mainRows, /planTrialLine\(subscription\)/);
@@ -74,7 +75,7 @@ test("unset pay rates say Not set and saved rates keep their basis", () => {
 test("Settings owns its main heading and sub-panels retain their back row and heading", () => {
   const app = readFileSync(path.join(__dirname, "..", "App.tsx"), "utf8");
   assert.match(app, /!account \|\| \(activeTab !== "settings" && activeTab !== "reports"\) \? <Text/);
-  assert.match(source, /<View style=\{styles.todayScreen\}>\s*\{panel === "main" \? \(\s*<View style=\{styles.todayHeader\}>\s*<Text style=\{styles.todayTitle\}>Settings<\/Text>\s*<Text style=\{styles.todayWordmark\}>DISPUTE<\/Text>\s*<\/View>\s*\) : null\}\s*\{panel !== "main"/);
+  assert.match(source, /panel === "main"[\s\S]*styles.todayHeader[\s\S]*styles.settingsProfile[\s\S]*panel !== "main"/);
   const plan = read("screens/PlanBillingPanel.tsx");
   assert.match(plan, /styles.todayTitle\}>Plan<\/Text>/);
   assert.doesNotMatch(plan, /Plan & billing/);
