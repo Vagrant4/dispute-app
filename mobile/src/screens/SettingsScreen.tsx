@@ -173,13 +173,17 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }, [projects, rateProjectId]);
 
   async function handleSaveProjectRate() {
-    const project = projects.find((item) => item.id === rateProjectId);
-    if (!project) return;
     const store = await getProjectScreenStore(userId);
-    await store.updateProject({ userId, projectId: project.id, name: project.name, description: project.description, hourlyRateCents: parseRateAmountCents(projectRate) });
+    const selectedProject = projects.find((item) => item.id === rateProjectId);
+    const storedProjects = selectedProject ? projects : await store.listProjects(userId);
+    const project = selectedProject ?? storedProjects[0];
+    if (!project) return;
+    const hourlyRateCents = parseRateAmountCents(projectRate);
+    await store.updateProject({ userId, projectId: project.id, name: project.name, description: project.description, hourlyRateCents });
     await saveReportPeriod(userId, reportPeriod);
+    setProjects(storedProjects.map((item) => item.id === project.id ? { ...item, hourlyRateCents } : item));
+    setRateProjectId(project.id);
     setWorkHoursStatus("Saved");
-    await loadWorkHours();
   }
 
   useEffect(() => {

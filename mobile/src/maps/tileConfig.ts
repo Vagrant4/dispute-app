@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.3.6";
+export const APP_VERSION = "0.3.7";
 export const TILE_CACHE_VERSION = "osm-v2";
 export const OPENSTREETMAP_TILE_HOST = "tile.openstreetmap.org";
 export const TILE_USER_AGENT = `DISPUTE/${APP_VERSION} (sg.claimproof.mobile; Android; +https://github.com/)`;
