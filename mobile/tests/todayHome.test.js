@@ -35,7 +35,7 @@ test("Today limits lime to the working pill, wordmark and round action", () => {
   assert.match(styles, /todayRoundButton: \{[^\n]*width: 176, height: 176/);
   const today = styles.slice(styles.indexOf("  todayScreen:"), styles.indexOf("  todayBottomAction:"));
   const limeStyles = today.split(/\r?\n/).filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
-  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton"]);
+  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton", "todayAddProjectText"]);
 });
 test("Clock in directs missing requirements to GPS or the picker", () => {
   const home = source("src/screens/HomeScreen.tsx");
@@ -95,7 +95,7 @@ test("working pill uses lime while idle stays neutral", () => {
     assert.ok(home.includes("isRunning && styles." + key + "Working"));
   }
 });
-test("round action keeps a fixed frame and full touch target", () => {
+test("round action uses responsive sizing and keeps a full touch target", () => {
   const styles = source("src/styles.ts");
   const home = source("src/screens/HomeScreen.tsx");
   assert.match(styles, /todayButtonFrame: \{[^\n]*width: 200, height: 200[^\n]*alignItems: "center", justifyContent: "center"/);
@@ -104,7 +104,8 @@ test("round action keeps a fixed frame and full touch target", () => {
   assert.match(styles, /todayHalo: \{ padding: today.halo/);
   assert.match(source("src/theme/tokens.ts"), /halo: 12/);
   assert.match(home, /hitSlop=\{isRunning \? 8 : 0\}/);
-  assert.match(home, /style=\{styles.todayButtonFrame\}/);
+  assert.match(home, /styles\.todayButtonFrame[\s\S]*clockLayout\.frameSize/);
+  assert.match(home, /getTodayClockLayout\(window\.width, window\.height\)/);
 });
 test("tabs use PNG line icons with lime active icons and normal active labels", () => {
   const app = source("App.tsx");

@@ -102,6 +102,23 @@ test("pay rate Project field opens a readable project picker sheet", async () =>
   expect(screen.getByText("Choose project")).toBeTruthy();
 });
 
+test("report period opens a picker and persists month through the existing Save", async () => {
+  mockListProjects.mockReset();
+  mockListProjects.mockResolvedValue([storedProject]);
+  mockSaveReportPeriod.mockReset();
+  const screen = render(
+    <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
+  );
+  await waitFor(() => expect(screen.getByText("This week")).toBeTruthy());
+  fireEvent.press(screen.getByTestId("settings-report-period"));
+  expect(screen.getByTestId("settings-report-period-sheet")).toBeTruthy();
+  expect(screen.getByText("This month")).toBeTruthy();
+  fireEvent.press(screen.getByTestId("settings-report-period-month"));
+  expect(screen.queryByTestId("settings-report-period-sheet")).toBeNull();
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
+  await waitFor(() => expect(mockSaveReportPeriod).toHaveBeenCalledWith("u1", "month"));
+});
+
 test("first Save resolves an existing stored project and upserts a missing rate", async () => {
   mockGetProjectScreenStore.mockClear();
   mockListProjects.mockReset();

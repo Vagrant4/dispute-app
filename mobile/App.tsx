@@ -26,6 +26,7 @@ import {
 } from "./src/auth/localAuthStorageExpo";
 import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
 import { KeyboardAwareScroll } from "./src/components/KeyboardAwareScroll";
+import { TabScreenContent } from "./src/components/TabScreenContent";
 
 const tabIcons: Record<TabId, ImageSourcePropType> = {
   home: require("./assets/icons/tab-today.png"),
@@ -194,7 +195,8 @@ export default function App() {
           showsVerticalScrollIndicator={false}
         >
           {account ? (
-            renderScreen(
+            <TabScreenContent activeTab={activeTab}>
+            {renderScreen(
               activeTab,
               (tab, settingsPanel) => {
                 setSettingsInitialPanel(settingsPanel);
@@ -220,7 +222,8 @@ export default function App() {
               settingsInitialPanel,
               photoProjectId,
               (projectId) => { setPhotoProjectId(projectId); setActiveTab("evidence"); },
-            )
+            )}
+            </TabScreenContent>
           ) : authMode === "logo" ? (
             <LogoScreen
               onShowCreateAccount={() => setAuthMode("create")}

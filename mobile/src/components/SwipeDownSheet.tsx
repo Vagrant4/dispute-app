@@ -8,6 +8,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const DISMISS_DISTANCE = 80;
 const DISMISS_VELOCITY = 0.8;
@@ -33,6 +34,7 @@ export function SwipeDownSheet({
   transparent = true,
   visible = true,
 }: SwipeDownSheetProps) {
+  const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(0)).current;
   const startY = useRef(0);
   const startTime = useRef(0);
@@ -65,9 +67,9 @@ export function SwipeDownSheet({
   };
 
   return (
-    <Modal animationType={animationType} onRequestClose={onClose} transparent={transparent} visible={visible}>
+    <Modal animationType={animationType} navigationBarTranslucent onRequestClose={onClose} statusBarTranslucent transparent={transparent} visible={visible}>
       <View style={backdropStyle}>
-        <Animated.View style={[sheetStyle, { transform: [{ translateY }] }]} testID={testID}>
+        <Animated.View style={[sheetStyle, { flexShrink: 1, paddingBottom: insets.bottom, transform: [{ translateY }] }]} testID={testID}>
           <Animated.View
             accessibilityLabel="Drag down to close"
             accessible

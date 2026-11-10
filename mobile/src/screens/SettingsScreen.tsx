@@ -23,6 +23,7 @@ import { getProjectScreenStore } from "../work/projectScreenStore";
 import type { WorkProject } from "../work/workRepository";
 import { loadReportPeriod, saveReportPeriod, type ReportPeriod } from "../reports/reportPeriodSettings";
 import { ProjectPickerSheet } from "./ProjectPickerSheet";
+import { SwipeDownSheet } from "../components/SwipeDownSheet";
 
 type SettingsScreenProps = {
   account: LocalAccount;
@@ -71,6 +72,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const [rateProjectPickerOpen, setRateProjectPickerOpen] = useState(false);
   const [projectRate, setProjectRate] = useState("");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
+  const [reportPeriodPickerOpen, setReportPeriodPickerOpen] = useState(false);
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
   const {
     subscription,
@@ -90,6 +92,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
       if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }
       if (rateProjectPickerOpen) { setRateProjectPickerOpen(false); return true; }
+      if (reportPeriodPickerOpen) { setReportPeriodPickerOpen(false); return true; }
       if (panel !== "main") {
         setPanel(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
         return true;
@@ -97,7 +100,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       return false;
     });
     return () => subscription.remove();
-  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, rateProjectPickerOpen]);
+  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, rateProjectPickerOpen, reportPeriodPickerOpen]);
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
@@ -294,10 +297,16 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           <Text style={styles.inputLabel}>Project hourly rate ({currency})</Text>
           <TextInput accessibilityLabel="Project hourly rate" testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onChangeText={setProjectRate} style={styles.textInput} value={projectRate} />
           <Text style={styles.inputLabel}>Report period</Text>
-          <Pressable testID="settings-report-period" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setReportPeriod((value) => value === "week" ? "month" : "week")}>
+          <Pressable testID="settings-report-period" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setReportPeriodPickerOpen(true)}>
             <Text style={styles.dropdownValue}>{reportPeriod === "week" ? "This week" : "This month"}</Text>
             <Text style={styles.settingsDropdownChevron}>▼</Text>
           </Pressable>
+          {reportPeriodPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setReportPeriodPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-report-period-sheet">
+            <Text style={styles.heading}>Report period</Text>
+            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
+              <Text style={styles.body}>{period === "week" ? "This week" : "This month"}{period === reportPeriod ? " ✓" : ""}</Text>
+            </Pressable>)}
+          </SwipeDownSheet> : null}
           <Pressable testID="settings-pay-rate-save" accessibilityRole="button" onPress={() => void handleSaveProjectRate()} style={styles.actionButton}>
             <Text style={styles.actionButtonText}>Save project rate &amp; report period</Text>
           </Pressable>

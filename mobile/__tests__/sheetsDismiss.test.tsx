@@ -4,6 +4,14 @@ import { Text } from "react-native";
 import { SwipeDownSheet } from "../src/components/SwipeDownSheet";
 
 describe.each(["project-sheet", "photo-proof-sheet", "photo-detail-sheet", "project-detail-picker-sheet", "settings-pay-rate-project-sheet", "today-project-picker-sheet"])("%s", (sheetId) => {
+  test("uses an edge-to-edge safe modal and a non-collapsing sheet", () => {
+    const view = render(<SwipeDownSheet onClose={jest.fn()} testID={sheetId}><Text>Sheet</Text></SwipeDownSheet>);
+    const modal = view.UNSAFE_getByType(require("react-native").Modal);
+    expect(modal.props.statusBarTranslucent).toBe(true);
+    expect(modal.props.navigationBarTranslucent).toBe(true);
+    expect(view.getByTestId(sheetId).props.style).toEqual(expect.objectContaining({ flexShrink: 1 }));
+  });
+
   test("shows a grab handle and closes after a downward swipe", () => {
     const onClose = jest.fn();
     const view = render(<SwipeDownSheet onClose={onClose} testID={sheetId}><Text>Sheet</Text></SwipeDownSheet>);

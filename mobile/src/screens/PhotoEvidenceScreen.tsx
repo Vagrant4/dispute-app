@@ -19,6 +19,8 @@ import type { WorkProject } from "../work/workRepository";
 import type { LocalAccount } from "../auth/localAuth";
 import { KeyboardAwareScroll } from "../components/KeyboardAwareScroll";
 import { SwipeDownSheet } from "../components/SwipeDownSheet";
+import { ProjectNameSheet } from "./ProjectNameSheet";
+import { getLocalRepositories } from "../db/repositories";
 
 type PhotoAction = "camera" | "gallery";
 const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
@@ -48,6 +50,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   const [captureSource, setCaptureSource] = useState<PhotoAction>("camera");
   const [captureTimeSource, setCaptureTimeSource] = useState<"device_clock" | "exif" | "unknown">("device_clock");
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [rows, setRows] = useState<PhotoEvidenceRow[]>([]);
 
   useEffect(() => {
@@ -80,6 +84,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   }
 
   async function handlePhotoAction(action: PhotoAction) {
+    let failureCode: "PHOTO_CAMERA_FAILED" | "PHOTO_IMPORT_FAILED" = "PHOTO_CAMERA_FAILED";
     try {
       if (!access.hasCurrentCreateAccess()) throw new Error("An active trial or subscription is required to capture new evidence.");
       if (!projectId) throw new Error("Choose a project before adding evidence.");
@@ -108,10 +113,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
         timestamp: capturedAt,
         extension: getExtension(selected.uri),
       });
+      failureCode = "PHOTO_IMPORT_FAILED";
       const imported = await importEvidencePhotoFile({ sourceUri: selected.uri, destinationUri });
-      const gps: PhotoGpsResult = action === "camera"
-        ? await getOptionalPhotoGps()
-        : { coordinates: null, message: "Gallery import: no GPS attached", blocked: false };
       setPendingId(photoId);
       setPendingUri(imported.localUri);
       setPendingCapturedAt(metadata.capturedAt);
@@ -119,11 +122,17 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
       setCaptureTimeSource(metadata.captureTimeSource);
       setEvidenceType("DURING_WORK");
       setCaption("");
+      setSaveFailed(false);
       setCaptureSheetOpen(true);
-      setPendingGps(gps);
       setStatus("");
+      const gps: PhotoGpsResult = action === "camera"
+        ? await getOptionalPhotoGps()
+        : { coordinates: null, message: "Gallery import: no GPS attached", blocked: false };
+      setPendingGps(gps);
     } catch (error) {
+      console.warn("[DISPUTE photo] failed", { code: failureCode });
       setStatus(getErrorMessage(error, "open the camera"));
+      setCaptureSheetOpen(false);
     }
   }
 
@@ -142,60 +151,41 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
     }
     if (saving) return;
     setSaving(true);
-    const seal = await sealPhoto({ localUri: pendingUri, capturedAt: pendingCapturedAt, gps: pendingGps });
-    if (Platform.OS === "web") {
-      const row = buildWebPhotoEvidenceRow({
-        userId,
-        id: pendingId,
-        projectId,
-        localUri: pendingUri,
-        caption,
-        evidenceType,
-        gps: pendingGps,
-        capturedAt: pendingCapturedAt,
-        captureSource,
-        captureTimeSource,
-        ...seal,
-      });
-      const nextRows = [row, ...readWebPhotoEvidenceRows(userId)];
-      writeWebPhotoEvidenceRows(nextRows, userId);
-      setRows(nextRows);
-      setPendingUri(null);
-      setPendingId(null);
-      setPendingCapturedAt(null);
-      setPendingGps(null);
-      setCaption("");
-      setStatus("Photo saved.");
-      setCaptureSheetOpen(false);
-      setSaving(false);
-      return;
-    }
     try {
-      const repositories = await getNativeRepositories(userId);
-      await repositories.photoEvidence.insertPhotoEvidence({
-        id: pendingId,
-        userId,
-        projectId,
-        localUri: pendingUri,
-        caption,
-        evidenceType,
-        gps: pendingGps,
-        timestamp: pendingCapturedAt,
-        captureSource,
-        captureTimeSource,
-        ...seal,
-        status: "finalized",
-      });
+      let seal: Awaited<ReturnType<typeof sealPhoto>>;
+      try {
+        seal = await sealPhoto({ localUri: pendingUri, capturedAt: pendingCapturedAt, gps: pendingGps });
+      } catch {
+        console.warn("[DISPUTE photo] failed", { code: "PHOTO_SEAL_FAILED" });
+        throw new Error("PHOTO_SEAL_FAILED");
+      }
+      if (Platform.OS === "web") {
+        const row = buildWebPhotoEvidenceRow({ userId, id: pendingId, projectId, localUri: pendingUri, caption, evidenceType, gps: pendingGps, capturedAt: pendingCapturedAt, captureSource, captureTimeSource, ...seal });
+        const nextRows = [row, ...readWebPhotoEvidenceRows(userId)];
+        writeWebPhotoEvidenceRows(nextRows, userId);
+        setRows(nextRows);
+      } else {
+        const repositories = await getNativeRepositories(userId);
+        try {
+          await repositories.photoEvidence.insertPhotoEvidence({ id: pendingId, userId, projectId, localUri: pendingUri, caption, evidenceType, gps: pendingGps, timestamp: pendingCapturedAt, captureSource, captureTimeSource, ...seal, status: "finalized" });
+        } catch {
+          console.warn("[DISPUTE photo] failed", { code: "PHOTO_DB_INSERT_FAILED" });
+          throw new Error("PHOTO_DB_INSERT_FAILED");
+        }
+        await refresh();
+      }
       setPendingUri(null);
       setPendingId(null);
       setPendingCapturedAt(null);
       setPendingGps(null);
       setCaption("");
       setStatus("Photo saved.");
+      setSaveFailed(false);
       setCaptureSheetOpen(false);
-      await refresh();
+      console.info("[DISPUTE photo] saved", { code: "PHOTO_SAVED" });
     } catch (error) {
-      setStatus(getErrorMessage(error, "save the photo"));
+      setSaveFailed(true);
+      setStatus("Couldn't save this photo. Try again.");
     } finally {
       setSaving(false);
     }
@@ -258,7 +248,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
 
       </>}
         <Pressable accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.actionButtonText, (!canCapture) && styles.disabledButtonText]}>Take photo</Text></Pressable>
-      {!projectId ? <Text style={styles.muted}>Start work on Today to create your first project.</Text> : null}
+      {!projectId ? <View><Text style={styles.muted}>Add a project before saving photo evidence.</Text><Pressable accessibilityRole="button" onPress={() => setProjectSheetOpen(true)} style={styles.textButton}><Text style={styles.body}>+ Add project</Text></Pressable></View> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <SwipeDownSheet visible={captureSheetOpen} backdropStyle={styles.photoSheetBackdrop} sheetStyle={styles.photoSheet} testID="photo-proof-sheet" onClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
         <KeyboardAwareScroll contentContainerStyle={styles.photoSheetContent} bottomPadding={Math.max(insets.bottom, 24)}>
@@ -270,11 +260,21 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           <View style={styles.chipRow}>{SIMPLE_EVIDENCE_TYPES.map((type) => <Pressable disabled={saving} key={type} onPress={() => setEvidenceType(type)} style={[type === evidenceType ? styles.chipSelected : styles.chip, (saving) && styles.disabledButton]}><Text style={[type === evidenceType ? styles.selectedSecondaryText : styles.chipText, (saving) && styles.disabledButtonText]}>{formatEvidenceType(type)}</Text></Pressable>)}</View>
           {captureSheetOpen ? <TextInput accessibilityLabel="Photo evidence caption" editable={!saving} multiline onChangeText={setCaption} placeholder="Optional note" placeholderTextColor={theme.colors.placeholder} style={[styles.textInput, styles.textArea]} value={caption} /> : null}
           <Pressable disabled={saving || !pendingUri || !canCapture} onPress={() => void handleSave()} style={[styles.actionButtonSecondary, (saving || !pendingUri || !canCapture) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, ((saving || !pendingUri || !canCapture)) && styles.disabledButtonText]}>{saving ? "Saving…" : "Save"}</Text></Pressable>
+          {saveFailed ? <Pressable accessibilityRole="button" disabled={saving} onPress={() => void handleSave()} style={[styles.actionButtonSecondary, saving && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, saving && styles.disabledButtonText]}>Retry</Text></Pressable> : null}
           <Pressable disabled={saving} onPress={() => void handlePhotoAction("gallery")} style={[styles.actionButtonSecondary, (saving) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, (saving) && styles.disabledButtonText]}>Import from gallery</Text></Pressable>
           {status ? <Text style={styles.muted}>{status}</Text> : null}
           <Pressable style={[(saving) && styles.disabledButton]} disabled={saving} onPress={() => setCaptureSheetOpen(false)}><Text style={[styles.muted, (saving) && styles.disabledButtonText]}>Cancel</Text></Pressable>
         </KeyboardAwareScroll>
       </SwipeDownSheet>
+      {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
+        const work = Platform.OS === "web" ? (await import("../work/webWorkStore")).webWorkStore : (await getNativeRepositories(userId)).work;
+        const clients = await work.listClients(userId);
+        const client = clients[0] ?? await work.createClient({ userId, name: "My client" });
+        const project = await work.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
+        setProjectId(project.id);
+        setProjectSheetOpen(false);
+        await refresh();
+      }} /> : null}
       <SwipeDownSheet visible={!!detail} transparent={false} backdropStyle={styles.photoDetail} sheetStyle={styles.photoDetail} testID="photo-detail-sheet" onClose={() => setDetail(null)}>
         {detail ? <ScrollView contentContainerStyle={[styles.photoSheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           <Pressable onPress={() => setDetail(null)}><Text style={styles.body}>Close</Text></Pressable>
@@ -311,7 +311,6 @@ function getErrorMessage(error: unknown, action: string): string {
 }
 
 async function getNativeRepositories(userId: string) {
-  const { getLocalRepositories } = await import("../db/repositories");
   return getLocalRepositories(userId);
 }
 

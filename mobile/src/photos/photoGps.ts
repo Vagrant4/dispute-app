@@ -2,7 +2,26 @@ import * as Location from "expo-location";
 
 import type { PhotoGpsResult } from "./photoEvidenceTypes";
 
-export async function getOptionalPhotoGps(): Promise<PhotoGpsResult> {
+const PHOTO_GPS_TIMEOUT_MS = 5_000;
+
+export async function getOptionalPhotoGps(timeoutMs = PHOTO_GPS_TIMEOUT_MS): Promise<PhotoGpsResult> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      readOptionalPhotoGps(),
+      new Promise<PhotoGpsResult>((resolve) => {
+        timeout = setTimeout(() => {
+          console.warn("[DISPUTE photo] failed", { code: "PHOTO_GPS_TIMEOUT" });
+          resolve(nonBlockingGpsResult("Location timed out. The photo is saved without a place."));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function readOptionalPhotoGps(): Promise<PhotoGpsResult> {
   try {
     if (!Location.requestForegroundPermissionsAsync) {
       return nonBlockingGpsResult(

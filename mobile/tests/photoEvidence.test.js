@@ -195,3 +195,25 @@ test("GPS denied result is non-blocking", async () => {
   assert.equal(result.blocked, false);
   assert.match(result.message, /Location is off\. The photo is saved without a place\./);
 });
+
+test("GPS timeout returns a non-blocking no-location result", async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    const { getOptionalPhotoGps } = createTsLoader({
+      "expo-location": {
+        PermissionStatus: { GRANTED: "granted" },
+        Accuracy: { High: 5 },
+        requestForegroundPermissionsAsync: async () => ({ status: "granted" }),
+        getCurrentPositionAsync: async () => new Promise(() => {}),
+      },
+    })("src/photos/photoGps.ts");
+    const result = await getOptionalPhotoGps(5);
+    assert.equal(result.coordinates, null);
+    assert.match(result.message, /timed out/);
+    assert.deepEqual(warnings[0], ["[DISPUTE photo] failed", { code: "PHOTO_GPS_TIMEOUT" }]);
+  } finally {
+    console.warn = originalWarn;
+  }
+});

@@ -29,3 +29,10 @@ test("Today renders a composed crosshair inside its live map and reveals the add
   await waitFor(() => expect(mockGetLocation).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(within(map).getByText("Raffles Place")).toBeTruthy());
 });
+
+test("Today exposes Add project and opens the existing project-name sheet", async () => {
+  const screen = render(<HomeScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => expect(screen.getByText("+ Add project")).toBeTruthy());
+  fireEvent.press(screen.getByText("+ Add project"));
+  expect(screen.getByTestId("project-sheet")).toBeTruthy();
+});

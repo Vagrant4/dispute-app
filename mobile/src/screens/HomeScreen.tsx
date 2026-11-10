@@ -7,6 +7,7 @@ import {
   Pressable,
   Text,
   Linking,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -22,8 +23,11 @@ import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
+import { getTodayClockLayout } from "../layout/todayClockLayout";
 
 export function HomeScreen({ account }: { account: LocalAccount }) {
+  const window = useWindowDimensions();
+  const clockLayout = getTodayClockLayout(window.width, window.height);
   const locationRequest = useRef(0);
   const pendingLocations = useRef<LocationReading[]>([]);
   const [locationOff, setLocationOff] = useState(false);
@@ -268,9 +272,9 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         <Text style={styles.todayClock}>{isRunning ? formatWorkedClock(workedSeconds) : idleClock.time}{!isRunning ? <Text style={styles.todayPeriod}> {idleClock.period}</Text> : null}</Text>
         <Text style={styles.todayCaption}>{isRunning ? "hours worked today" : now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long" })}</Text>
         {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
-        <View style={styles.todayButtonFrame}>
+        <View style={[styles.todayButtonFrame, { height: clockLayout.frameSize, width: clockLayout.frameSize, marginBottom: clockLayout.mapGap }]}>
           <View style={[styles.todayHalo, isRunning && styles.todayStopHalo]}>
-            <Pressable hitSlop={isRunning ? 8 : 0} accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayRoundButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
+            <Pressable hitSlop={isRunning ? 8 : 0} accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayRoundButton, isRunning && styles.todayStopButton, { borderRadius: clockLayout.size / 2, height: clockLayout.size, width: clockLayout.size }, startDisabled && styles.disabledButton]}>
               <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
             </Pressable>
           </View>
@@ -286,6 +290,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
             <View style={[styles.locationReticleDot, (locating || stopping) && styles.locationReticleLineDisabled]} />
           </View>
         </Pressable>
+        {!isRunning ? <Pressable accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]}><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
       </View>
       <View style={styles.todayRows}>
         {!isRunning ? <View style={styles.actionRow}>
