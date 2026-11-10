@@ -5,6 +5,11 @@ export function isHouseNumberOnly(value: string | null | undefined): boolean {
   return /^(?:(?:blk|block|no\.?|#)\s*)?\d+[a-z]?$/i.test(value.trim());
 }
 
+export function isUnitNumber(value: string | null | undefined): boolean {
+  if (!value?.trim()) return false;
+  return /^#?(?:[a-z]\d?|\d{1,3})-\d{1,4}$/i.test(value.trim());
+}
+
 export function isCountryOnly(value: string | null | undefined): boolean {
   if (!value?.trim()) return false;
   return /^(singapore|malaysia|indonesia|philippines|thailand|vietnam|india|bangladesh|china|australia|united states|usa|uk|united kingdom)$/i.test(
@@ -27,6 +32,7 @@ export type AddressPartFields = {
   region?: string | null;
   postalCode?: string | null;
   country?: string | null;
+  formattedAddress?: string | null;
 };
 
 /** Build a stored/full address. Returns null when geocode is too sparse (e.g. "377, Singapore"). */
@@ -35,7 +41,7 @@ export function formatReadableAddress(parts: AddressPartFields): string | null {
   const streetNumber =
     parts.streetNumber?.trim() || (isHouseNumberOnly(rawName) ? rawName : "") || "";
   const street = parts.street?.trim() || "";
-  const placeName = rawName && !isHouseNumberOnly(rawName) ? rawName : "";
+  const placeName = rawName && !isHouseNumberOnly(rawName) && !isUnitNumber(rawName) ? rawName : "";
   const numberAndStreet = [streetNumber, street].filter(Boolean).join(" ").trim();
   const streetLine = placeName || (street ? numberAndStreet : "");
   const usableStreet = streetLine && !isHouseNumberOnly(streetLine) ? streetLine : "";
@@ -71,7 +77,7 @@ export function shortAddress(
   const streetNumber =
     parts?.streetNumber?.trim() || (isHouseNumberOnly(rawName) ? rawName : "") || "";
   const street = parts?.street?.trim() || "";
-  const placeName = rawName && !isHouseNumberOnly(rawName) ? rawName : "";
+  const placeName = rawName && !isHouseNumberOnly(rawName) && !isUnitNumber(rawName) ? rawName : "";
   const numberAndStreet = [streetNumber, street].filter(Boolean).join(" ").trim();
   const streetLine = placeName || (street ? numberAndStreet : "");
   const usableStreet = streetLine && !isHouseNumberOnly(streetLine) ? streetLine : "";

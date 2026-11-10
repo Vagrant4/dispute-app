@@ -12,6 +12,7 @@ test("0.3.10 Google Maps identity and versionCode 12 are shared by JS and native
   const tileConfig = read("src/maps/tileConfig.ts");
   const gradle = read("android/app/build.gradle");
   const manifest = read("android/app/src/main/AndroidManifest.xml");
+  const appConfig = read("app.config.js");
   assert.equal(app.expo.version, "0.3.10");
   assert.equal(app.expo.android.versionCode, 12);
   assert.equal(pkg.version, "0.3.10");
@@ -22,6 +23,13 @@ test("0.3.10 Google Maps identity and versionCode 12 are shared by JS and native
   assert.match(gradle, /manifestPlaceholders\.googleMapsApiKey/);
   assert.match(manifest, /android:name="com\.google\.android\.geo\.API_KEY"/);
   assert.match(manifest, /android:value="\$\{googleMapsApiKey\}"/);
+  assert.doesNotMatch(appConfig, /extra:\s*\{[^}]*googleMapsApiKey/s);
+});
+
+test("geocoding and map diagnostics never log configuration or key-bearing values", () => {
+  const source = `${read("src/work/workLocation.ts")}\n${read("src/screens/LocationMap.native.tsx")}`;
+  assert.doesNotMatch(source, /console\.(?:warn|log|error)\([^\n]*(?:expoConfig|apiKey|googleMaps)/i);
+  assert.doesNotMatch(source, /maps\.googleapis\.com\/maps\/api\/geocode/);
 });
 
 test("Today project choices use the shared dark sheet and light text", () => {

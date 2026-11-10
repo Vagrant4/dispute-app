@@ -4,7 +4,12 @@ export type AddressParts = {
   streetNumber?: string | null;
   street?: string | null;
   district?: string | null;
+  subregion?: string | null;
   city?: string | null;
+  region?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  formattedAddress?: string | null;
 };
 export type LocationReading = {
   phase: "start" | "stop";

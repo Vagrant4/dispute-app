@@ -1,7 +1,6 @@
 import * as Location from "expo-location";
-import Constants from "expo-constants";
 import type { AddressParts } from "./locationEvidence";
-import { formatReadableAddress } from "./addressFormat";
+import { formatReadableAddress, isCountryOnly, isUnitNumber } from "./addressFormat";
 
 export type WorkLocationResult = {
   address: string | null;
@@ -56,7 +55,7 @@ export async function getOptionalWorkLocationAddress(
     const position = await getCurrentPositionWithFallback(lastKnown);
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
-    const geocoded = options.geocode ? await googleGeocodeAddress(latitude, longitude) : null;
+    const geocoded = options.geocode ? await reverseGeocodeAddress(latitude, longitude) : null;
     const address = geocoded?.address ?? null;
     return {
       address,
@@ -77,53 +76,65 @@ export async function getOptionalWorkLocationAddress(
   }
 }
 
-export async function googleGeocodeAddress(
+export async function reverseGeocodeAddress(
   latitude: number,
   longitude: number,
 ): Promise<{ address: string | null; addressParts: AddressParts } | null> {
-  const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey;
-  if (typeof apiKey !== "string" || !apiKey.trim()) return null;
-
+  const timeout = Symbol("geocoder-timeout");
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const response = await Promise.race([
-      fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${encodeURIComponent(apiKey)}`, {
-        headers: {
-          "X-Android-Package": "sg.claimproof.mobile.test",
-          "X-Android-Cert": "BA7A124DB2C3A7728ED407E494C9C4B2C7B5591D",
-        },
-      }),
-      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 4_000); }),
-    ]).finally(() => { if (timer) clearTimeout(timer); });
-    if (!response?.ok) return null;
-    const payload = await response.json() as GoogleGeocodeResponse;
-    const result = payload.status === "OK" ? payload.results[0] : undefined;
-    if (!result) return null;
-    const component = (type: string) => result.address_components.find((part) => part.types.includes(type))?.long_name ?? null;
+    const result = await Promise.race([
+      Location.reverseGeocodeAsync({ latitude, longitude }),
+      new Promise<typeof timeout>((resolve) => { timer = setTimeout(() => resolve(timeout), 5_000); }),
+    ]);
+    if (result === timeout) {
+      console.warn("[DISPUTE geocode] failed", { code: "GEOCODER_TIMEOUT" });
+      return null;
+    }
+    const location = result[0];
+    if (!location) {
+      console.warn("[DISPUTE geocode] failed", { code: "GEOCODER_EMPTY" });
+      return null;
+    }
 
     const addressParts: AddressParts = {
-      name: component("premise") ?? component("point_of_interest"),
-      streetNumber: component("street_number"),
-      street: component("route"),
-      district: component("sublocality_level_1") ?? component("neighborhood"),
-      city: component("locality"),
+      name: location.name,
+      streetNumber: location.streetNumber,
+      street: location.street,
+      district: location.district,
+      subregion: location.subregion,
+      city: location.city,
+      region: location.region,
+      postalCode: location.postalCode,
+      country: location.country,
+      formattedAddress: location.formattedAddress,
     };
+    const formatted = formatReadableAddress(addressParts);
+    const fallback = isUsableFormattedAddress(location.formattedAddress) ? location.formattedAddress!.trim() : null;
+    if (!formatted && !fallback) {
+      console.warn("[DISPUTE geocode] failed", { code: "GEOCODER_EMPTY" });
+    }
     return {
-      address: formatReadableAddress({ ...addressParts, region: component("administrative_area_level_1"), postalCode: component("postal_code"), country: component("country") }),
+      address: formatted ?? fallback,
       addressParts,
     };
-  } catch {
+  } catch (error) {
+    const detail = error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : error instanceof Error ? error.name : "UNKNOWN";
+    console.warn("[DISPUTE geocode] failed", { code: `GEOCODER_ERROR:${detail}` });
     return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
-type GoogleGeocodeResponse = {
-  status: string;
-  results: Array<{
-    formatted_address: string;
-    address_components: Array<{ long_name: string; types: string[] }>;
-  }>;
-};
+function isUsableFormattedAddress(value: string | null | undefined): boolean {
+  const candidate = value?.trim();
+  if (!candidate || /^[-+]?\d+(?:\.\d+)?\s*°?\s*[NS]?\s*,\s*[-+]?\d+(?:\.\d+)?\s*°?\s*[EW]?$/i.test(candidate)) return false;
+  const parts = candidate.split(",").map((part) => part.trim()).filter(Boolean);
+  return parts.some((part) => !isUnitNumber(part) && !isCountryOnly(part));
+}
 
 async function getCurrentPositionWithFallback(
   lastKnown: Awaited<ReturnType<typeof Location.getLastKnownPositionAsync>> | null,

@@ -14,6 +14,5 @@ module.exports = {
       ...app.expo.android,
       config: { googleMaps: { apiKey: googleMapsApiKey } },
     },
-    extra: { ...app.expo.extra, googleMapsApiKey },
   },
 };

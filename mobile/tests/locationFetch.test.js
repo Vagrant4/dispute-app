@@ -4,9 +4,9 @@ const path = require("node:path");
 const test = require("node:test");
 const ts = require("typescript");
 
-function loadWorkLocation(location, googleMapsApiKey = "test-key") {
+function loadWorkLocation(location) {
   const { createLoader } = require("./locationTestHelpers");
-  return createLoader({ "expo-location": location, "expo-constants": { __esModule: true, default: { expoConfig: { extra: { googleMapsApiKey } } } } })("src/work/workLocation.ts");
+  return createLoader({ "expo-location": location })("src/work/workLocation.ts");
 }
 
 const granted = { Accuracy: { High: "high" }, PermissionStatus: { GRANTED: "granted", UNDETERMINED: "undetermined" }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }), hasServicesEnabledAsync: async () => true };
@@ -50,22 +50,45 @@ test("home map refresh works while running from the embedded locate control", ()
   assert.match(home, /refreshWorkState\(\)[\s\S]*handleLocateMe\(false\)/);
 });
 
-test("explicit location lookup uses Google geocoding and rejects sparse 377 Singapore labels", async () => {
-  const originalFetch = global.fetch;
-  global.fetch = async (url) => {
-    assert.match(String(url), /^https:\/\/maps\.googleapis\.com\/maps\/api\/geocode\/json\?/);
-    return { ok: true, json: async () => ({ status: "OK", results: [{ formatted_address: "377, Singapore", address_components: [{ long_name: "377", types: ["premise"] }, { long_name: "Singapore", types: ["country", "locality"] }] }] }) };
-  };
+test("explicit location lookup uses the Android geocoder and formats a unit result with its street", async () => {
+  let received;
   const workLocation = loadWorkLocation({
     ...granted,
     getCurrentPositionAsync: async () => position,
     getLastKnownPositionAsync: async () => null,
+    reverseGeocodeAsync: async (coordinates) => {
+      received = coordinates;
+      return [{ name: "#01-01", streetNumber: "1", street: "Havelock Square", district: "Outram", city: "Singapore", region: "Singapore", postalCode: "059724", country: "Singapore", formattedAddress: "#01-01, Singapore" }];
+    },
   });
+  const result = await workLocation.getOptionalWorkLocationAddress({ geocode: true });
+  assert.deepEqual(received, { latitude: 1.3, longitude: 103.8 });
+  assert.match(result.address, /^1 Havelock Square/);
+  assert.equal(result.addressParts?.name, "#01-01");
+});
+
+test("geocoder timeout warns with a safe code and returns no address", async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  const workLocation = loadWorkLocation({ ...granted, reverseGeocodeAsync: async () => new Promise(() => {}) });
   try {
-    const result = await workLocation.getOptionalWorkLocationAddress({ geocode: true });
-    assert.equal(result.latitude, 1.3);
-    assert.equal(result.longitude, 103.8);
-    assert.equal(result.address, null);
-    assert.equal(result.addressParts?.name, "377");
-  } finally { global.fetch = originalFetch; }
+    const result = await withImmediateTimer(5000, () => workLocation.reverseGeocodeAddress(1.3, 103.8));
+    assert.equal(result, null);
+    assert.deepEqual(warnings, [["[DISPUTE geocode] failed", { code: "GEOCODER_TIMEOUT" }]]);
+  } finally { console.warn = originalWarn; }
+});
+
+test("coordinate-like and bare unit formatted addresses are never accepted", async () => {
+  for (const formattedAddress of ["1.36° N, 103.89° E", "#B1-23, Singapore"]) {
+    const warnings = [];
+    const originalWarn = console.warn;
+    console.warn = (...args) => warnings.push(args);
+    const workLocation = loadWorkLocation({ ...granted, reverseGeocodeAsync: async () => [{ formattedAddress, country: "Singapore" }] });
+    try {
+      const result = await workLocation.reverseGeocodeAddress(1.36, 103.89);
+      assert.equal(result.address, null);
+      assert.deepEqual(warnings, [["[DISPUTE geocode] failed", { code: "GEOCODER_EMPTY" }]]);
+    } finally { console.warn = originalWarn; }
+  }
 });

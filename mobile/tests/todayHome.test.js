@@ -156,14 +156,14 @@ test("Today embeds the fixed-pin map without a separate map screen", () => {
   assert.match(nativeMap, /<MapView/);
 });
 
-test("Today keeps the address hidden until the locate crosshair requests Google geocoding", () => {
+test("Today keeps the address hidden until the locate crosshair requests Android geocoding", () => {
   const home = source("src/screens/HomeScreen.tsx");
   const location = source("src/work/workLocation.ts");
   assert.match(home, /handleLocateMe\(false/);
   assert.match(home, /getWorkLocationWithTimeout\(20_000, \{ geocode: revealDetails \}\)/);
-  assert.match(location, /googleGeocodeAddress/);
-  assert.match(location, /maps\.googleapis\.com\/maps\/api\/geocode\/json/);
-  assert.doesNotMatch(location, /Location\.reverseGeocodeAsync/);
+  assert.match(location, /reverseGeocodeAddress/);
+  assert.match(location, /Location\.reverseGeocodeAsync/);
+  assert.doesNotMatch(location, /maps\.googleapis\.com\/maps\/api\/geocode\/json/);
 });
 
 test("App restores the signed-in session from SecureStore on cold start", () => {

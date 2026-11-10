@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import { styles } from "../styles";
-import { formatCoordinateLabel, shortAddress } from "../work/addressFormat";
+import { shortAddress } from "../work/addressFormat";
 import type { LocationReading } from "../work/locationEvidence";
 
 const MAP_ZOOM = 16;
@@ -13,6 +13,9 @@ const DEFAULT_REGION_DELTA = 0.01;
 
 export function LocationMap({ reading, locating = false, showDetails = false }: { reading: LocationReading | null; locating?: boolean; showDetails?: boolean }) {
   const map = useRef<MapView>(null);
+  const tileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tilesLoaded = useRef(false);
+  const tileWarningLogged = useRef(false);
   const hasFix = reading?.latitude != null && reading.longitude != null;
   const latitude = reading?.latitude ?? DEFAULT_LATITUDE;
   const longitude = reading?.longitude ?? DEFAULT_LONGITUDE;
@@ -22,8 +25,28 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
     map.current?.animateCamera({ center: coordinate, zoom: MAP_ZOOM }, { duration: 350 });
   }, [coordinate]);
 
-  const coordinateLabel = hasFix ? formatCoordinateLabel(latitude, longitude) : null;
-  const label = hasFix ? shortAddress(reading) || coordinateLabel : null;
+  useEffect(() => () => {
+    if (tileTimer.current) clearTimeout(tileTimer.current);
+  }, []);
+
+  const label = hasFix ? (locating ? "Finding address…" : shortAddress(reading) || "Address unavailable") : null;
+
+  function handleMapReady() {
+    if (tilesLoaded.current || tileWarningLogged.current || tileTimer.current) return;
+    tileTimer.current = setTimeout(() => {
+      tileTimer.current = null;
+      if (!tilesLoaded.current && !tileWarningLogged.current) {
+        tileWarningLogged.current = true;
+        console.warn("[DISPUTE map] tiles_not_loaded", { code: "MAP_TILES_TIMEOUT" });
+      }
+    }, 10_000);
+  }
+
+  function handleMapLoaded() {
+    tilesLoaded.current = true;
+    if (tileTimer.current) clearTimeout(tileTimer.current);
+    tileTimer.current = null;
+  }
 
   return (
     <View style={styles.locationMapContent}>
@@ -40,6 +63,8 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
             longitudeDelta: DEFAULT_REGION_DELTA,
           }}
           mapType="standard"
+          onMapLoaded={handleMapLoaded}
+          onMapReady={handleMapReady}
           provider={PROVIDER_GOOGLE}
           ref={map}
           style={{ width: "100%", height: "100%" }}
@@ -51,7 +76,6 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
       </View>
       {showDetails && hasFix ? <View style={styles.locationMapDetails}>
         <Text style={styles.heading}>{label}</Text>
-        <Text style={styles.body}>{coordinateLabel}</Text>
         <Text style={styles.muted}>GPS pin is fixed · cannot be moved</Text>
       </View> : null}
     </View>
