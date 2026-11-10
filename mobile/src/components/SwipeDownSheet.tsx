@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Keyboard,
   Modal,
+  Platform,
   View,
+  useWindowDimensions,
+  type KeyboardEvent,
   type ModalProps,
   type StyleProp,
   type ViewStyle,
@@ -35,10 +39,34 @@ export function SwipeDownSheet({
   visible = true,
 }: SwipeDownSheetProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const translateY = useRef(new Animated.Value(0)).current;
   const startY = useRef(0);
   const startTime = useRef(0);
   const latestDistance = useRef(0);
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+
+    const show = (event: KeyboardEvent) => setKeyboardHeight(event.endCoordinates.height);
+    const hide = () => setKeyboardHeight(0);
+    const subscriptions = [
+      Keyboard.addListener("keyboardDidShow", show),
+      Keyboard.addListener("keyboardDidHide", hide),
+    ];
+    if (Platform.OS === "ios") {
+      subscriptions.push(Keyboard.addListener("keyboardWillShow", show));
+      subscriptions.push(Keyboard.addListener("keyboardWillHide", hide));
+    }
+
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, [visible]);
+
+  const keyboardOffset = Platform.OS === "android" ? Math.max(0, keyboardHeight - insets.bottom) : 0;
+  const maxSheetHeight = Math.max(0, windowHeight - keyboardHeight - insets.top);
   const gestureHandlers = {
     onStartShouldSetResponder: () => true,
     onResponderGrant: (event: { nativeEvent: { pageY: number; timestamp: number } }) => {
@@ -69,7 +97,10 @@ export function SwipeDownSheet({
   return (
     <Modal animationType={animationType} navigationBarTranslucent onRequestClose={onClose} statusBarTranslucent transparent={transparent} visible={visible}>
       <View style={backdropStyle}>
-        <Animated.View style={[sheetStyle, { flexShrink: 1, paddingBottom: insets.bottom, transform: [{ translateY }] }]} testID={testID}>
+        <Animated.View
+          style={[sheetStyle, { flexShrink: 1, marginBottom: keyboardOffset, maxHeight: maxSheetHeight, paddingBottom: insets.bottom, transform: [{ translateY }] }]}
+          testID={testID}
+        >
           <Animated.View
             accessibilityLabel="Drag down to close"
             accessible
