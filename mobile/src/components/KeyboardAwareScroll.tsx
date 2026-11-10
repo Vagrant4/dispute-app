@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type KeyboardAwareScrollProps = ScrollViewProps & {
   children: ReactNode;
   bottomPadding?: number;
+  fill?: boolean;
   onScrollToFocusedInput?: (target: unknown) => void;
 };
 
@@ -20,7 +21,9 @@ export function KeyboardAwareScroll({
   children,
   bottomPadding = 24,
   contentContainerStyle,
+  fill = true,
   onScrollToFocusedInput,
+  style,
   ...scrollProps
 }: KeyboardAwareScrollProps) {
   const scrollRef = useRef<ScrollView>(null);
@@ -42,7 +45,7 @@ export function KeyboardAwareScroll({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
+      style={fill ? { flex: 1 } : { flexGrow: 0, flexShrink: 1 }}
       testID="keyboard-avoiding-container"
     >
       <ScrollView
@@ -53,6 +56,7 @@ export function KeyboardAwareScroll({
         ]}
         keyboardShouldPersistTaps="handled"
         ref={scrollRef}
+        style={[style, fill ? { flex: 1 } : { flexGrow: 0, flexShrink: 1 }]}
         testID={scrollProps.testID ?? "keyboard-aware-scroll"}
       >
         {children}

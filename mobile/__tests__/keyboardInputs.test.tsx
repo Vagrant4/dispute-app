@@ -1,9 +1,10 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import fs from "node:fs";
 import path from "node:path";
-import { Keyboard, TextInput } from "react-native";
+import { Keyboard, StyleSheet, TextInput } from "react-native";
 
 import { KeyboardAwareScroll } from "../src/components/KeyboardAwareScroll";
+import { ProjectNameSheet } from "../src/screens/ProjectNameSheet";
 
 const listedInputs = [
   "Project name",
@@ -54,4 +55,18 @@ test.each(listedInputs)("%s is inside the keyboard-aware container and focus scr
   fireEvent(view.getByLabelText(label), "focus", { target: 42 });
   keyboardDidShow?.();
   expect(onScrollToFocusedInput).toHaveBeenCalled();
+});
+
+test("ProjectNameSheet uses a content-sized keyboard-aware scroll and renders its controls", () => {
+  const view = render(<ProjectNameSheet onClose={jest.fn()} onSave={jest.fn().mockResolvedValue(undefined)} />);
+  const avoidingStyle = StyleSheet.flatten(view.getByTestId("keyboard-avoiding-container").props.style);
+  const scrollStyle = StyleSheet.flatten(view.getByTestId("keyboard-aware-scroll").props.style);
+
+  expect(avoidingStyle).toMatchObject({ flexGrow: 0, flexShrink: 1 });
+  expect(avoidingStyle.flex).toBeUndefined();
+  expect(scrollStyle).toMatchObject({ flexGrow: 0, flexShrink: 1 });
+  expect(scrollStyle.flex).toBeUndefined();
+  expect(view.getByText("New project")).toBeTruthy();
+  expect(view.getByLabelText("Project name")).toBeTruthy();
+  expect(view.getByText("Save")).toBeTruthy();
 });

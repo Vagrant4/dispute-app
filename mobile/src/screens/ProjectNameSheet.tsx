@@ -17,7 +17,7 @@ export function ProjectNameSheet({ name = "", onSave, onClose }: { name?: string
     finally { setBusy(false); }
   }
   return <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={onClose} sheetStyle={styles.projectSheet} testID="project-sheet">
-      <KeyboardAwareScroll bottomPadding={Math.max(insets.bottom, 24)} contentContainerStyle={styles.projectSheetContent}>
+      <KeyboardAwareScroll bottomPadding={Math.max(insets.bottom, 24)} contentContainerStyle={styles.projectSheetContent} fill={false}>
         <Text style={styles.heading}>{name ? "Rename project" : "New project"}</Text>
         <Text style={styles.muted}>Just a name. Site and hours fill in when you start work.</Text>
         <TextInput accessibilityLabel="Project name" placeholder="Client or site name" placeholderTextColor={theme.colors.placeholder} value={value} onChangeText={setValue} style={styles.textInput} autoFocus />
