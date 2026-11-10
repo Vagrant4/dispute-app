@@ -290,20 +290,22 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
             <View style={[styles.locationReticleDot, (locating || stopping) && styles.locationReticleLineDisabled]} />
           </View>
         </Pressable>
-        {!isRunning ? <Pressable accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]}><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
       </View>
       <View style={styles.todayRows}>
         {!isRunning ? <View style={styles.actionRow}>
           {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
         </View> : null}
-        <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
-          <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
-          <View style={styles.todayRowContent}>
-            <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
-            <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
-          </View>
-          {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
-        </Pressable>
+        <View style={styles.todayProjectActions} testID="today-project-actions">
+          <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
+            <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
+            <View style={styles.todayRowContent}>
+              <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
+              <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
+            </View>
+            {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
+          </Pressable>
+          {!isRunning ? <Pressable accessibilityLabel="Add project" accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]} testID="today-add-project"><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
+        </View>
       </View>
       <View>
         {projectPickerOpen ? <ProjectPickerSheet

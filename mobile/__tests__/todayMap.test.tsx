@@ -32,7 +32,11 @@ test("Today renders a composed crosshair inside its live map and reveals the add
 
 test("Today exposes Add project and opens the existing project-name sheet", async () => {
   const screen = render(<HomeScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
-  await waitFor(() => expect(screen.getByText("+ Add project")).toBeTruthy());
-  fireEvent.press(screen.getByText("+ Add project"));
+  const map = screen.getByTestId("today-map");
+  const projectActions = screen.getByTestId("today-project-actions");
+  await waitFor(() => expect(within(projectActions).getByTestId("today-add-project")).toBeTruthy());
+  expect(within(map).queryByTestId("today-add-project")).toBeNull();
+  expect(within(projectActions).getByLabelText("Choose a project")).toBeTruthy();
+  fireEvent.press(within(projectActions).getByTestId("today-add-project"));
   expect(screen.getByTestId("project-sheet")).toBeTruthy();
 });

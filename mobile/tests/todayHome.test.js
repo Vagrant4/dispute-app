@@ -22,7 +22,7 @@ test("location rows use address or friendly saved fallback", () => {
   assert.equal(formatLocationRow(null, { ...idle, locationOff: true }).subtitle, "Location is off · Open settings");
   assert.doesNotMatch(source("src/work/locationEvidence.ts"), /GPS point/);
 });
-test("Today limits lime to the working pill, wordmark and round action", () => {
+test("Today limits lime to the working pill, wordmark, round action and Add project outline", () => {
   const home = source("src/screens/HomeScreen.tsx");
   assert.match(home, /Working · since/);
   assert.match(home, /Not clocked in/);
@@ -35,7 +35,7 @@ test("Today limits lime to the working pill, wordmark and round action", () => {
   assert.match(styles, /todayRoundButton: \{[^\n]*width: 176, height: 176/);
   const today = styles.slice(styles.indexOf("  todayScreen:"), styles.indexOf("  todayBottomAction:"));
   const limeStyles = today.split(/\r?\n/).filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
-  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton", "todayAddProjectText"]);
+  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton", "todayAddProjectButton", "todayAddProjectText"]);
 });
 test("Clock in directs missing requirements to GPS or the picker", () => {
   const home = source("src/screens/HomeScreen.tsx");
