@@ -112,6 +112,7 @@ test("canceled camera leaves no proof sheet open", async () => {
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
   await waitFor(() => screen.getByLabelText("Take photo"));
   fireEvent.press(screen.getByLabelText("Take photo"));
-  await waitFor(() => expect(screen.getByText("No photo selected. Nothing was saved.")).toBeTruthy());
+  await waitFor(() => expect(mockCamera).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText("No photo selected. Nothing was saved.")).toBeNull();
   expect(screen.queryByTestId("photo-proof-sheet")).toBeNull();
 });

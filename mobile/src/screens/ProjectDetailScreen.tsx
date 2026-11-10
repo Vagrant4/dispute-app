@@ -100,9 +100,9 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
     {actionError ? <Text accessibilityRole="alert" style={styles.projectActionError}>{actionError}</Text> : null}
     </View>
     {tasksOpen ? <TaskPickerSheet manage tasks={tasks} onClose={() => setTasksOpen(false)} onAdd={async (name) => { const store = await getProjectScreenStore(userId); await store.addTask({ userId, projectId, name }); await refreshTasks(); }} onRename={async (taskId, name) => { const store = await getProjectScreenStore(userId); await store.renameTask({ userId, taskId, name }); await refreshTasks(); }} /> : null}
-    {entries.map((entry) => <Text key={entry.id} style={styles.muted}>Shift record: {entry.workDate} · {entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}{entry.locationNote ? ` · Note: ${entry.locationNote}` : ""}</Text>)}
+    <View style={styles.projectShiftList}>{entries.map((entry) => <View key={entry.id} style={styles.projectShiftRow}><Text style={styles.projectShiftDate}>{entry.workDate}</Text><Text style={styles.projectShiftDuration}>{entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}</Text>{entry.locationNote ? <Text numberOfLines={1} style={styles.muted}>{entry.locationNote}</Text> : null}</View>)}</View>
     <PhotoEvidenceScreen account={account} initialProjectId={projectId} projectScoped />
-    <ProgressClaimReportsScreen
+    <View style={styles.projectReportSection}><ProgressClaimReportsScreen
       account={account}
       projectId={projectId}
       onCreateAccount={onCreateAccount}
@@ -112,6 +112,6 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
           <Text style={styles.actionButtonText}>Create &amp; share PDF</Text>
         </Pressable>
       )}
-    />
+    /></View>
   </>;
 }

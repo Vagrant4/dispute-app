@@ -16,7 +16,7 @@ import { type PhotoEvidenceType, type PhotoGpsResult } from "../photos/photoEvid
 import { photoEvidenceContent } from "../screenContent";
 import { photoCaptureMetadata, photoSealBadge, photoTimeLabel, sealPhoto } from "../photos/photoSeal";
 import { projectPickerLabel } from "../work/projectLabels";
-import { styles, theme } from "../styles";
+import { space, styles, theme } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
 import type { LocalAccount } from "../auth/localAuth";
@@ -103,7 +103,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
         ? await ImagePicker.launchCameraAsync({ quality: 0.85 })
         : await ImagePicker.launchImageLibraryAsync({ quality: 0.85, exif: true });
       if (result.canceled || result.assets.length === 0) {
-        setStatus("No photo selected. Nothing was saved.");
+        setStatus("");
         return;
       }
       const selected = result.assets[0];
@@ -228,7 +228,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
     ]);
   }
   return (
-    <View style={styles.photosPage}>
+    <View style={[styles.photosPage, projectScoped && styles.projectPhotos]}>
       {!projectScoped ? <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View> : null}
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       {!projectScoped ? <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
@@ -252,7 +252,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}
-        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture || !iconsLoaded} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, (!canCapture || !iconsLoaded) && styles.disabledButton]}><MaterialIcons testID="camera-fab-glyph" name="photo-camera" size={28} color={theme.colors.ink} /></Pressable>
+        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture || !iconsLoaded} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, { bottom: Math.max(insets.bottom, space.md) }, (!canCapture || !iconsLoaded) && styles.disabledButton]}><MaterialIcons testID="camera-fab-glyph" name="photo-camera" size={28} color={theme.colors.ink} /></Pressable>
       {!projectId ? <View><Text style={styles.muted}>Add a project before saving photo evidence.</Text><Pressable accessibilityRole="button" onPress={() => setProjectSheetOpen(true)} style={styles.textButton}><Text style={styles.body}>+ Add project</Text></Pressable></View> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <SwipeDownSheet visible={captureSheetOpen} backdropStyle={styles.photoSheetBackdrop} sheetStyle={styles.photoSheet} testID="photo-proof-sheet" onClose={() => { if (!saving) setCaptureSheetOpen(false); }}>

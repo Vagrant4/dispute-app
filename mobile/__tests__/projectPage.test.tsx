@@ -29,6 +29,8 @@ test("project page renders only its picker and PDF action", () => {
   expect(source).toMatch(/testID="project-detail-actions"/);
   expect(source).toContain("Delete project");
   expect(source).toContain("all shifts, photos and reports are kept");
+  expect(source).toMatch(/styles\.projectShiftRow/);
+  expect(source).toMatch(/styles\.projectReportSection/);
   for (const removed of ["No sessions yet", "Sessions", "Earlier reports", "Show sessions", "Pay rate", "This week", "CSV", "Project complete"]) {
     expect(source).not.toContain(removed);
   }
