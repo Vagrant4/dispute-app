@@ -24,6 +24,7 @@ test("project page renders only its picker and PDF action", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProjectDetailScreen.tsx"), "utf8");
   expect(source).toMatch(/testID="project-picker"/);
   expect(source).toMatch(/testID="create-share-pdf"/);
+  expect(source).toMatch(/testID="project-detail-actions"/);
   for (const removed of ["No sessions yet", "Sessions", "Earlier reports", "Show sessions", "Pay rate", "This week", "CSV", "Project complete"]) {
     expect(source).not.toContain(removed);
   }

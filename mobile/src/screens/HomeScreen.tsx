@@ -30,7 +30,7 @@ const TODAY_SECTIONS = ["timerCard", "quickActions", "map", "clock"] as const;
 
 export function TodayRunningControls({ onBreak, onBreakPress, tasks, onSwitchTask }: { onBreak: boolean; onBreakPress: () => void; tasks: WorkTask[]; onSwitchTask: (taskId: string) => void }) {
   const [choosingTask, setChoosingTask] = useState(false);
-  return <View style={styles.todayProjectActions}>
+  return <View style={styles.todayRunningControls}>
     <Pressable onPress={onBreakPress} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>{onBreak ? "End break" : "Break"}</Text></Pressable>
     {tasks.length ? <Pressable onPress={() => setChoosingTask(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Switch task</Text></Pressable> : null}
     {choosingTask ? <TaskPickerSheet tasks={tasks} onClose={() => setChoosingTask(false)} onSelect={(id) => { setChoosingTask(false); onSwitchTask(id); }} onAdd={async () => undefined} /> : null}

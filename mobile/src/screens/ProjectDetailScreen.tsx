@@ -57,6 +57,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
 
   return <>
     <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{project?.name ?? "Project"}</Text>{project?.siteAddress ? <Text style={styles.muted}>{project.siteAddress}</Text> : null}<View style={styles.projectStatusBadge}><Text style={styles.projectStatusText}>{project?.projectStatus ?? "active"}</Text></View></View>
+    <View testID="project-detail-actions" style={{ gap: 16 }}>
     <Pressable testID="project-picker" accessibilityRole="button" onPress={() => setPickerOpen(true)} style={styles.dropdownBox}>
       <Text style={styles.dropdownValue}>{project?.name ?? "Choose project"}</Text>
       <Text style={styles.settingsDropdownChevron}>▼</Text>
@@ -72,6 +73,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
     <View style={styles.chipRow}>{(["lead", "active", "completed"] as const).map((status) => <Pressable key={status} onPress={() => void saveDiscovery(status)} style={project?.projectStatus === status ? styles.chipSelected : styles.chip}><Text style={project?.projectStatus === status ? styles.selectedSecondaryText : styles.chipText}>{status}</Text></Pressable>)}</View>
     <Pressable onPress={() => void saveDiscovery()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save site</Text></Pressable>
     <Pressable accessibilityRole="button" onPress={() => setTasksOpen(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Tasks ({tasks.length})</Text></Pressable>
+    </View>
     {tasksOpen ? <TaskPickerSheet manage tasks={tasks} onClose={() => setTasksOpen(false)} onAdd={async (name) => { const store = await getProjectScreenStore(userId); await store.addTask({ userId, projectId, name }); await refreshTasks(); }} onRename={async (taskId, name) => { const store = await getProjectScreenStore(userId); await store.renameTask({ userId, taskId, name }); await refreshTasks(); }} /> : null}
     {entries.map((entry) => <Text key={entry.id} style={styles.muted}>Shift record: {entry.workDate} · {entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}{entry.locationNote ? ` · Note: ${entry.locationNote}` : ""}</Text>)}
     <PhotoEvidenceScreen account={account} initialProjectId={projectId} />

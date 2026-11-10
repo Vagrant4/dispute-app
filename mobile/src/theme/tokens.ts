@@ -12,12 +12,13 @@ export const radius = { sm: 8, md: 14, lg: 20, pill: 999 } as const;
 export const control = { height: 52, radius: radius.md } as const;
 
 export const todayLayout = {
+  gap: 16,
   horizontalPadding: 16,
-  blockGap: 8,
+  blockGap: 16,
   cardPadding: 16,
   projectHeight: 48,
   clockButtonHeight: 56,
-  clockGap: 8,
+  clockGap: 16,
   minimumTouchTarget: 48,
   mapInset: 12,
   mapPaddingBottom: 8,

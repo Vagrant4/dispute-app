@@ -36,6 +36,10 @@ test("Today timer card and sections have spacing without divider lines", () => {
   }
   const projectActions = styles.match(/todayProjectActions:\s*\{([^\n]+)\}/)?.[1] ?? "";
   assert.match(projectActions, /marginTop:\s*todayLayout\.cardPadding/);
+  assert.match(styles, /todaySections:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
+  assert.match(styles, /todayQuickActions:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
+  assert.match(styles, /todayClockAction:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
+  assert.match(styles, /todayRunningControls:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
 });
 
 test("Today has exactly one quick action and opens photos for the selected project", () => {
@@ -70,6 +74,7 @@ test("map is a flexible rounded card with inset controls and conditional address
   assert.match(locate, /width:\s*todayLayout\.minimumTouchTarget/);
   assert.match(map, /showDetails && hasFix \? <View style=\{styles\.todayAddressChip\} testID="today-address-chip">/);
   assert.match(map, /numberOfLines=\{2\}/);
+  assert.match(styles, /locationMapContent:\s*\{[^\n]*gap:\s*todayLayout\.gap/);
   assert.match(map, /provider=\{PROVIDER_GOOGLE\}/);
   assert.match(map, /mapType="standard"/);
   assert.match(map, /toolbarEnabled=\{false\}/);
