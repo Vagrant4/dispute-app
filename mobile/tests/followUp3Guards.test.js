@@ -6,19 +6,19 @@ const test = require("node:test");
 const mobile = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(mobile, name), "utf8");
 
-test("0.3.13 Google Maps identity and versionCode 15 are shared by JS and native Android", () => {
+test("0.3.14 Google Maps identity and versionCode 16 are shared by JS and native Android", () => {
   const app = JSON.parse(read("app.json"));
   const pkg = JSON.parse(read("package.json"));
   const tileConfig = read("src/maps/tileConfig.ts");
   const gradle = read("android/app/build.gradle");
   const manifest = read("android/app/src/main/AndroidManifest.xml");
   const appConfig = read("app.config.js");
-  assert.equal(app.expo.version, "0.3.13");
-  assert.equal(app.expo.android.versionCode, 15);
-  assert.equal(pkg.version, "0.3.13");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.13"/);
-  assert.match(gradle, /versionCode 15/);
-  assert.match(gradle, /versionName "0\.3\.13"/);
+  assert.equal(app.expo.version, "0.3.14");
+  assert.equal(app.expo.android.versionCode, 16);
+  assert.equal(pkg.version, "0.3.14");
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.14"/);
+  assert.match(gradle, /versionCode 16/);
+  assert.match(gradle, /versionName "0\.3\.14"/);
   assert.match(gradle, /versionNameSuffix "-test"/);
   assert.match(gradle, /manifestPlaceholders\.googleMapsApiKey/);
   assert.match(manifest, /android:name="com\.google\.android\.geo\.API_KEY"/);
@@ -52,7 +52,7 @@ test("Today embeds the map and accessible locate control without old map UI", ()
   const home = read("src/screens/HomeScreen.tsx");
   assert.match(home, /<LocationMap/);
   assert.match(home, /accessibilityLabel="Show my location"/);
-  const mapFrame = home.slice(home.indexOf('const renderMapSection'), home.indexOf('const todaySectionRenderers'));
+  const mapFrame = home.slice(home.indexOf('const renderMap'), home.indexOf('const todaySectionRenderers'));
   assert.match(mapFrame, /testID="today-locate-button"/);
   assert.match(mapFrame, /testID="today-locate-reticle"/);
   assert.match(mapFrame, /locationReticleHorizontal/);

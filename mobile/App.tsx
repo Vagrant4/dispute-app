@@ -44,7 +44,7 @@ function renderScreen(
   onCreateAccount: () => void,
   settingsInitialPanel?: SettingPanel,
   photoProjectId?: string,
-  onSeePhotos?: (projectId: string) => void,
+  onSeePhotos?: (projectId?: string) => void,
 ) {
   switch (activeTab) {
     case "evidence":
@@ -69,7 +69,7 @@ function renderScreen(
       );
     case "home":
     default:
-      return <HomeScreen account={account} />;
+      return <HomeScreen account={account} onOpenPhotos={onSeePhotos} />;
   }
 }
 

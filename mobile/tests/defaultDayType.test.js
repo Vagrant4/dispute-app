@@ -24,7 +24,7 @@ test("Today has one Start/Stop toggle, automatic day type and profile details li
   const app = fs.readFileSync(path.join(__dirname, "../App.tsx"), "utf8");
   const profile = fs.readFileSync(path.join(__dirname, "../src/screens/ProfileSettingsPanel.tsx"), "utf8");
   assert.equal((home.match(/styles.todayClockButton/g) || []).length, 1);
-  assert.match(home, /Working · since/);
+  assert.match(home, /`Started \$\{formatClockTime\(clockInAt\)\}`/);
   assert.doesNotMatch(home, /styles.dayTypeRow/);
   assert.match(home, /useState<WorkDayType>\(\(\) => defaultDayType\(new Date\(\)\)\)/);
   assert.match(home, /setDayType\(defaultDayType\(nextClockOut\)\)/);

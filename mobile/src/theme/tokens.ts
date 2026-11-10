@@ -13,17 +13,20 @@ export const control = { height: 52, radius: radius.md } as const;
 
 export const todayLayout = {
   horizontalPadding: 16,
-  mapHorizontalBleed: -16,
-  projectHeight: 56,
-  projectGap: 16,
+  blockGap: 8,
+  cardPadding: 16,
+  projectHeight: 48,
   clockButtonHeight: 56,
-  clockGap: 24,
+  clockGap: 8,
   minimumTouchTarget: 48,
-  mapInset: 16,
-  mapPaddingBottom: 72,
+  mapInset: 12,
+  mapPaddingBottom: 8,
   mapMinHeight: 160,
-  addressInset: 16,
-  addressPadding: 16,
+  addressInset: 12,
+  addressPadding: 8,
+  addressControlClearance: 72,
+  timerFontSize: 48,
+  timerLineHeight: 56,
 } as const;
 
 // Today follows the approved clock and evidence-row mockup dimensions.
@@ -31,7 +34,7 @@ export const today = {
   title: { fontSize: 28, fontWeight: "700", lineHeight: 34 },
   wordmark: { fontSize: 13, fontWeight: "700", letterSpacing: 1.5 },
   status: { fontSize: 14, fontWeight: "600" },
-  clock: { fontSize: 64, lineHeight: 78, fontWeight: "700", letterSpacing: -2 },
+  clock: { fontSize: todayLayout.timerFontSize, lineHeight: todayLayout.timerLineHeight, fontWeight: "700", letterSpacing: -2 },
   period: { fontSize: 24, fontWeight: "600", letterSpacing: 0 },
   caption: { fontSize: 15, lineHeight: 22 },
   buttonText: { fontSize: 22, fontWeight: "700" },

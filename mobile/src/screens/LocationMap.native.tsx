@@ -64,7 +64,7 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
             longitudeDelta: DEFAULT_REGION_DELTA,
           }}
           mapType="standard"
-          mapPadding={{ top: 0, right: 0, bottom: todayLayout.mapPaddingBottom, left: 0 }}
+          mapPadding={{ top: 0, right: 0, bottom: todayLayout.mapPaddingBottom, left: todayLayout.mapPaddingBottom }}
           onMapLoaded={handleMapLoaded}
           onMapReady={handleMapReady}
           provider={PROVIDER_GOOGLE}

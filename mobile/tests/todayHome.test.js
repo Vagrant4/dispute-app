@@ -22,11 +22,11 @@ test("location rows use address or friendly saved fallback", () => {
   assert.equal(formatLocationRow(null, { ...idle, locationOff: true }).subtitle, "Location is off · Open settings");
   assert.doesNotMatch(source("src/work/locationEvidence.ts"), /GPS point/);
 });
-test("Today uses lime for the working pill, wordmark, main action and Add project text", () => {
+test("Today uses the timer card with lime reserved for actions and the wordmark", () => {
   const home = source("src/screens/HomeScreen.tsx");
-  assert.match(home, /Working · since/);
+  assert.match(home, /Started \$\{formatClockTime\(clockInAt\)\}/);
   assert.match(home, /Not clocked in/);
-  assert.match(home, /isRunning \? formatWorkedClock\(workedSeconds\) : idleClock.time/);
+  assert.match(home, /isRunning \? formatWorkedClock\(workedSeconds\) : "00:00:00"/);
   assert.match(home, /"Clock out" : "Clock in"/);
   assert.doesNotMatch(home, /styles.card|styles.clockPanel|styles.metricValue|theme.colors.primary|worker note|Recent time/);
   assert.match(home, /trialDaysLeft > 0 && trialDaysLeft <= 3/);
@@ -35,7 +35,7 @@ test("Today uses lime for the working pill, wordmark, main action and Add projec
   assert.match(styles, /todayClockButton: \{[^\n]*backgroundColor: theme.colors.primary/);
   const today = styles.slice(styles.indexOf("  todayScreen:"), styles.indexOf("  todayBottomAction:"));
   const limeStyles = today.split(/\r?\n/).filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
-  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayClockButton", "todayAddProjectText"]);
+  assert.deepEqual(limeStyles, ["todayWordmark", "todayClockButton", "todayAddProjectText", "todayPhotoIcon"]);
 });
 test("Clock in directs missing requirements to GPS or the picker", () => {
   const home = source("src/screens/HomeScreen.tsx");
@@ -47,13 +47,12 @@ test("Clock in directs missing requirements to GPS or the picker", () => {
   assert.match(home, /store.refreshLocation\(params\)/);
   assert.match(home, /Linking.openSettings\(\)/);
 });
-test("project evidence row locks during work and standalone location chrome is removed", () => {
+test("project row locks during work and standalone location chrome is removed", () => {
   const home = source("src/screens/HomeScreen.tsx");
   assert.match(home, /accessibilityState=\{\{ disabled: isRunning \}\}/);
-  assert.match(home, /Locked during shift/);
-  for (const icon of ["briefcase", "lock"]) assert.ok(home.includes(`assets/icons/${icon}.png`));
+  assert.match(home, />Project<\/Text>/);
   assert.doesNotMatch(home, /assets\/icons\/pin\.png|accessibilityLabel="Get location"|formatLocationRow/);
-  assert.equal((home.match(/!isRunning \? <Text style=\{styles.todayChevron\}/g) || []).length, 1);
+  assert.equal((home.match(/testID="today-add-project"/g) || []).length, 1);
 });
 
 test("today timer includes completed shifts and only today's part of an overnight shift", () => {
@@ -83,17 +82,12 @@ test("shortAddress returns null for empty readings so the row uses Location save
   assert.equal(formatLocationRow({ source: "gps", address: " , " }, { working: false }).title, "Location saved");
 });
 
-test("working pill uses lime while idle stays neutral", () => {
+test("timer card uses a neutral raised surface without a status pill", () => {
   const styles = source("src/styles.ts");
   const home = source("src/screens/HomeScreen.tsx");
-  assert.match(styles, /primaryHalo: "#1B2410"/);
-  assert.match(styles, /todayStatusWorking: \{ backgroundColor: theme.colors.primaryHalo/);
-  assert.match(styles, /todayStatusDotWorking: \{ backgroundColor: theme.colors.primary/);
-  assert.match(styles, /todayStatusTextWorking: \{ color: theme.colors.primary/);
-  for (const key of ["todayStatus", "todayStatusDot", "todayStatusText"]) {
-    assert.doesNotMatch(styles.match(new RegExp(key + ": \\{[^\\n]*"))[0], /theme.colors.primary/);
-    assert.ok(home.includes("isRunning && styles." + key + "Working"));
-  }
+  assert.match(styles, /todayTimerCard: \{ backgroundColor: theme.colors.surface, borderRadius: radius.md/);
+  assert.doesNotMatch(styles, /todayStatus(?:Working|Dot|Text)/);
+  assert.doesNotMatch(home, /todayStatus(?:Working|Dot|Text)/);
 });
 test("main action is full width, 56dp tall and has no circle frame", () => {
   const styles = source("src/styles.ts");

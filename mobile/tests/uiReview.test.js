@@ -21,8 +21,8 @@ test("reviewed screens contain the revised copy", () => {
   assert.doesNotMatch(screens, /Your proof starts here/);
   assert.doesNotMatch(screens, /Something went wrong/);
   const home = source("src/screens/HomeScreen.tsx");
-  assert.match(home, /Trial ended/);
-  assert.match(home, /Subscribe in Settings › Plan to keep clocking in\. Your records stay viewable\./);
+  assert.doesNotMatch(home, /Trial ended|Subscribe in Settings/);
+  assert.match(home, /An active trial or subscription is required to create new time records\./);
   const settings = source("src/screens/SettingsScreen.tsx");
   for (const label of ["Start time", "End time", "Overtime ×", "Off day ×", "Public holiday ×", "Paid by"]) assert.match(settings, new RegExp(`>${label.replace("×", "×")}<`));
 });

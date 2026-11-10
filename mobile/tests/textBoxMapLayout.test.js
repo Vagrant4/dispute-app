@@ -31,11 +31,12 @@ test("native Google MapView fills its canvas without post-mount state resizing",
   assert.doesNotMatch(map, /useState\(\{ width: 360, height: 260 \}\)|mapSize|handleMapLayout|onLayout=/);
 });
 
-test("location map frame and canvas flex without clipping the Maps action", () => {
+test("location map frame flexes and clips map tiles to the rounded card", () => {
   const styles = source("src/styles.ts");
   const frame = styles.match(/locationMapFrame:\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.doesNotMatch(frame, /height:\s*360/);
-  assert.doesNotMatch(frame, /overflow:\s*"hidden"/);
+  assert.match(frame, /overflow:\s*"hidden"/);
+  assert.match(frame, /borderRadius:\s*radius\.md/);
   assert.match(frame, /flex:\s*1/);
   assert.match(styles, /locationMapCanvas:\s*\{[^}]*flex:\s*1/);
 });
@@ -64,7 +65,10 @@ test("subscription CTA contains only its concise action and price copy sits belo
 });
 
 test("reviewed text containers do not force explanatory copy to one line", () => {
-  for (const file of ["HomeScreen.tsx", "ProjectDetailScreen.tsx", "SettingsScreen.tsx"]) {
+  const home = source("src/screens/HomeScreen.tsx");
+  assert.equal((home.match(/numberOfLines=\{1\}/g) || []).length, 1);
+  assert.match(home, /numberOfLines=\{1\} style=\{styles\.todayClock\}/);
+  for (const file of ["ProjectDetailScreen.tsx", "SettingsScreen.tsx"]) {
     const screen = source(`src/screens/${file}`);
     assert.doesNotMatch(screen, /numberOfLines=\{1\}/, file);
   }

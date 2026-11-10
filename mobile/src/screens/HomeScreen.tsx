@@ -18,14 +18,14 @@ import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
 import { locationReading, type LocationReading } from "../work/locationEvidence";
 import { getWorkLocationWithTimeout } from "../work/workLocation";
-import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
+import { formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
 
-const TODAY_SECTIONS = ["project", "clock", "map"] as const;
+const TODAY_SECTIONS = ["timerCard", "quickActions", "map", "clock"] as const;
 
-export function HomeScreen({ account }: { account: LocalAccount }) {
+export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; onOpenPhotos?: (projectId?: string) => void }) {
   const locationRequest = useRef(0);
   const pendingLocations = useRef<LocationReading[]>([]);
   const [locationOff, setLocationOff] = useState(false);
@@ -70,7 +70,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
   const isRunning = Boolean(clockInAt && !clockOutAt);
   const readiness = startReadiness({ hasLocation: locationFix?.source === "gps", hasProject: Boolean(activeProject) });
   const startDisabled = isRunning ? stopping : !access.canCreateRecords;
-  const idleClock = formatIdleClock(now);
   const workedSeconds = workedSecondsToday(homeState?.totalMinutesToday ?? 0, isRunning ? clockInAt : null, now);
   const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? formatTrialDaysLeft(access.subscription.trialEndsAt, now.getTime()) : null;
@@ -256,32 +255,46 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     } finally { setLocating(false); setStopping(false); }
   }
 
-  const renderProjectSection = (key: string) => (
-    <View key={key} style={styles.todayProjectSection} testID="today-project-section">
-      {Platform.OS === "web" && locationOff && !isRunning ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
+  const renderTimerCard = (key: string) => (
+    <View key={key} style={styles.todayTimerCard} testID="today-timer-card">
+      <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.todayClock} testID="today-timer">
+        {isRunning ? formatWorkedClock(workedSeconds) : "00:00:00"}
+      </Text>
+      <Text style={styles.todayStarted} testID="today-started">
+        {isRunning && clockInAt ? `Started ${formatClockTime(clockInAt)}` : "Not clocked in"}
+      </Text>
+      {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
+      <View style={styles.todayDivider} />
       <View style={styles.todayProjectActions} testID="today-project-actions">
         <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
-          <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
           <View style={styles.todayRowContent}>
+            <Text style={styles.todayProjectLabel}>Project</Text>
             <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
-            <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
           </View>
-          {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
         </Pressable>
         {!isRunning ? <Pressable accessibilityLabel="Add project" accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]} testID="today-add-project"><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
       </View>
     </View>
   );
 
-  const renderClockSection = (key: string) => (
-    <View key={key} style={styles.todayClockSection} testID="today-clock-section">
+  const renderQuickActions = (key: string) => (
+    <View key={key} style={styles.todayQuickActions}>
+      <Pressable accessibilityLabel="Open project photos" accessibilityRole="button" onPress={() => onOpenPhotos?.(selectedProjectId ?? undefined)} style={styles.todayPhotoAction} testID="today-photo-action">
+        <Image source={require("../../assets/icons/tab-photos.png")} style={styles.todayPhotoIcon} />
+        <Text style={styles.todayPhotoLabel}>Photo</Text>
+      </Pressable>
+    </View>
+  );
+
+  const renderClock = (key: string) => (
+    <View key={key} style={styles.todayClockAction}>
       <Pressable accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayClockButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
         <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
       </Pressable>
     </View>
   );
 
-  const renderMapSection = (key: string) => (
+  const renderMap = (key: string) => (
     <View key={key} style={styles.locationMapFrame} testID="today-map">
       <LocationMap reading={locationFix} locating={locating} showDetails={showLocationDetails} />
       <Pressable accessibilityLabel="Show my location" accessibilityRole="button" disabled={locating || stopping} onPress={handleLocatePress} style={[styles.locationMapLocateButton, (locating || stopping) && styles.disabledButton]} testID="today-locate-button">
@@ -295,22 +308,13 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     </View>
   );
 
-  const todaySectionRenderers = { project: renderProjectSection, clock: renderClockSection, map: renderMapSection };
+  const todaySectionRenderers = { timerCard: renderTimerCard, quickActions: renderQuickActions, map: renderMap, clock: renderClock };
 
   return (
     <View style={styles.todayScreen}>
       <View style={styles.todayHeader}>
         <Text style={styles.todayTitle}>Today</Text>
         <Text style={styles.todayWordmark}>DISPUTE</Text>
-      </View>
-      <View style={styles.todayHero}>
-        <View style={[styles.todayStatus, isRunning && styles.todayStatusWorking]}>
-          <View style={[styles.todayStatusDot, isRunning && styles.todayStatusDotWorking]} />
-          <Text style={[styles.todayStatusText, isRunning && styles.todayStatusTextWorking]}>{isRunning && clockInAt ? `Working · since ${formatClockTime(clockInAt)}` : "Not clocked in"}</Text>
-        </View>
-        <Text style={styles.todayClock}>{isRunning ? formatWorkedClock(workedSeconds) : idleClock.time}{!isRunning ? <Text style={styles.todayPeriod}> {idleClock.period}</Text> : null}</Text>
-        <Text style={styles.todayCaption}>{isRunning ? "hours worked today" : now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long" })}</Text>
-        {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
       </View>
       <View style={styles.todaySections}>
         {TODAY_SECTIONS.map((section) => todaySectionRenderers[section](section))}
@@ -331,14 +335,6 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
           const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
           await refreshWorkState(); setSelectedProjectId(project.id); setProjectPickerOpen(false);
         }} /> : null}
-        {workStatus ? <Text style={styles.muted}>{workStatus}</Text> : null}
-        {access.subscription && !access.canCreateRecords ? (
-          <View style={styles.todayPicker}>
-            <Text style={styles.heading}>{access.subscription.currentPeriodEnd && access.subscription.currentPeriodEnd !== access.subscription.trialEndsAt ? "Subscription ended" : "Trial ended"}</Text>
-            <Text style={styles.body}>Subscribe in Settings › Plan to keep clocking in. Your records stay viewable.</Text>
-            {clockInAt && !clockOutAt ? <Text style={styles.body}>You can still tap Clock out to finish the current shift.</Text> : null}
-          </View>
-        ) : null}
       </View>
     </View>
   );
