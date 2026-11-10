@@ -4,9 +4,9 @@ const path = require("node:path");
 const test = require("node:test");
 const ts = require("typescript");
 
-function loadWorkLocation(location) {
+function loadWorkLocation(location, googleMapsApiKey = "test-key") {
   const { createLoader } = require("./locationTestHelpers");
-  return createLoader({ "expo-location": location })("src/work/workLocation.ts");
+  return createLoader({ "expo-location": location, "expo-constants": { __esModule: true, default: { expoConfig: { extra: { googleMapsApiKey } } } } })("src/work/workLocation.ts");
 }
 
 const granted = { Accuracy: { High: "high" }, PermissionStatus: { GRANTED: "granted", UNDETERMINED: "undetermined" }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }), hasServicesEnabledAsync: async () => true };
@@ -18,9 +18,9 @@ async function withImmediateTimer(delayToRun, action) {
   try { return await action(); } finally { global.setTimeout = original; }
 }
 
-test("slow reverse geocoding keeps the GPS coordinates", async () => {
-  const workLocation = loadWorkLocation({ ...granted, getCurrentPositionAsync: async () => position, getLastKnownPositionAsync: async () => null, reverseGeocodeAsync: async () => new Promise(() => {}) });
-  const result = await withImmediateTimer(4000, () => workLocation.getOptionalWorkLocationAddress());
+test("quiet location lookup keeps GPS coordinates without revealing an address", async () => {
+  const workLocation = loadWorkLocation({ ...granted, getCurrentPositionAsync: async () => position, getLastKnownPositionAsync: async () => null });
+  const result = await workLocation.getOptionalWorkLocationAddress({ geocode: false });
   assert.equal(result.latitude, 1.3);
   assert.equal(result.longitude, 103.8);
   assert.equal(result.address, null);
@@ -50,16 +50,22 @@ test("home map refresh works while running from the embedded locate control", ()
   assert.match(home, /refreshWorkState\(\)[\s\S]*handleLocateMe\(false\)/);
 });
 
-test("sparse reverse geocode like 377 Singapore yields null address keeping coordinates", async () => {
+test("explicit location lookup uses Google geocoding and rejects sparse 377 Singapore labels", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    assert.match(String(url), /^https:\/\/maps\.googleapis\.com\/maps\/api\/geocode\/json\?/);
+    return { ok: true, json: async () => ({ status: "OK", results: [{ formatted_address: "377, Singapore", address_components: [{ long_name: "377", types: ["premise"] }, { long_name: "Singapore", types: ["country", "locality"] }] }] }) };
+  };
   const workLocation = loadWorkLocation({
     ...granted,
     getCurrentPositionAsync: async () => position,
     getLastKnownPositionAsync: async () => null,
-    reverseGeocodeAsync: async () => [{ name: "377", street: null, streetNumber: null, district: null, city: "Singapore", region: null, postalCode: null, country: "Singapore" }],
   });
-  const result = await workLocation.getOptionalWorkLocationAddress();
-  assert.equal(result.latitude, 1.3);
-  assert.equal(result.longitude, 103.8);
-  assert.equal(result.address, null);
-  assert.equal(result.addressParts?.name, "377");
+  try {
+    const result = await workLocation.getOptionalWorkLocationAddress({ geocode: true });
+    assert.equal(result.latitude, 1.3);
+    assert.equal(result.longitude, 103.8);
+    assert.equal(result.address, null);
+    assert.equal(result.addressParts?.name, "377");
+  } finally { global.fetch = originalFetch; }
 });

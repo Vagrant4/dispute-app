@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import Constants from "expo-constants";
 import type { AddressParts } from "./locationEvidence";
 import { formatReadableAddress } from "./addressFormat";
 
@@ -14,7 +15,7 @@ export type WorkLocationResult = {
 };
 
 export async function getOptionalWorkLocationAddress(
-  options: { prompt?: boolean } = {},
+  options: { prompt?: boolean; geocode?: boolean } = {},
 ): Promise<WorkLocationResult> {
   try {
     if (!Location.requestForegroundPermissionsAsync) {
@@ -55,7 +56,7 @@ export async function getOptionalWorkLocationAddress(
     const position = await getCurrentPositionWithFallback(lastKnown);
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
-    const geocoded = await reverseGeocodeAddress(latitude, longitude);
+    const geocoded = options.geocode ? await googleGeocodeAddress(latitude, longitude) : null;
     const address = geocoded?.address ?? null;
     return {
       address,
@@ -76,44 +77,53 @@ export async function getOptionalWorkLocationAddress(
   }
 }
 
-async function reverseGeocodeAddress(
+export async function googleGeocodeAddress(
   latitude: number,
   longitude: number,
 ): Promise<{ address: string | null; addressParts: AddressParts } | null> {
-  if (!Location.reverseGeocodeAsync) {
-    return null;
-  }
+  const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey;
+  if (typeof apiKey !== "string" || !apiKey.trim()) return null;
 
   try {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const [address] = await Promise.race([
-      Location.reverseGeocodeAsync({ latitude, longitude }),
-      new Promise<[]>((resolve) => { timer = setTimeout(() => resolve([]), 4_000); }),
+    const response = await Promise.race([
+      fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${encodeURIComponent(apiKey)}`, {
+        headers: {
+          "X-Android-Package": "sg.claimproof.mobile.test",
+          "X-Android-Cert": "BA7A124DB2C3A7728ED407E494C9C4B2C7B5591D",
+        },
+      }),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 4_000); }),
     ]).finally(() => { if (timer) clearTimeout(timer); });
-    if (!address) {
-      return null;
-    }
+    if (!response?.ok) return null;
+    const payload = await response.json() as GoogleGeocodeResponse;
+    const result = payload.status === "OK" ? payload.results[0] : undefined;
+    if (!result) return null;
+    const component = (type: string) => result.address_components.find((part) => part.types.includes(type))?.long_name ?? null;
 
     const addressParts: AddressParts = {
-      name: address.name,
-      streetNumber: address.streetNumber,
-      street: address.street,
-      district: address.district,
-      city: address.city,
+      name: component("premise") ?? component("point_of_interest"),
+      streetNumber: component("street_number"),
+      street: component("route"),
+      district: component("sublocality_level_1") ?? component("neighborhood"),
+      city: component("locality"),
     };
     return {
-      address: formatReadableAddress({
-        ...addressParts,
-        region: address.region,
-        postalCode: address.postalCode,
-        country: address.country,
-      }),
+      address: formatReadableAddress({ ...addressParts, region: component("administrative_area_level_1"), postalCode: component("postal_code"), country: component("country") }),
       addressParts,
     };
   } catch {
     return null;
   }
 }
+
+type GoogleGeocodeResponse = {
+  status: string;
+  results: Array<{
+    formatted_address: string;
+    address_components: Array<{ long_name: string; types: string[] }>;
+  }>;
+};
 
 async function getCurrentPositionWithFallback(
   lastKnown: Awaited<ReturnType<typeof Location.getLastKnownPositionAsync>> | null,
@@ -144,7 +154,7 @@ function nonBlockingLocationResult(message: string): WorkLocationResult {
   };
 }
 
-export async function getWorkLocationWithTimeout(milliseconds: number, options: { prompt?: boolean } = {}): Promise<WorkLocationResult | null> {
+export async function getWorkLocationWithTimeout(milliseconds: number, options: { prompt?: boolean; geocode?: boolean } = {}): Promise<WorkLocationResult | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([

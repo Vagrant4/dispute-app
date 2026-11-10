@@ -146,13 +146,24 @@ test("Today embeds the fixed-pin map without a separate map screen", () => {
   assert.match(nativeMap, /showDetails[\s\S]*\{showDetails && hasFix \? <View style=\{styles\.locationMapDetails\}>/);
   assert.match(nativeMap, /1\.3521/);
   assert.match(nativeMap, /103\.8198/);
-  assert.match(nativeMap, /getOpenStreetMapTiles/);
+  assert.match(nativeMap, /PROVIDER_GOOGLE/);
+  assert.match(nativeMap, /MAP_ZOOM = 16/);
   assert.doesNotMatch(nativeMap, /No GPS reading yet\. Tap the crosshair\./);
   assert.doesNotMatch(home, /View on map|setLocationMapOpen/);
   assert.doesNotMatch(nativeMap, /openDeviceMaps|Open in Maps/);
   assert.match(nativeMap, /GPS pin is fixed/);
-  assert.doesNotMatch(nativeMap, /from "react-native-maps"/);
-  assert.doesNotMatch(nativeMap, /<MapView/);
+  assert.match(nativeMap, /from "react-native-maps"/);
+  assert.match(nativeMap, /<MapView/);
+});
+
+test("Today keeps the address hidden until the locate crosshair requests Google geocoding", () => {
+  const home = source("src/screens/HomeScreen.tsx");
+  const location = source("src/work/workLocation.ts");
+  assert.match(home, /handleLocateMe\(false/);
+  assert.match(home, /getWorkLocationWithTimeout\(20_000, \{ geocode: revealDetails \}\)/);
+  assert.match(location, /googleGeocodeAddress/);
+  assert.match(location, /maps\.googleapis\.com\/maps\/api\/geocode\/json/);
+  assert.doesNotMatch(location, /Location\.reverseGeocodeAsync/);
 });
 
 test("App restores the signed-in session from SecureStore on cold start", () => {

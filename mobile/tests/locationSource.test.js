@@ -114,7 +114,10 @@ test("chip covers locating, GPS time without an on-screen accuracy readout, and 
 });
 test("GPS captures high accuracy and records sensor accuracy/time without inventing an address", async () => {
   let options;
-  const load = createLoader({ "expo-location": { Accuracy: { High: "high" }, PermissionStatus: { GRANTED: "granted" }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }), getCurrentPositionAsync: async (value) => { options = value; return { coords: { latitude: 1, longitude: 2, accuracy: 7 }, timestamp: 1000 }; } } });
+  const load = createLoader({
+    "expo-constants": { __esModule: true, default: { expoConfig: { extra: {} } } },
+    "expo-location": { Accuracy: { High: "high" }, PermissionStatus: { GRANTED: "granted" }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }), getCurrentPositionAsync: async (value) => { options = value; return { coords: { latitude: 1, longitude: 2, accuracy: 7 }, timestamp: 1000 }; } },
+  });
   const result = await load("src/work/workLocation.ts").getOptionalWorkLocationAddress();
   assert.equal(options.accuracy, "high");
   assert.equal(result.address, null);

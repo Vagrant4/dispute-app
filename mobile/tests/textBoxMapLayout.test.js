@@ -4,16 +4,13 @@ const { readFileSync } = require("node:fs");
 const path = require("node:path");
 const source = (relative) => readFileSync(path.join(__dirname, "..", relative), "utf8");
 
-test("native location map uses an attributed OpenStreetMap basemap with a fixed pin", () => {
+test("native location map uses the official Google provider with a fixed pin", () => {
   const map = source("src/screens/LocationMap.native.tsx");
-  assert.match(map, /buildOpenStreetMapTileUrl/);
-  assert.match(map, /getTileRequestSource\(tile\.url\)/);
-  assert.match(map, /headers:\s*\{\s*["']User-Agent["']:\s*TILE_USER_AGENT\s*\}/);
-  assert.match(map, /TILE_USER_AGENT/);
-  assert.doesNotMatch(map, /TILE_USER_AGENT\s*=\s*["'][^"']*okhttp/i);
-  assert.match(map, /OpenStreetMap contributors/);
-  assert.match(map, /styles\.locationMapPin/);
-  assert.match(map, /styles\.locationMapAccuracyRing/);
+  assert.match(map, /PROVIDER_GOOGLE/);
+  assert.match(map, /provider=\{PROVIDER_GOOGLE\}/);
+  assert.doesNotMatch(map, /buildOpenStreetMapTileUrl|tile\.openstreetmap\.org|OpenStreetMap contributors/);
+  assert.match(map, /<Marker/);
+  assert.match(map, /<Circle/);
   assert.doesNotMatch(map, /draggable\s*=/);
 });
 

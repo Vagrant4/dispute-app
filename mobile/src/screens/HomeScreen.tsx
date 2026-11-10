@@ -178,7 +178,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     const request = ++locationRequest.current;
     setLocating(true);
     try {
-      const location = await getWorkLocationWithTimeout(20_000);
+      const location = await getWorkLocationWithTimeout(20_000, { geocode: revealDetails });
       if (request !== locationRequest.current) return;
       const canRefreshEntry = locationEntryId && (locationPhase === "start" || (clockOutAt && now.getTime() - clockOutAt.getTime() <= 600_000));
       const params = { userId, entryId: locationEntryId!, phase: locationPhase, locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };

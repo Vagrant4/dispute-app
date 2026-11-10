@@ -10,8 +10,6 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
-import com.facebook.react.modules.network.OkHttpClientFactory
-import com.facebook.react.modules.network.OkHttpClientProvider
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
@@ -31,21 +29,6 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-    val appContext = applicationContext
-    OkHttpClientProvider.setOkHttpClientFactory(OkHttpClientFactory {
-      OkHttpClientProvider.createClientBuilder(appContext)
-        .addNetworkInterceptor { chain ->
-          val request = chain.request()
-          val tileRequest = request.url.host == "tile.openstreetmap.org"
-          chain.proceed(
-            if (tileRequest) request.newBuilder()
-              .header("User-Agent", "DISPUTE/${BuildConfig.VERSION_NAME.removeSuffix("-test")} (sg.claimproof.mobile; Android; +https://github.com/)")
-              .build()
-            else request
-          )
-        }
-        .build()
-    })
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {
