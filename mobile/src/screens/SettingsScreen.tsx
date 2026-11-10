@@ -104,7 +104,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, rateProjectPickerOpen, reportPeriodPickerOpen]);
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
-    { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
     { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : rateBasis === "hourly" ? "hour" : "day"}` : "Not set" },
     { id: "language", label: "Language", value: "English" },
     { id: "plan", label: "Plan", value: planTrialLine(subscription) ?? (subscription?.planName || "Checking plan…") },
@@ -256,10 +255,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   return (
     <View style={styles.todayScreen}>
       {panel === "main" ? (
-        <View style={styles.todayHeader}>
-          <Text style={styles.todayTitle}>Settings</Text>
-          <Text style={styles.todayWordmark}>DISPUTE</Text>
-        </View>
+        <><View style={styles.todayHeader}><Text style={styles.todayTitle}>Settings</Text><Text style={styles.todayWordmark}>DISPUTE</Text></View><Pressable accessibilityRole="button" onPress={() => setPanel("name")} style={styles.settingsProfile}><View style={styles.settingsProfileAvatar}><Text style={styles.settingsProfileInitial}>{(account.name?.trim() || account.email || "W")[0].toUpperCase()}</Text></View><View style={styles.settingsRowContent}><Text style={styles.heading}>{account.name?.trim() || "Worker"}</Text>{account.email ? <Text style={styles.muted}>{account.email}</Text> : null}</View><Text style={styles.settingsChevron}>›</Text></Pressable></>
       ) : null}
       {panel !== "main" ? (
         <Pressable accessibilityRole="button" onPress={() => setPanel(panel === "delete_account" ? "privacy_data" : insideMore ? "more" : "main")} style={styles.settingsBackRow}>
@@ -283,6 +279,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           ))}
         </View>
       ) : null}
+      {panel === "main" ? <Pressable accessibilityRole="button" onPress={onLogout} style={styles.settingsLogout}><Text style={styles.settingsLogoutText}>Log out</Text></Pressable> : null}
       {panel === "language" ? (
         <View style={styles.settingsSection}>
           <Text style={styles.todayTitle}>Language</Text>
