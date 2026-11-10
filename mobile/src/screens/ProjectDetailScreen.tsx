@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
 import type { LocalAccount } from "../auth/localAuth";
 import type { ProjectGroup, WorkEntry, WorkProject, WorkTask } from "../work/workRepository";
 import { getProjectScreenStore } from "../work/projectScreenStore";
@@ -55,6 +55,13 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
     setProject((current) => current ? { ...current, projectStatus: status, siteAddress: address || null, siteLatitude: result?.latitude ?? current.siteLatitude, siteLongitude: result?.longitude ?? current.siteLongitude } : current);
   }
 
+  function confirmArchive() {
+    const message = "The project is archived (hidden from lists and pickers), all shifts, photos and reports are kept, and it can be restored from the Archived filter.";
+    const archive = async () => { const store = await getProjectScreenStore(userId); await store.setProjectStatus(userId, projectId, "archived"); onSelectProject(""); };
+    if (Platform.OS === "web") { if (globalThis.confirm(message)) void archive(); }
+    else Alert.alert("Delete project", message, [{ text: "Cancel", style: "cancel" }, { text: "Archive", style: "destructive", onPress: () => void archive() }]);
+  }
+
   return <>
     <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{project?.name ?? "Project"}</Text>{project?.siteAddress ? <Text style={styles.muted}>{project.siteAddress}</Text> : null}<View style={styles.projectStatusBadge}><Text style={styles.projectStatusText}>{project?.projectStatus ?? "active"}</Text></View></View>
     <View testID="project-detail-actions" style={{ gap: 16 }}>
@@ -73,6 +80,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
     <View style={styles.chipRow}>{(["lead", "active", "completed"] as const).map((status) => <Pressable key={status} onPress={() => void saveDiscovery(status)} style={project?.projectStatus === status ? styles.chipSelected : styles.chip}><Text style={project?.projectStatus === status ? styles.selectedSecondaryText : styles.chipText}>{status}</Text></Pressable>)}</View>
     <Pressable onPress={() => void saveDiscovery()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Save site</Text></Pressable>
     <Pressable accessibilityRole="button" onPress={() => setTasksOpen(true)} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Tasks ({tasks.length})</Text></Pressable>
+    <Pressable accessibilityRole="button" onPress={confirmArchive} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Delete project</Text></Pressable>
     </View>
     {tasksOpen ? <TaskPickerSheet manage tasks={tasks} onClose={() => setTasksOpen(false)} onAdd={async (name) => { const store = await getProjectScreenStore(userId); await store.addTask({ userId, projectId, name }); await refreshTasks(); }} onRename={async (taskId, name) => { const store = await getProjectScreenStore(userId); await store.renameTask({ userId, taskId, name }); await refreshTasks(); }} /> : null}
     {entries.map((entry) => <Text key={entry.id} style={styles.muted}>Shift record: {entry.workDate} · {entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}{entry.locationNote ? ` · Note: ${entry.locationNote}` : ""}</Text>)}
