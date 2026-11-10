@@ -264,7 +264,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   return (
     <View style={styles.todayScreen}>
       {panel === "main" ? (
-        <><View style={styles.todayHeader}><Text style={styles.todayTitle}>Settings</Text><Text style={styles.todayWordmark}>DISPUTE</Text></View><Pressable accessibilityRole="button" onPress={() => setPanel("name")} style={styles.settingsProfile}><View style={styles.settingsProfileAvatar}><Text style={styles.settingsProfileInitial}>{(account.name?.trim() || account.email || "W")[0].toUpperCase()}</Text></View><View style={styles.settingsRowContent}><Text style={styles.heading}>{account.name?.trim() || "Worker"}</Text>{account.email ? <Text style={styles.muted}>{account.email}</Text> : null}</View><Text style={styles.settingsChevron}>›</Text></Pressable></>
+        <><View style={styles.todayHeader}><Text style={styles.todayTitle}>Settings</Text><Text style={styles.todayWordmark}>DISPUTE</Text></View><Pressable accessibilityRole="button" onPress={() => setPanel("name")} style={styles.settingsProfile}><View style={styles.settingsProfileAvatar}><Text style={styles.settingsProfileInitial}>{(account.name?.trim() || account.email || "W")[0].toUpperCase()}</Text></View><View style={styles.settingsRowContent}><Text style={styles.heading}>{account.name?.trim() || "Worker"}</Text>{account.email ? <Text numberOfLines={2} style={[styles.muted, styles.settingsProfileEmail]}>{account.email}</Text> : null}</View><Text style={styles.settingsChevron}>›</Text></Pressable></>
       ) : null}
       {panel !== "main" ? (
         <Pressable accessibilityRole="button" onPress={() => setPanel(panel === "delete_account" ? "privacy_data" : insideMore ? "more" : "main")} style={styles.settingsBackRow}>

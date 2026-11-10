@@ -69,6 +69,7 @@ export const styles = StyleSheet.create({
   settingsProfile: { alignItems: "center", backgroundColor: theme.colors.surface, borderRadius: radius.lg, flexDirection: "row", gap: space.md, marginTop: space.md, padding: space.md },
   settingsProfileAvatar: { alignItems: "center", backgroundColor: theme.colors.primaryHalo, borderRadius: radius.pill, height: 56, justifyContent: "center", width: 56 },
   settingsProfileInitial: { color: theme.colors.primary, ...type.title },
+  settingsProfileEmail: { flexShrink: 1 },
   settingsLogout: { alignItems: "center", borderColor: theme.colors.border, borderRadius: radius.pill, borderWidth: 1, marginTop: space.xl, padding: space.md },
   settingsLogoutText: { color: theme.colors.primary, ...type.label },
   settingsRowContent: { flex: 1, minWidth: 0, gap: today.subtitleTop },

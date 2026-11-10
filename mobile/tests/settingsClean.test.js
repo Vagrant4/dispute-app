@@ -20,6 +20,10 @@ test("Settings uses grouped rounded cards without row dividers", () => {
   assert.doesNotMatch(settings, /numberOfLines=\{1\} style=\{styles.settingsRowSubtitle\}/);
 });
 
+test("Settings profile email may wrap instead of truncating", () => {
+  assert.match(settings, /numberOfLines=\{2\} style=\{\[styles\.muted, styles\.settingsProfileEmail\]\}/);
+});
+
 test("all six main and two More rows use the supplied PNG line icons", () => {
   for (const icon of ["name", "pay", "language", "plan", "support", "more", "privacy", "backup"]) {
     assert.ok(settings.includes(`require("../../assets/icons/set-${icon}.png")`));
