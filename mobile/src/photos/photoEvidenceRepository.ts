@@ -114,6 +114,12 @@ export class PhotoEvidenceRepository {
   }
 
   async deletePhotoEvidence(params: { id: string; userId: string }): Promise<void> {
+    const eventAt = new Date().toISOString();
+    await this.database.runAsync(
+      `INSERT INTO evidence_audit (id, user_id, project_id, time_entry_id, photo_id, event_type, event_at, captured_at, message)
+       SELECT ?, user_id, project_id, time_entry_id, id, 'photo_deleted', ?, captured_at, 'Photo deleted at ' || ? || CASE WHEN captured_at IS NOT NULL THEN ' (captured ' || captured_at || ')' ELSE ' (capture time unavailable)' END FROM photo_evidence WHERE id = ? AND user_id = ?`,
+      [`audit-${params.id}-${Date.now()}`, eventAt, new Date(eventAt).toLocaleString(), params.id, params.userId],
+    );
     await this.database.runAsync(
       "DELETE FROM photo_evidence WHERE id = ? AND user_id = ?",
       [params.id, params.userId],

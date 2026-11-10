@@ -118,6 +118,8 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <h2>Work sites</h2>
   ${buildWorkSites(snapshot)}
 
+  <h2>Evidence Audit</h2>
+  <p>${snapshot.evidenceAudit?.length ? snapshot.evidenceAudit.map((event) => `${escapeHtml(event.message)} — sealed chain status: 1 item deleted by user at ${escapeHtml(event.eventAt)}`).join("<br>") : "No evidence deletion events."}</p>
   <h2>Photo Evidence</h2>
   <table>
     <thead><tr><th>Photo Evidence ID</th><th>Linked Time Entry ID</th><th>Type</th><th>Caption</th><th>Captured at</th><th>Local reference</th></tr></thead>

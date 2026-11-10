@@ -173,8 +173,10 @@ test("PhotoEvidenceRepository deletes owned photo evidence row", async () => {
 
   await repository.deletePhotoEvidence({ id: "photo-1", userId: "user-a" });
 
-  assert.deepEqual(database.calls[0].params, ["photo-1", "user-a"]);
-  assert.match(database.calls[0].sql, /DELETE FROM photo_evidence WHERE id = \? AND user_id = \?/);
+  assert.match(database.calls[0].sql, /INSERT INTO evidence_audit/);
+  assert.match(database.calls[0].sql, /Photo deleted at/);
+  assert.deepEqual(database.calls[1].params, ["photo-1", "user-a"]);
+  assert.match(database.calls[1].sql, /DELETE FROM photo_evidence WHERE id = \? AND user_id = \?/);
   assert.deepEqual(database.records, [
     { id: "photo-1", user_id: "user-b", project_id: "project-b" },
   ]);

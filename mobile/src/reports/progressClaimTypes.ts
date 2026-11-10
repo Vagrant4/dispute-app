@@ -92,6 +92,7 @@ export type ProgressClaimSnapshotInput = {
   project?: ProjectSnapshot;
   timeEntries?: TimeEntrySnapshotInput[];
   photoEvidence?: PhotoEvidenceSnapshotInput[];
+  evidenceAudit?: Array<{ message: string; eventAt: string; capturedAt?: string | null }>;
   pay?: PaySnapshotInput;
 };
 
@@ -160,6 +161,7 @@ export type ProgressClaimSnapshot = {
   totals: ProgressClaimTotals;
   dailyWorkLog: DailyWorkLogItem[];
   photoEvidence: PhotoEvidenceSnapshotInput[];
+  evidenceAudit: Array<{ message: string; eventAt: string; capturedAt?: string | null }>;
   signature: {
     workerSignature: string;
     clientAcknowledgement: string;

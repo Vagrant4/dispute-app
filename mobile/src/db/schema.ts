@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -308,6 +308,11 @@ export const REPOSITORY_HEALTH_SQL = {
   generatedDocumentsCount: "SELECT COUNT(*) AS count FROM generated_documents",
 } as const;
 
+export const EVIDENCE_AUDIT_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS evidence_audit (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, project_id TEXT NOT NULL, time_entry_id TEXT, photo_id TEXT NOT NULL, event_type TEXT NOT NULL, event_at TEXT NOT NULL, captured_at TEXT, message TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_evidence_audit_owner_project ON evidence_audit(user_id, project_id, event_at);
+`;
+
 export const LOCAL_MIGRATIONS = [
   {
     version: 1,
@@ -349,4 +354,5 @@ export const LOCAL_MIGRATIONS = [
   { version: 10, name: "report_pay_preferences", sql: REPORT_PAY_MIGRATION_SQL },
   { version: 11, name: "shift_breaks_and_tasks", sql: SHIFT_TASKS_MIGRATION_SQL },
   { version: 12, name: "project_groups_sites_and_status", sql: PROJECT_DISCOVERY_MIGRATION_SQL },
+  { version: 13, name: "evidence_deletion_audit", sql: EVIDENCE_AUDIT_MIGRATION_SQL },
 ] as const;

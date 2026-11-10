@@ -124,7 +124,7 @@ export class ProgressClaimSourceRepository {
     }
     const hourlyRateCents = normalizeProjectHourlyRateCents(project.hourly_rate_cents);
 
-    const [client, timeEntries, photoEvidence, taskRows] = await Promise.all([
+    const [client, timeEntries, photoEvidence, taskRows, evidenceAudit] = await Promise.all([
       this.database.getFirstAsync<ClientRow>(
         `SELECT name, contact_name, contact_email
         FROM clients
@@ -146,6 +146,7 @@ export class ProgressClaimSourceRepository {
         [project.id, params.userId],
       ),
       this.database.getAllAsync<{ id: string; name: string }>("SELECT id, name FROM project_tasks WHERE project_id = ? AND user_id = ?", [project.id, params.userId]),
+      this.database.getAllAsync<{ message: string; event_at: string; captured_at: string | null }>("SELECT message, event_at, captured_at FROM evidence_audit WHERE project_id = ? AND user_id = ? ORDER BY event_at", [project.id, params.userId]),
     ]);
 
     return {
@@ -166,6 +167,7 @@ export class ProgressClaimSourceRepository {
       },
       timeEntries: mapTimeEntries(timeEntries, new Map(taskRows.map((task) => [task.id, task.name]))),
       photoEvidence: mapPhotoEvidence(photoEvidence),
+      evidenceAudit: evidenceAudit.map((event) => ({ message: event.message, eventAt: event.event_at, capturedAt: event.captured_at })),
       pay: {
         currency: settings?.currency ?? project.currency,
         hourlyRateCents,

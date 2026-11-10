@@ -218,8 +218,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   const canCapture = !!projectId && access.canCreateRecords;
   function confirmDelete(row: PhotoEvidenceRow) {
     if (Platform.OS === "web") {
-      if (globalThis.confirm("Delete this photo? This cannot be undone.")) void handleDelete(row);
-    } else Alert.alert("Delete this photo?", "This cannot be undone.", [
+      if (globalThis.confirm("Remove this photo? The photo will be removed and an audit entry kept.")) void handleDelete(row);
+    } else Alert.alert("Remove this photo?", "The photo will be removed and an audit entry kept.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => void handleDelete(row) },
     ]);
@@ -241,11 +241,11 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           renderSectionHeader={({ section }) => <View style={styles.photoDayHeader}><Text style={styles.inputLabel}>{section.title}</Text></View>}
           renderItem={({ item }) => <View>
             {item[0].id === groups.flatMap((group) => group.data).find((pair) => pair[0].project_id === item[0].project_id && photoDay(pair[0]) === photoDay(item[0]))?.[0].id ? <Text style={styles.photoProjectLabel}>{projects.find((project) => project.id === item[0].project_id)?.name ?? "Project"}</Text> : null}
-            <View style={styles.photoGridRow}>{item.map((row) => <Pressable key={row.id} accessibilityRole="button" accessibilityLabel={`Open photo: ${photoTimeLabel(row)}`} onPress={() => setDetail(row)} style={styles.photoTile}>
+            <View style={styles.photoGridRow}>{item.map((row) => <View key={row.id} style={styles.photoTile}><Pressable accessibilityRole="button" accessibilityLabel={`Open photo: ${photoTimeLabel(row)}`} onPress={() => setDetail(row)}>
               <Image source={{ uri: row.local_uri }} style={styles.photoTileImage} />
               <Text style={styles.photoBadge}>{photoSealBadge(row)}</Text>
               <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>{photoAddress(row)}</Text></View>
-            </Pressable>)}</View>
+            </Pressable><Pressable accessibilityLabel="Delete photo" accessibilityRole="button" onPress={() => confirmDelete(row)} style={styles.photoDeleteButton}><Text style={styles.body}>🗑</Text></Pressable></View>)}</View>
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}

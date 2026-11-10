@@ -63,6 +63,9 @@ export function buildProgressClaimCsv(snapshot: ProgressClaimSnapshot): string {
       photo.localUri,
     ]),
     [],
+    ["Evidence Audit", "Event", "Event At", "Captured At", "Chain Status"],
+    ...(snapshot.evidenceAudit ?? []).map((event) => ["Evidence Audit", event.message, event.eventAt, event.capturedAt ?? "", `1 item deleted by user at ${event.eventAt}`]),
+    [],
     ["Disclaimer", "Text", snapshot.disclaimer],
   ];
 

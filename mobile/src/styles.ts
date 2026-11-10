@@ -117,6 +117,7 @@ export const styles = StyleSheet.create({
   photoProofLabel: { backgroundColor: theme.colors.primaryHalo, borderRadius: radius.pill, color: theme.colors.primary, overflow: "hidden", paddingHorizontal: space.sm, paddingVertical: space.xs, ...type.caption },
   photoGridRow: { flexDirection: "row", gap: space.sm, marginBottom: space.sm },
   photoTile: { width: "31.5%", aspectRatio: 1, borderRadius: radius.md, overflow: "hidden", backgroundColor: theme.colors.surfaceMuted },
+  photoDeleteButton: { alignItems: "center", backgroundColor: theme.colors.photoScrim, borderRadius: radius.pill, height: 48, justifyContent: "center", position: "absolute", right: 0, top: 0, width: 48, zIndex: 3 },
   photoTileImage: { width: "100%", height: "100%" },
   photoOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, padding: space.sm, backgroundColor: theme.colors.photoScrim },
   photoOverlayText: { color: theme.colors.text, ...type.caption, },

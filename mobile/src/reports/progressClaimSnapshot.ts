@@ -134,6 +134,7 @@ export function buildProgressClaimSnapshot(
     },
     dailyWorkLog,
     photoEvidence,
+    evidenceAudit: input.evidenceAudit ?? [],
     signature: {
       workerSignature: "",
       clientAcknowledgement: "",
