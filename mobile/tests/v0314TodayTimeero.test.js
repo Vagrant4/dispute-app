@@ -24,6 +24,20 @@ test("timer card contains the timer, started state, and project row", () => {
   assert.match(home, />Project<\/Text>/);
 });
 
+test("Today timer card and sections have spacing without divider lines", () => {
+  const home = read("src/screens/HomeScreen.tsx");
+  const styles = read("src/styles.ts");
+  assert.doesNotMatch(home, /todayDivider/);
+  assert.doesNotMatch(styles, /todayDivider\s*:/);
+  for (const styleName of ["todayTimerCard", "todayProjectActions", "todayEvidenceRow", "todaySections"]) {
+    const block = styles.match(new RegExp(`${styleName}:\\s*\\{([^\\n]+)\\}`))?.[1] ?? "";
+    assert.ok(block, `${styleName} style must exist`);
+    assert.doesNotMatch(block, /borderTopWidth|borderBottomWidth|hairlineWidth/);
+  }
+  const projectActions = styles.match(/todayProjectActions:\s*\{([^\n]+)\}/)?.[1] ?? "";
+  assert.match(projectActions, /marginTop:\s*todayLayout\.cardPadding/);
+});
+
 test("Today has exactly one quick action and opens photos for the selected project", () => {
   const home = read("src/screens/HomeScreen.tsx");
   assert.equal((home.match(/testID="today-photo-action"/g) ?? []).length, 1);

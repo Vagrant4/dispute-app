@@ -264,7 +264,6 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         {isRunning && clockInAt ? `Started ${formatClockTime(clockInAt)}` : "Not clocked in"}
       </Text>
       {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
-      <View style={styles.todayDivider} />
       <View style={styles.todayProjectActions} testID="today-project-actions">
         <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
           <View style={styles.todayRowContent}>
