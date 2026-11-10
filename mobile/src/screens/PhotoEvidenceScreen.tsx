@@ -246,9 +246,9 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
             {!projectScoped && item[0].id === groups.flatMap((group) => group.data).find((pair) => pair[0].project_id === item[0].project_id && photoDay(pair[0]) === photoDay(item[0]))?.[0].id ? <Text style={styles.photoProjectLabel}>{projects.find((project) => project.id === item[0].project_id)?.name ?? "Project"}</Text> : null}
             <View style={styles.photoGridRow}>{item.map((row) => <View key={row.id} style={styles.photoTile}><Pressable accessibilityRole="button" accessibilityLabel={`Open photo: ${photoTimeLabel(row)}`} onPress={() => setDetail(row)}>
               <Image source={{ uri: row.local_uri }} style={styles.photoTileImage} />
-              <Text style={styles.photoBadge}>{photoSealBadge(row)}</Text>
-              <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>{photoAddress(row)}</Text></View>
-            </Pressable><Pressable accessibilityLabel="Delete photo" accessibilityRole="button" onPress={() => confirmDelete(row)} style={styles.photoDeleteButton}><Text style={styles.body}>🗑</Text></Pressable></View>)}</View>
+              <View accessibilityLabel={photoSealBadge(row)} style={styles.photoBadge}><MaterialIcons testID="photo-seal-icon" name="verified" size={16} color={theme.colors.primary} /></View>
+              <View style={styles.photoOverlay}><Text numberOfLines={1} style={styles.photoOverlayText}>{photoTimeLabel(row)}</Text></View>
+            </Pressable><Pressable accessibilityLabel="Delete photo" accessibilityRole="button" onPress={() => confirmDelete(row)} style={styles.photoDeleteButton}><MaterialIcons testID="photo-delete-icon" name="delete-outline" size={20} color={theme.colors.text} /></Pressable></View>)}</View>
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}

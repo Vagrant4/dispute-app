@@ -63,6 +63,8 @@ test("camera asset shows proof preview, saves, and appears in the list", async (
   await waitFor(() => expect(mockInsert).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.getByText("Photo saved.")).toBeTruthy());
   expect(screen.getByLabelText(/Open photo:/)).toBeTruthy();
+  expect(screen.getByTestId("photo-seal-icon")).toBeTruthy();
+  expect(screen.getByTestId("photo-delete-icon")).toBeTruthy();
 });
 
 test("camera action renders a camera glyph instead of a bare dot", async () => {
