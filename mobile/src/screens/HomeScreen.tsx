@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { ProjectNameSheet } from "./ProjectNameSheet";
+import { ProjectPickerSheet } from "./ProjectPickerSheet";
 import { LocationMap } from "./LocationMap";
 import { styles } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
@@ -300,7 +301,13 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         </Pressable>
       </View>
       <View>
-        {projectPickerOpen ? <View style={styles.todayPicker}>{projects.filter((project) => project.status !== "archived").map((project) => <Pressable key={project.id} onPress={() => { setSelectedProjectId(project.id); setProjectPickerOpen(false); }}><Text style={styles.body}>{project.name}</Text></Pressable>)}<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable></View> : null}
+        {projectPickerOpen ? <ProjectPickerSheet
+          footer={<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => { setProjectPickerOpen(false); setProjectSheetOpen(true); }}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable>}
+          onClose={() => setProjectPickerOpen(false)}
+          onSelect={(projectId) => { setSelectedProjectId(projectId); setProjectPickerOpen(false); }}
+          projects={projects.filter((project) => project.status !== "archived")}
+          testID="today-project-picker-sheet"
+        /> : null}
         {projectSheetOpen ? <ProjectNameSheet onClose={() => setProjectSheetOpen(false)} onSave={async (name) => {
           if (!access.canCreateRecords) throw new Error(access.message);
           const store = await getWorkStore(userId);

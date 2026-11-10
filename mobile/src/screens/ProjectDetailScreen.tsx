@@ -5,27 +5,39 @@ import type { WorkProject } from "../work/workRepository";
 import { getProjectScreenStore } from "../work/projectScreenStore";
 import { styles } from "../styles";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
+import { ProjectPickerSheet } from "./ProjectPickerSheet";
 
-export function ProjectDetailScreen({ account, projectId, onBack, onCreateAccount, onOpenPlanBilling }: {
+export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpenPlanBilling, onSelectProject }: {
   account: LocalAccount;
   projectId: string;
-  onBack: () => void;
   onCreateAccount: () => void;
   onOpenPlanBilling?: () => void;
+  onSelectProject: (projectId: string) => void;
 }) {
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [project, setProject] = useState<WorkProject | null>(null);
+  const [projects, setProjects] = useState<WorkProject[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   useEffect(() => {
     void getProjectScreenStore(userId)
       .then((store) => store.listProjects(userId))
-      .then((projects) => setProject(projects.find((item) => item.id === projectId) ?? null));
+      .then((items) => {
+        setProjects(items.filter((item) => item.status !== "archived"));
+        setProject(items.find((item) => item.id === projectId) ?? null);
+      });
   }, [projectId, userId]);
 
   return <>
-    <Pressable testID="project-picker" accessibilityRole="button" onPress={onBack} style={styles.dropdownBox}>
+    <Pressable testID="project-picker" accessibilityRole="button" onPress={() => setPickerOpen(true)} style={styles.dropdownBox}>
       <Text style={styles.dropdownValue}>{project?.name ?? "Choose project"}</Text>
       <Text style={styles.settingsDropdownChevron}>▼</Text>
     </Pressable>
+    {pickerOpen ? <ProjectPickerSheet
+      onClose={() => setPickerOpen(false)}
+      onSelect={(nextProjectId) => { setPickerOpen(false); onSelectProject(nextProjectId); }}
+      projects={projects}
+      testID="project-detail-picker-sheet"
+    /> : null}
     <ProgressClaimReportsScreen
       account={account}
       projectId={projectId}

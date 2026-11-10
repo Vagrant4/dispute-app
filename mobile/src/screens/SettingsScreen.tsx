@@ -22,6 +22,7 @@ import { getDisputePackBillingNote } from "../subscription/recordAccess";
 import { getProjectScreenStore } from "../work/projectScreenStore";
 import type { WorkProject } from "../work/workRepository";
 import { loadReportPeriod, saveReportPeriod, type ReportPeriod } from "../reports/reportPeriodSettings";
+import { ProjectPickerSheet } from "./ProjectPickerSheet";
 
 type SettingsScreenProps = {
   account: LocalAccount;
@@ -67,6 +68,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const [workHoursStatus, setWorkHoursStatus] = useState("");
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [rateProjectId, setRateProjectId] = useState<string | null>(null);
+  const [rateProjectPickerOpen, setRateProjectPickerOpen] = useState(false);
   const [projectRate, setProjectRate] = useState("");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
@@ -87,6 +89,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
       if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }
+      if (rateProjectPickerOpen) { setRateProjectPickerOpen(false); return true; }
       if (panel !== "main") {
         setPanel(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
         return true;
@@ -94,7 +97,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       return false;
     });
     return () => subscription.remove();
-  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen]);
+  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, rateProjectPickerOpen]);
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "name", label: "Name", value: account.name?.trim() || "Not set" },
@@ -278,14 +281,16 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             Set your normal hours and rates. Overtime, off-day and holiday rates apply automatically.
           </Text>
           <Text style={styles.inputLabel}>Project</Text>
-          <Pressable testID="settings-pay-rate-project-picker" accessibilityRole="button" style={styles.dropdownBox} onPress={() => {
-            if (!projects.length) return;
-            const index = projects.findIndex((item) => item.id === rateProjectId);
-            setRateProjectId(projects[(index + 1) % projects.length].id);
-          }}>
+          <Pressable testID="settings-pay-rate-project-picker" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setRateProjectPickerOpen(true)}>
             <Text style={styles.dropdownValue}>{projects.find((item) => item.id === rateProjectId)?.name ?? "No project"}</Text>
             <Text style={styles.settingsDropdownChevron}>▼</Text>
           </Pressable>
+          {rateProjectPickerOpen ? <ProjectPickerSheet
+            onClose={() => setRateProjectPickerOpen(false)}
+            onSelect={(projectId) => { setRateProjectId(projectId); setRateProjectPickerOpen(false); }}
+            projects={projects.filter((project) => project.status !== "archived")}
+            testID="settings-pay-rate-project-sheet"
+          /> : null}
           <Text style={styles.inputLabel}>Project hourly rate ({currency})</Text>
           <TextInput accessibilityLabel="Project hourly rate" testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onChangeText={setProjectRate} style={styles.textInput} value={projectRate} />
           <Text style={styles.inputLabel}>Report period</Text>

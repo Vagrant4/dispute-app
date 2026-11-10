@@ -84,6 +84,24 @@ test("PDF uses the selected project's rate and Settings period", () => {
   expect(source).toMatch(/loadReportPeriod\(userId\)/);
 });
 
+test("pay rate Project field opens a readable project picker sheet", async () => {
+  mockListProjects.mockReset();
+  mockListProjects.mockResolvedValue([storedProject]);
+  const screen = render(
+    <SettingsScreen
+      account={{ id: "u1", email: "shi@example.com" } as never}
+      initialPanel="work_hours"
+      onAccountDeleted={jest.fn()}
+      onLogout={jest.fn()}
+    />,
+  );
+
+  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
+  fireEvent.press(screen.getByTestId("settings-pay-rate-project-picker"));
+  expect(screen.getByTestId("settings-pay-rate-project-sheet")).toBeTruthy();
+  expect(screen.getByText("Choose project")).toBeTruthy();
+});
+
 test("first Save resolves an existing stored project and upserts a missing rate", async () => {
   mockGetProjectScreenStore.mockClear();
   mockListProjects.mockReset();

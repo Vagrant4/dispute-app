@@ -33,7 +33,7 @@ export function ProjectsScreen({ account, onCreateAccount, onOpenPlanBilling, on
     const project = await store.createProject({ userId, clientId: client.id, name, hourlyRateCents: 0 });
     await refresh(); setOpenProjectId(project.id);
   }
-  if (openProjectId) return <ProjectDetailScreen key={openProjectId} account={account} projectId={openProjectId} onBack={() => { setOpenProjectId(null); void refresh(); }} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} />;
+  if (openProjectId) return <ProjectDetailScreen key={openProjectId} account={account} projectId={openProjectId} onCreateAccount={onCreateAccount} onOpenPlanBilling={onOpenPlanBilling} onSelectProject={setOpenProjectId} />;
   const card = (project: ProjectSummary) => <Pressable key={project.id} onPress={() => setOpenProjectId(project.id)} style={styles.card} accessibilityRole="button">
     <View style={styles.row}>
       <Text style={styles.heading}>{project.name}</Text><Text style={styles.settingsChevron}>›</Text></View>

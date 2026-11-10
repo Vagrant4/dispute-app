@@ -1,9 +1,9 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
 
 import { SwipeDownSheet } from "../src/components/SwipeDownSheet";
 
-describe.each(["project-sheet", "photo-proof-sheet", "photo-detail-sheet"])("%s", (sheetId) => {
+describe.each(["project-sheet", "photo-proof-sheet", "photo-detail-sheet", "project-detail-picker-sheet", "settings-pay-rate-project-sheet", "today-project-picker-sheet"])("%s", (sheetId) => {
   test("shows a grab handle and closes after a downward swipe", () => {
     const onClose = jest.fn();
     const view = render(<SwipeDownSheet onClose={onClose} testID={sheetId}><Text>Sheet</Text></SwipeDownSheet>);
@@ -26,11 +26,11 @@ describe.each(["project-sheet", "photo-proof-sheet", "photo-detail-sheet"])("%s"
   });
 });
 
-test("Cancel and Android modal back still close a sheet", () => {
-  const onClose = jest.fn();
-  const view = render(<SwipeDownSheet onClose={onClose} testID="project-sheet"><Pressable onPress={onClose}><Text>Cancel</Text></Pressable></SwipeDownSheet>);
-  fireEvent.press(view.getByText("Cancel"));
-  expect(onClose).toHaveBeenCalledTimes(1);
-  fireEvent(view.UNSAFE_getByType(require("react-native").Modal), "requestClose");
-  expect(onClose).toHaveBeenCalledTimes(2);
+describe.each(["project-detail-picker-sheet", "settings-pay-rate-project-sheet", "today-project-picker-sheet"])("%s Android back", (sheetId) => {
+  test("closes the picker", () => {
+    const onClose = jest.fn();
+    const view = render(<SwipeDownSheet onClose={onClose} testID={sheetId}><Text>Sheet</Text></SwipeDownSheet>);
+    fireEvent(view.UNSAFE_getByType(require("react-native").Modal), "requestClose");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
