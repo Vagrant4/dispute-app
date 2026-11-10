@@ -20,7 +20,9 @@ test("Projects layout exposes real tabs, search, filters and groups without a de
   assert.match(screen, /Filter projects/);
   assert.match(screen, /\+ Add group/);
   assert.match(screen, /listProjectGroups/);
-  assert.doesNotMatch(screen, /microphone|mic icon|speech/i);
+  assert.match(screen, /Search projects by voice/);
+  assert.match(screen, /requestPermissionsAsync/);
+  assert.match(screen, /isRecognitionAvailable/);
 });
 
 test("Photos layout keeps proof labels and uses a floating camera action", () => {

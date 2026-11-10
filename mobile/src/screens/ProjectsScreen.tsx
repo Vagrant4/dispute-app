@@ -1,6 +1,10 @@
 import * as Location from "expo-location";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 import { useEffect, useMemo, useState } from "react";
 import {
   BackHandler,
@@ -53,6 +57,13 @@ export function ProjectsScreen({
   const [groups, setGroups] = useState<ProjectGroup[]>([]);
   const [tab, setTab] = useState<"projects" | "groups">("projects");
   const [query, setQuery] = useState("");
+  const [speechAvailable] = useState(() =>
+    ExpoSpeechRecognitionModule.isRecognitionAvailable(),
+  );
+  const [listening, setListening] = useState(false);
+  const [speechError, setSpeechError] = useState(
+    speechAvailable ? "" : "Voice search is unavailable on this device.",
+  );
   const [statusFilter, setStatusFilter] = useState<
     ProjectStatus | "all" | "archived"
   >("all");
@@ -67,6 +78,34 @@ export function ProjectsScreen({
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+
+  useSpeechRecognitionEvent("start", () => setListening(true));
+  useSpeechRecognitionEvent("end", () => setListening(false));
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results[0]?.transcript;
+    if (transcript) setQuery(transcript);
+  });
+  useSpeechRecognitionEvent("error", (event) => {
+    setListening(false);
+    setSpeechError(event.message || "Voice search could not start.");
+  });
+
+  async function toggleVoiceSearch() {
+    if (listening) {
+      ExpoSpeechRecognitionModule.stop();
+      setListening(false);
+      return;
+    }
+    setSpeechError("");
+    const permission =
+      await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setSpeechError("Microphone permission is required for voice search.");
+      return;
+    }
+    ExpoSpeechRecognitionModule.start({ lang: "en-US", interimResults: true });
+    setListening(true);
+  }
 
   async function refresh() {
     try {
@@ -279,14 +318,30 @@ export function ProjectsScreen({
       {tab === "projects" ? (
         <>
           <View style={styles.projectSearchRow}>
-            <TextInput
-              accessibilityLabel="Search projects"
-              onChangeText={setQuery}
-              placeholder="Search name or address"
-              placeholderTextColor={theme.colors.placeholder}
-              style={styles.projectSearch}
-              value={query}
-            />
+            <View style={styles.projectSearchContainer}>
+              <TextInput
+                accessibilityLabel="Search projects"
+                onChangeText={setQuery}
+                placeholder="Search name or address"
+                placeholderTextColor={theme.colors.placeholder}
+                style={styles.projectSearch}
+                value={query}
+              />
+              {speechAvailable ? (
+                <Pressable
+                  accessibilityLabel="Search projects by voice"
+                  accessibilityState={{ selected: listening }}
+                  onPress={() => void toggleVoiceSearch()}
+                  style={styles.projectMicButton}
+                >
+                  <MaterialIcons
+                    name="mic"
+                    size={24}
+                    color={listening ? theme.colors.primary : theme.colors.textMuted}
+                  />
+                </Pressable>
+              ) : null}
+            </View>
             <Pressable
               accessibilityLabel="Filter projects"
               onPress={() => setFilterOpen(true)}
@@ -295,6 +350,7 @@ export function ProjectsScreen({
               <MaterialIcons name="tune" size={26} color={theme.colors.text} />
             </Pressable>
           </View>
+          {speechError ? <Text style={styles.projectActionError}>{speechError}</Text> : null}
           {error ? <Text style={styles.body}>{error}</Text> : null}
           {visible.map(card)}
           {!visible.length ? (

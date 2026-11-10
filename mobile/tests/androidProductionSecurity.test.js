@@ -53,14 +53,16 @@ test("release Gradle configuration has no debug signing and enables R8 plus reso
   assert.doesNotMatch(properties, /EX_DEV_CLIENT_NETWORK_INSPECTOR/);
 });
 
-test("production manifest blocks cleartext, backups, dev permissions, test stores, and custom schemes", () => {
+test("production manifest blocks unsafe defaults while allowing scoped voice search", () => {
   const manifest = read(mobileRoot, "android", "app", "src", "main", "AndroidManifest.xml");
 
   assert.match(manifest, /android:usesCleartextTraffic="false"/);
   assert.match(manifest, /android:allowBackup="false"/);
   assert.match(manifest, /android:launchMode="singleTop"/);
+  assert.match(manifest, /android\.permission\.RECORD_AUDIO/);
+  assert.match(manifest, /android\.speech\.RecognitionService/);
+  assert.match(manifest, /com\.google\.android\.googlequicksearchbox/);
   for (const permission of [
-    "RECORD_AUDIO",
     "SYSTEM_ALERT_WINDOW",
     "READ_EXTERNAL_STORAGE",
     "WRITE_EXTERNAL_STORAGE",
