@@ -12,6 +12,23 @@ test("native location map uses the official Google provider with a fixed pin", (
   assert.match(map, /<Marker/);
   assert.match(map, /<Circle/);
   assert.doesNotMatch(map, /draggable\s*=/);
+  assert.match(map, /mapType="standard"/);
+  assert.doesNotMatch(map, /customMapStyle/);
+});
+
+test("native location map has a street-level Singapore region on its first paint", () => {
+  const map = source("src/screens/LocationMap.native.tsx");
+  assert.match(map, /DEFAULT_LATITUDE = 1\.3521/);
+  assert.match(map, /DEFAULT_LONGITUDE = 103\.8198/);
+  assert.match(map, /DEFAULT_REGION_DELTA = 0\.01/);
+  assert.match(map, /initialRegion=\{\{[\s\S]*latitude,[\s\S]*longitude,[\s\S]*latitudeDelta: DEFAULT_REGION_DELTA,[\s\S]*longitudeDelta: DEFAULT_REGION_DELTA/);
+  assert.match(map, /initialCamera=\{\{ center: coordinate, heading: 0, pitch: 0, zoom: MAP_ZOOM \}\}/);
+});
+
+test("native Google MapView fills its canvas without post-mount state resizing", () => {
+  const map = source("src/screens/LocationMap.native.tsx");
+  assert.match(map, /style=\{\{ width: "100%", height: "100%" \}\}/);
+  assert.doesNotMatch(map, /useState\(\{ width: 360, height: 260 \}\)|mapSize|handleMapLayout|onLayout=/);
 });
 
 test("location map frame grows with its content instead of clipping the Maps action", () => {
