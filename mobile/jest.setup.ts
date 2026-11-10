@@ -8,6 +8,15 @@ jest.mock("react-native-safe-area-context", () => {
   };
 });
 
+jest.mock("expo-font", () => ({ useFonts: () => [true, null] }));
+jest.mock("@expo/vector-icons", () => {
+  const React = require("react");
+  const { Text } = require("react-native");
+  const MaterialIcons = ({ name, ...props }: { name: string }) => React.createElement(Text, props, name);
+  MaterialIcons.font = {};
+  return { MaterialIcons };
+});
+
 jest.mock("react-native-maps", () => {
   const React = require("react");
   const { View } = require("react-native");

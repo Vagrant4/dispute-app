@@ -1,4 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { Alert, Image, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,6 +35,7 @@ const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
 const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 
 export function PhotoEvidenceScreen({ account, initialProjectId }: { account: LocalAccount; initialProjectId?: string }) {
+  const [iconsLoaded] = useFonts(MaterialIcons.font);
   const insets = useSafeAreaInsets();
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
@@ -249,7 +252,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}
-        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.photoFabIcon, (!canCapture) && styles.disabledButtonText]}>●</Text></Pressable>
+        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture || !iconsLoaded} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, (!canCapture || !iconsLoaded) && styles.disabledButton]}><MaterialIcons testID="camera-fab-glyph" name="photo-camera" size={28} color={theme.colors.ink} /></Pressable>
       {!projectId ? <View><Text style={styles.muted}>Add a project before saving photo evidence.</Text><Pressable accessibilityRole="button" onPress={() => setProjectSheetOpen(true)} style={styles.textButton}><Text style={styles.body}>+ Add project</Text></Pressable></View> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <SwipeDownSheet visible={captureSheetOpen} backdropStyle={styles.photoSheetBackdrop} sheetStyle={styles.photoSheet} testID="photo-proof-sheet" onClose={() => { if (!saving) setCaptureSheetOpen(false); }}>

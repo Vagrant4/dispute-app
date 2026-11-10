@@ -65,6 +65,12 @@ test("camera asset shows proof preview, saves, and appears in the list", async (
   expect(screen.getByLabelText(/Open photo:/)).toBeTruthy();
 });
 
+test("camera action renders a camera glyph instead of a bare dot", async () => {
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => expect(screen.getByTestId("camera-fab-glyph")).toBeTruthy());
+  expect(screen.queryByText("●")).toBeNull();
+});
+
 test("seal failure shows Retry and retry succeeds without retaking", async () => {
   mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
   mockSeal.mockRejectedValueOnce(new Error("seal failed")).mockResolvedValueOnce({ lockHash: "hash", lockedAt: "now" });

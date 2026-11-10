@@ -30,10 +30,12 @@
   },
   "dependencies": {
     "@claimproof/shared": "file:../packages/shared",
+    "@expo/vector-icons": "^15.1.1",
     "expo": "~56.0.19",
     "expo-crypto": "^56.0.4",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
+    "expo-font": "^56.0.7",
     "expo-image-picker": "~56.0.23",
     "expo-location": "~56.0.23",
     "expo-print": "~56.0.4",
