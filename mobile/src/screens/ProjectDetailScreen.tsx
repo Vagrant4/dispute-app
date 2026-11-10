@@ -101,7 +101,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
     </View>
     {tasksOpen ? <TaskPickerSheet manage tasks={tasks} onClose={() => setTasksOpen(false)} onAdd={async (name) => { const store = await getProjectScreenStore(userId); await store.addTask({ userId, projectId, name }); await refreshTasks(); }} onRename={async (taskId, name) => { const store = await getProjectScreenStore(userId); await store.renameTask({ userId, taskId, name }); await refreshTasks(); }} /> : null}
     {entries.map((entry) => <Text key={entry.id} style={styles.muted}>Shift record: {entry.workDate} · {entry.durationMinutes} min{entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}{entry.locationNote ? ` · Note: ${entry.locationNote}` : ""}</Text>)}
-    <PhotoEvidenceScreen account={account} initialProjectId={projectId} />
+    <PhotoEvidenceScreen account={account} initialProjectId={projectId} projectScoped />
     <ProgressClaimReportsScreen
       account={account}
       projectId={projectId}

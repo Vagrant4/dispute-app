@@ -34,14 +34,14 @@ const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
 ];
 const WEB_PHOTO_STORAGE_KEY = "dispute-web-saved-photo-evidence";
 
-export function PhotoEvidenceScreen({ account, initialProjectId }: { account: LocalAccount; initialProjectId?: string }) {
+export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped = false }: { account: LocalAccount; initialProjectId?: string; projectScoped?: boolean }) {
   const [iconsLoaded] = useFonts(MaterialIcons.font);
   const insets = useSafeAreaInsets();
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [status, setStatus] = useState("");
   const [projects, setProjects] = useState<WorkProject[]>([]);
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(initialProjectId ?? "");
   const [caption, setCaption] = useState("");
   const [evidenceType, setEvidenceType] = useState<PhotoEvidenceType>("DURING_WORK");
   const [pendingUri, setPendingUri] = useState<string | null>(null);
@@ -229,11 +229,11 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   }
   return (
     <View style={styles.photosPage}>
-      <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View>
+      {!projectScoped ? <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View> : null}
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
-      <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
+      {!projectScoped ? <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
         {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.id ? projectPickerLabel(project, projects) : project.name}</Text></Pressable>)}
-      </ScrollView>
+      </ScrollView> : null}
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
         <Text style={styles.photoEmptyIcon}>▧</Text>
         <Text style={styles.heading}>No photos yet</Text>
@@ -243,7 +243,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
         <SectionList style={styles.photoList} scrollEnabled stickySectionHeadersEnabled sections={groups} keyExtractor={(pair) => pair[0].id}
           renderSectionHeader={({ section }) => <View style={styles.photoDayHeader}><Text style={styles.inputLabel}>{section.title}</Text></View>}
           renderItem={({ item }) => <View>
-            {item[0].id === groups.flatMap((group) => group.data).find((pair) => pair[0].project_id === item[0].project_id && photoDay(pair[0]) === photoDay(item[0]))?.[0].id ? <Text style={styles.photoProjectLabel}>{projects.find((project) => project.id === item[0].project_id)?.name ?? "Project"}</Text> : null}
+            {!projectScoped && item[0].id === groups.flatMap((group) => group.data).find((pair) => pair[0].project_id === item[0].project_id && photoDay(pair[0]) === photoDay(item[0]))?.[0].id ? <Text style={styles.photoProjectLabel}>{projects.find((project) => project.id === item[0].project_id)?.name ?? "Project"}</Text> : null}
             <View style={styles.photoGridRow}>{item.map((row) => <View key={row.id} style={styles.photoTile}><Pressable accessibilityRole="button" accessibilityLabel={`Open photo: ${photoTimeLabel(row)}`} onPress={() => setDetail(row)}>
               <Image source={{ uri: row.local_uri }} style={styles.photoTileImage} />
               <Text style={styles.photoBadge}>{photoSealBadge(row)}</Text>

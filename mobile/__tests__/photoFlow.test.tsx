@@ -11,7 +11,7 @@ const mockSeal = jest.fn();
 const mockInsert = jest.fn();
 let mockSavedRows: any[] = [];
 const mockGetLocalRepositories = jest.fn(async () => ({
-  work: { listProjects: async () => [{ id: "project-1", userId: "u1", name: "1111.", status: "active" }], getHomeState: async () => ({ activeEntry: null, recentEntries: [] }) },
+  work: { listProjects: async () => [{ id: "project-1", userId: "u1", name: "1111.", status: "active" }, { id: "project-2", userId: "u1", name: "Other project", status: "active" }], getHomeState: async () => ({ activeEntry: null, recentEntries: [] }) },
   photoEvidence: {
     listRecentPhotoEvidence: async () => mockSavedRows,
     insertPhotoEvidence: (...args: unknown[]) => mockInsert(...args),
@@ -69,6 +69,14 @@ test("camera action renders a camera glyph instead of a bare dot", async () => {
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
   await waitFor(() => expect(screen.getByTestId("camera-fab-glyph")).toBeTruthy());
   expect(screen.queryByText("●")).toBeNull();
+});
+
+test("project-scoped gallery excludes global headers and other project filters", async () => {
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} initialProjectId="project-1" projectScoped />);
+  await waitFor(() => expect(screen.getByLabelText("Take photo")).toBeTruthy());
+  expect(screen.queryByText("Other project")).toBeNull();
+  expect(screen.queryByText("All")).toBeNull();
+  expect(screen.queryByText("1111.")).toBeNull();
 });
 
 test("seal failure shows Retry and retry succeeds without retaking", async () => {
