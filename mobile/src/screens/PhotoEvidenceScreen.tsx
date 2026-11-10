@@ -245,7 +245,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
               <Image source={{ uri: row.local_uri }} style={styles.photoTileImage} />
               <Text style={styles.photoBadge}>{photoSealBadge(row)}</Text>
               <View style={styles.photoOverlay}><Text style={styles.photoOverlayText}>{photoTimeLabel(row)} · {formatEvidenceType(row.evidence_type)}</Text><Text style={styles.photoOverlayText}>{photoAddress(row)}</Text></View>
-            </Pressable><Pressable accessibilityLabel="Delete photo" accessibilityRole="button" onPress={() => confirmDelete(row)} style={styles.photoDeleteButton}><Text style={styles.body}>🗑</Text></Pressable></View>)}</View>
+            </Pressable><Pressable accessibilityLabel="Delete photo" accessibilityRole="button" onPress={() => confirmDelete(row)} style={styles.photoDeleteButton}><Text style={styles.body}>×</Text></Pressable></View>)}</View>
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}

@@ -64,7 +64,7 @@ export function ProjectDetailScreen({ account, projectId, onCreateAccount, onOpe
 
   return <>
     <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{project?.name ?? "Project"}</Text>{project?.siteAddress ? <Text style={styles.muted}>{project.siteAddress}</Text> : null}<View style={styles.projectStatusBadge}><Text style={styles.projectStatusText}>{project?.projectStatus ?? "active"}</Text></View></View>
-    <View testID="project-detail-actions" style={{ gap: 16 }}>
+    <View testID="project-detail-actions" style={styles.projectDetailActions}>
     <Pressable testID="project-picker" accessibilityRole="button" onPress={() => setPickerOpen(true)} style={styles.dropdownBox}>
       <Text style={styles.dropdownValue}>{project?.name ?? "Choose project"}</Text>
       <Text style={styles.settingsDropdownChevron}>▼</Text>

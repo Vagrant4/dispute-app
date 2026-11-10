@@ -257,6 +257,8 @@ CREATE TABLE IF NOT EXISTS project_groups (
 );
 CREATE INDEX IF NOT EXISTS idx_project_groups_owner ON project_groups(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_group_owner ON projects(user_id, group_id);
+CREATE TABLE IF NOT EXISTS evidence_audit (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, project_id TEXT NOT NULL, time_entry_id TEXT, photo_id TEXT NOT NULL, event_type TEXT NOT NULL, event_at TEXT NOT NULL, captured_at TEXT, message TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_evidence_audit_owner_project ON evidence_audit(user_id, project_id, event_at);
 `;
 
 export const REPORT_PAY_MIGRATION_SQL = `

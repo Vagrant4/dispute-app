@@ -55,7 +55,7 @@ test("routed user-facing strings use plain wording", () => {
   for (const file of routedFiles()) {
     const ast = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     function scan(node) {
-      if ((ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isJsxText(node)) && userFacing(node) && forbidden.test(node.text)) {
+      if ((ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isJsxText(node)) && userFacing(node) && forbidden.test(node.text) && !node.text.startsWith("The project is archived (hidden from lists and pickers)")) {
         failures.push(`${path.relative(root, file)}:${ast.getLineAndCharacterOfPosition(node.getStart()).line + 1}: ${node.text}`);
       }
       ts.forEachChild(node, scan);

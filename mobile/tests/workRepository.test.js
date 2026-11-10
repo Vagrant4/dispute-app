@@ -60,12 +60,12 @@ function createTsLoader() {
   return load;
 }
 
-test("schema version 12 keeps existing data and adds project discovery fields", () => {
+test("schema version 13 keeps existing data and adds project discovery and audit fields", () => {
   const { CURRENT_SCHEMA_VERSION, LOCAL_MIGRATIONS, MOBILE_SCHEMA_SQL } = createTsLoader()(
     "src/db/schema.ts",
   );
 
-  assert.equal(CURRENT_SCHEMA_VERSION, 12);
+  assert.equal(CURRENT_SCHEMA_VERSION, 13);
   for (const field of [
     "break_minutes",
     "location_text",
@@ -81,7 +81,7 @@ test("schema version 12 keeps existing data and adds project discovery fields", 
   ]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
-  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 12);
+  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 13);
   assert.match(LOCAL_MIGRATIONS.at(-1).sql, /CREATE TABLE IF NOT EXISTS project_groups/);
   assert.match(LOCAL_MIGRATIONS.at(-1).sql, /ALTER TABLE projects ADD COLUMN site_address/);
   assert.match(LOCAL_MIGRATIONS.at(-1).sql, /project_status TEXT NOT NULL DEFAULT 'active'/);
