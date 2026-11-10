@@ -213,6 +213,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   }
 
   const groups = groupPhotos(rows.filter((row) => !filterProjectId || row.project_id === filterProjectId));
+  const headerProject = projects.find((project) => project.id === (filterProjectId || projectId));
   const canCapture = !!projectId && access.canCreateRecords;
   function confirmDelete(row: PhotoEvidenceRow) {
     if (Platform.OS === "web") {
@@ -224,7 +225,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
   }
   return (
     <View style={styles.photosPage}>
-      <View style={styles.brandRow}><Text style={styles.statusPillText}>{rows.length} photos</Text></View>
+      <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View>
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
         {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.name}</Text></Pressable>)}
@@ -247,7 +248,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId }: { account: Lo
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}
-        <Pressable accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.actionButtonText, (!canCapture) && styles.disabledButtonText]}>Take photo</Text></Pressable>
+        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, !canCapture && styles.disabledButton]}><Text style={[styles.photoFabIcon, (!canCapture) && styles.disabledButtonText]}>●</Text></Pressable>
       {!projectId ? <View><Text style={styles.muted}>Add a project before saving photo evidence.</Text><Pressable accessibilityRole="button" onPress={() => setProjectSheetOpen(true)} style={styles.textButton}><Text style={styles.body}>+ Add project</Text></Pressable></View> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <SwipeDownSheet visible={captureSheetOpen} backdropStyle={styles.photoSheetBackdrop} sheetStyle={styles.photoSheet} testID="photo-proof-sheet" onClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
