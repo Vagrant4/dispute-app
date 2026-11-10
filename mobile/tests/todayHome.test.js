@@ -22,7 +22,7 @@ test("location rows use address or friendly saved fallback", () => {
   assert.equal(formatLocationRow(null, { ...idle, locationOff: true }).subtitle, "Location is off · Open settings");
   assert.doesNotMatch(source("src/work/locationEvidence.ts"), /GPS point/);
 });
-test("Today limits lime to the working pill, wordmark, round action and Add project outline", () => {
+test("Today uses lime for the working pill, wordmark, main action and Add project text", () => {
   const home = source("src/screens/HomeScreen.tsx");
   assert.match(home, /Working · since/);
   assert.match(home, /Not clocked in/);
@@ -32,10 +32,10 @@ test("Today limits lime to the working pill, wordmark, round action and Add proj
   assert.match(home, /trialDaysLeft > 0 && trialDaysLeft <= 3/);
   const styles = source("src/styles.ts");
   assert.match(styles, /todayClock: \{[^\n]*today.clock/);
-  assert.match(styles, /todayRoundButton: \{[^\n]*width: 176, height: 176/);
+  assert.match(styles, /todayClockButton: \{[^\n]*backgroundColor: theme.colors.primary/);
   const today = styles.slice(styles.indexOf("  todayScreen:"), styles.indexOf("  todayBottomAction:"));
   const limeStyles = today.split(/\r?\n/).filter((line) => /theme.colors.primary\b/.test(line)).map((line) => line.trim().split(":")[0]);
-  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayRoundButton", "todayAddProjectButton", "todayAddProjectText"]);
+  assert.deepEqual(limeStyles, ["todayWordmark", "todayStatusDotWorking", "todayStatusTextWorking", "todayClockButton", "todayAddProjectText"]);
 });
 test("Clock in directs missing requirements to GPS or the picker", () => {
   const home = source("src/screens/HomeScreen.tsx");
@@ -95,17 +95,13 @@ test("working pill uses lime while idle stays neutral", () => {
     assert.ok(home.includes("isRunning && styles." + key + "Working"));
   }
 });
-test("round action uses responsive sizing and keeps a full touch target", () => {
+test("main action is full width, 56dp tall and has no circle frame", () => {
   const styles = source("src/styles.ts");
   const home = source("src/screens/HomeScreen.tsx");
-  assert.match(styles, /todayButtonFrame: \{[^\n]*width: 200, height: 200[^\n]*alignItems: "center", justifyContent: "center"/);
-  assert.match(styles, /todayRoundButton: \{ width: 176, height: 176/);
-  assert.match(styles, /todayStopButton: \{ width: 160, height: 160/);
-  assert.match(styles, /todayHalo: \{ padding: today.halo/);
-  assert.match(source("src/theme/tokens.ts"), /halo: 12/);
-  assert.match(home, /hitSlop=\{isRunning \? 8 : 0\}/);
-  assert.match(home, /styles\.todayButtonFrame[\s\S]*clockLayout\.frameSize/);
-  assert.match(home, /getTodayClockLayout\(window\.width, window\.height\)/);
+  assert.match(styles, /todayClockButton: \{[^\n]*height: todayLayout\.clockButtonHeight[^\n]*width: "100%"/);
+  assert.match(styles, /todayStopButton: \{[^\n]*backgroundColor: theme.colors.danger/);
+  assert.doesNotMatch(styles, /todayButtonFrame|todayHalo|todayRoundButton|todayStopHalo/);
+  assert.doesNotMatch(home, /getTodayClockLayout|clockLayout/);
 });
 test("tabs use PNG line icons with lime active icons and normal active labels", () => {
   const app = source("App.tsx");
@@ -144,7 +140,7 @@ test("Today embeds the fixed-pin map without a separate map screen", () => {
   const home = source("src/screens/HomeScreen.tsx");
   const nativeMap = source("src/screens/LocationMap.native.tsx");
   assert.match(home, /testID="today-map"/);
-  assert.match(nativeMap, /showDetails[\s\S]*\{showDetails && hasFix \? <View style=\{styles\.locationMapDetails\}>/);
+  assert.match(nativeMap, /showDetails[\s\S]*\{showDetails && hasFix \? <View style=\{styles\.todayAddressChip\} testID="today-address-chip">/);
   assert.match(nativeMap, /1\.3521/);
   assert.match(nativeMap, /103\.8198/);
   assert.match(nativeMap, /PROVIDER_GOOGLE/);
@@ -152,7 +148,6 @@ test("Today embeds the fixed-pin map without a separate map screen", () => {
   assert.doesNotMatch(nativeMap, /No GPS reading yet\. Tap the crosshair\./);
   assert.doesNotMatch(home, /View on map|setLocationMapOpen/);
   assert.doesNotMatch(nativeMap, /openDeviceMaps|Open in Maps/);
-  assert.match(nativeMap, /GPS pin is fixed/);
   assert.match(nativeMap, /from "react-native-maps"/);
   assert.match(nativeMap, /<MapView/);
 });

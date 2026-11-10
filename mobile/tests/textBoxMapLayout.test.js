@@ -31,12 +31,13 @@ test("native Google MapView fills its canvas without post-mount state resizing",
   assert.doesNotMatch(map, /useState\(\{ width: 360, height: 260 \}\)|mapSize|handleMapLayout|onLayout=/);
 });
 
-test("location map frame grows with its content instead of clipping the Maps action", () => {
+test("location map frame and canvas flex without clipping the Maps action", () => {
   const styles = source("src/styles.ts");
   const frame = styles.match(/locationMapFrame:\s*\{([^}]+)\}/)?.[1] ?? "";
   assert.doesNotMatch(frame, /height:\s*360/);
   assert.doesNotMatch(frame, /overflow:\s*"hidden"/);
-  assert.match(styles, /locationMapCanvas:\s*\{[^}]*height:\s*260/);
+  assert.match(frame, /flex:\s*1/);
+  assert.match(styles, /locationMapCanvas:\s*\{[^}]*flex:\s*1/);
 });
 
 test("web location map keeps a dark, lime-accented fallback at the native map height", () => {

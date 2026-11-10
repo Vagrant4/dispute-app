@@ -6,7 +6,7 @@ const primary = (text) => text.match(/styles\.(?:actionButton|photoFab|chipActiv
 
 test("Today reserves filled lime for Start / Stop, including expired access", () => {
   const home = screen("Home");
-  assert.equal((home.match(/styles.todayRoundButton/g) || []).length, 1);
+  assert.equal((home.match(/styles.todayClockButton/g) || []).length, 1);
   assert.match(home, /handleClockOut\(\) : handleClockIn\(\)/);
   assert.match(home, /"Clock out" : "Clock in"/);
   assert.doesNotMatch(home, /onCreateAccount|account\.isGuest/);
@@ -53,7 +53,7 @@ test("Today shows one summary and a direct project picker without Details", () =
   const home = screen("Home");
   assert.doesNotMatch(home, /detailsExpanded|DAY_TYPE_OPTIONS|Recent time|Started:|Stopped:/);
   assert.match(home, /setProjectPickerOpen/);
-  assert.equal((home.match(/styles.todayClock/g) || []).length, 1);
+  assert.equal((home.match(/styles.todayClock\}/g) || []).length, 1);
 });
 
 test("Project detail omits sessions and breakdown", () => {

@@ -11,6 +11,21 @@ export const space = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 export const radius = { sm: 8, md: 14, lg: 20, pill: 999 } as const;
 export const control = { height: 52, radius: radius.md } as const;
 
+export const todayLayout = {
+  horizontalPadding: 16,
+  mapHorizontalBleed: -16,
+  projectHeight: 56,
+  projectGap: 16,
+  clockButtonHeight: 56,
+  clockGap: 24,
+  minimumTouchTarget: 48,
+  mapInset: 16,
+  mapPaddingBottom: 72,
+  mapMinHeight: 160,
+  addressInset: 16,
+  addressPadding: 16,
+} as const;
+
 // Today follows the approved clock and evidence-row mockup dimensions.
 export const today = {
   title: { fontSize: 28, fontWeight: "700", lineHeight: 34 },

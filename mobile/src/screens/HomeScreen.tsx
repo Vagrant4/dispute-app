@@ -7,7 +7,6 @@ import {
   Pressable,
   Text,
   Linking,
-  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -23,11 +22,10 @@ import { formatIdleClock, formatWorkedClock, workedSecondsToday, formatClockTime
 import { startReadiness } from "../work/startReadiness";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
-import { getTodayClockLayout } from "../layout/todayClockLayout";
+
+const TODAY_SECTIONS = ["project", "clock", "map"] as const;
 
 export function HomeScreen({ account }: { account: LocalAccount }) {
-  const window = useWindowDimensions();
-  const clockLayout = getTodayClockLayout(window.width, window.height);
   const locationRequest = useRef(0);
   const pendingLocations = useRef<LocationReading[]>([]);
   const [locationOff, setLocationOff] = useState(false);
@@ -258,6 +256,47 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
     } finally { setLocating(false); setStopping(false); }
   }
 
+  const renderProjectSection = (key: string) => (
+    <View key={key} style={styles.todayProjectSection} testID="today-project-section">
+      {Platform.OS === "web" && locationOff && !isRunning ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
+      <View style={styles.todayProjectActions} testID="today-project-actions">
+        <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
+          <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
+          <View style={styles.todayRowContent}>
+            <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
+            <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
+          </View>
+          {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
+        </Pressable>
+        {!isRunning ? <Pressable accessibilityLabel="Add project" accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]} testID="today-add-project"><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
+      </View>
+    </View>
+  );
+
+  const renderClockSection = (key: string) => (
+    <View key={key} style={styles.todayClockSection} testID="today-clock-section">
+      <Pressable accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayClockButton, isRunning && styles.todayStopButton, startDisabled && styles.disabledButton]}>
+        <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
+      </Pressable>
+    </View>
+  );
+
+  const renderMapSection = (key: string) => (
+    <View key={key} style={styles.locationMapFrame} testID="today-map">
+      <LocationMap reading={locationFix} locating={locating} showDetails={showLocationDetails} />
+      <Pressable accessibilityLabel="Show my location" accessibilityRole="button" disabled={locating || stopping} onPress={handleLocatePress} style={[styles.locationMapLocateButton, (locating || stopping) && styles.disabledButton]} testID="today-locate-button">
+        <View accessible={false} style={styles.locationReticle} testID="today-locate-reticle">
+          <View style={[styles.locationReticleCircle, (locating || stopping) && styles.locationReticleCircleDisabled]} />
+          <View style={[styles.locationReticleHorizontal, (locating || stopping) && styles.locationReticleLineDisabled]} />
+          <View style={[styles.locationReticleVertical, (locating || stopping) && styles.locationReticleLineDisabled]} />
+          <View style={[styles.locationReticleDot, (locating || stopping) && styles.locationReticleLineDisabled]} />
+        </View>
+      </Pressable>
+    </View>
+  );
+
+  const todaySectionRenderers = { project: renderProjectSection, clock: renderClockSection, map: renderMapSection };
+
   return (
     <View style={styles.todayScreen}>
       <View style={styles.todayHeader}>
@@ -272,40 +311,9 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
         <Text style={styles.todayClock}>{isRunning ? formatWorkedClock(workedSeconds) : idleClock.time}{!isRunning ? <Text style={styles.todayPeriod}> {idleClock.period}</Text> : null}</Text>
         <Text style={styles.todayCaption}>{isRunning ? "hours worked today" : now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long" })}</Text>
         {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
-        <View style={[styles.todayButtonFrame, { height: clockLayout.frameSize, width: clockLayout.frameSize, marginBottom: clockLayout.mapGap }]}>
-          <View style={[styles.todayHalo, isRunning && styles.todayStopHalo]}>
-            <Pressable hitSlop={isRunning ? 8 : 0} accessibilityRole="button" accessibilityLabel={isRunning ? "Clock out" : "Clock in"} accessibilityState={{ disabled: startDisabled }} disabled={startDisabled} onPress={() => void (isRunning ? handleClockOut() : handleClockIn())} style={[styles.todayRoundButton, isRunning && styles.todayStopButton, { borderRadius: clockLayout.size / 2, height: clockLayout.size, width: clockLayout.size }, startDisabled && styles.disabledButton]}>
-              <Text style={[styles.todayRoundText, isRunning && styles.todayStopText, startDisabled && styles.disabledButtonText]}>{isRunning ? "Clock out" : "Clock in"}</Text>
-            </Pressable>
-          </View>
-        </View>
       </View>
-      <View style={styles.locationMapFrame} testID="today-map">
-        <LocationMap reading={locationFix} locating={locating} showDetails={showLocationDetails} />
-        <Pressable accessibilityLabel="Show my location" accessibilityRole="button" disabled={locating || stopping} onPress={handleLocatePress} style={[styles.locationMapLocateButton, (locating || stopping) && styles.disabledButton]} testID="today-locate-button">
-          <View accessible={false} style={styles.locationReticle} testID="today-locate-reticle">
-            <View style={[styles.locationReticleCircle, (locating || stopping) && styles.locationReticleCircleDisabled]} />
-            <View style={[styles.locationReticleHorizontal, (locating || stopping) && styles.locationReticleLineDisabled]} />
-            <View style={[styles.locationReticleVertical, (locating || stopping) && styles.locationReticleLineDisabled]} />
-            <View style={[styles.locationReticleDot, (locating || stopping) && styles.locationReticleLineDisabled]} />
-          </View>
-        </Pressable>
-      </View>
-      <View style={styles.todayRows}>
-        {!isRunning ? <View style={styles.actionRow}>
-          {Platform.OS === "web" && locationOff ? <Pressable accessibilityRole="button" accessibilityLabel="Use test location" onPress={useTestLocation} style={styles.textButton}><Text style={styles.body}>Use test location</Text></Pressable> : null}
-        </View> : null}
-        <View style={styles.todayProjectActions} testID="today-project-actions">
-          <Pressable accessibilityRole="button" accessibilityLabel={activeProject?.name ?? "Choose a project"} accessibilityState={{ disabled: isRunning }} disabled={isRunning} onPress={() => setProjectPickerOpen(!projectPickerOpen)} style={styles.todayEvidenceRow}>
-            <View style={styles.todayIconTile}><Image source={require("../../assets/icons/briefcase.png")} style={styles.todayRowIcon} /></View>
-            <View style={styles.todayRowContent}>
-              <Text style={styles.todayRowTitle}>{activeProject?.name ?? "Choose a project"}</Text>
-              <View style={styles.todaySubtitleRow}>{isRunning ? <Image source={require("../../assets/icons/lock.png")} style={styles.todayLockIcon} /> : null}<Text style={styles.todayRowSubtitle}>{isRunning ? "Locked during shift" : activeProject ? "Tap to change" : "Tap to choose"}</Text></View>
-            </View>
-            {!isRunning ? <Text style={styles.todayChevron}>›</Text> : null}
-          </Pressable>
-          {!isRunning ? <Pressable accessibilityLabel="Add project" accessibilityRole="button" disabled={!access.canCreateRecords} onPress={() => setProjectSheetOpen(true)} style={[styles.todayAddProjectButton, !access.canCreateRecords && styles.disabledButton]} testID="today-add-project"><Text style={[styles.todayAddProjectText, !access.canCreateRecords && styles.disabledButtonText]}>+ Add project</Text></Pressable> : null}
-        </View>
+      <View style={styles.todaySections}>
+        {TODAY_SECTIONS.map((section) => todaySectionRenderers[section](section))}
       </View>
       <View>
         {projectPickerOpen ? <ProjectPickerSheet

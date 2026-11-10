@@ -39,7 +39,7 @@ test("all app screens and input-bearing sheets use the keyboard-aware scroll con
   expect(app).toContain("<KeyboardAwareScroll");
   expect(projectSheet).toContain("<KeyboardAwareScroll");
   expect(photoScreen).toContain("<KeyboardAwareScroll");
-  expect(app).toContain("contentContainerStyle={styles.contentInner}");
+  expect(app).toContain('contentContainerStyle={account && activeTab === "home" ? styles.todayContentInner : styles.contentInner}');
 });
 
 test.each(listedInputs)("%s is inside the keyboard-aware container and focus scrolls it into view", (label) => {

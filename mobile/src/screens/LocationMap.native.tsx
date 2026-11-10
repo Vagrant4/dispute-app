@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import { styles } from "../styles";
+import { todayLayout } from "../theme/tokens";
 import { shortAddress } from "../work/addressFormat";
 import type { LocationReading } from "../work/locationEvidence";
 
@@ -63,6 +64,7 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
             longitudeDelta: DEFAULT_REGION_DELTA,
           }}
           mapType="standard"
+          mapPadding={{ top: 0, right: 0, bottom: todayLayout.mapPaddingBottom, left: 0 }}
           onMapLoaded={handleMapLoaded}
           onMapReady={handleMapReady}
           provider={PROVIDER_GOOGLE}
@@ -74,9 +76,8 @@ export function LocationMap({ reading, locating = false, showDetails = false }: 
           {hasFix ? <Marker coordinate={coordinate} tracksViewChanges={false} /> : null}
         </MapView>
       </View>
-      {showDetails && hasFix ? <View style={styles.locationMapDetails}>
-        <Text style={styles.heading}>{label}</Text>
-        <Text style={styles.muted}>GPS pin is fixed · cannot be moved</Text>
+      {showDetails && hasFix ? <View style={styles.todayAddressChip} testID="today-address-chip">
+        <Text numberOfLines={2} style={styles.todayAddressText}>{label}</Text>
       </View> : null}
     </View>
   );

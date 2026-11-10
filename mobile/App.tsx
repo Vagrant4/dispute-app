@@ -191,7 +191,7 @@ export default function App() {
           <PhotoEvidenceScreen account={account} initialProjectId={photoProjectId} />
         </View> : <KeyboardAwareScroll
           style={styles.content}
-          contentContainerStyle={styles.contentInner}
+          contentContainerStyle={account && activeTab === "home" ? styles.todayContentInner : styles.contentInner}
           showsVerticalScrollIndicator={false}
         >
           {account ? (

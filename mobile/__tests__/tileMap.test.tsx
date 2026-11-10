@@ -12,7 +12,7 @@ test("Today never renders coordinates and shows the unavailable-address fallback
   const screen = render(<LocationMap showDetails reading={{ phase: "start", source: "gps", address: null, latitude: 1.36, longitude: 103.89, accuracy: 17, locatedAt: null }} />);
   expect(screen.queryByText(/1\.36.*103\.89/)).toBeNull();
   expect(screen.getByText("Address unavailable")).toBeTruthy();
-  expect(screen.getByText("GPS pin is fixed · cannot be moved")).toBeTruthy();
+  expect(screen.getByTestId("today-address-chip")).toBeTruthy();
 });
 
 test("map warns once when tiles do not load within ten seconds", () => {
