@@ -1,4 +1,8 @@
-import { canExportProgressClaim } from "../src/subscription/subscriptionClient";
+import { canExportProgressClaim, getEntitlementCacheKey } from "../src/subscription/subscriptionClient";
+
+test("entitlement cache key is SecureStore-valid for an email user id", () => {
+  expect(getEntitlementCacheKey("a.b@example.com")).toMatch(/^[\w.-]+$/);
+});
 import { getDisputePackExportAccess } from "../src/subscription/recordAccess";
 import fs from "node:fs";
 import path from "node:path";

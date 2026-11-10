@@ -7,6 +7,7 @@ import { matchesConfiguredStoreProductIdentifier } from "./subscriptionProduct";
 import { hasPaidSubscription } from "./recordAccess";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
 import { requestEntitlementRefresh } from "./entitlementRefresh";
+import { sanitizeSecureStoreKeyPart } from "../auth/secureStoreKey";
 
 export type SubscriptionStatus =
   | "NONE"
@@ -523,6 +524,6 @@ export async function clearCachedSubscriptionEntitlement(userId?: string): Promi
   }
 }
 
-function getEntitlementCacheKey(userId: string): string {
-  return `${entitlementCacheKeyPrefix}.${userId}`;
+export function getEntitlementCacheKey(userId: string): string {
+  return `${entitlementCacheKeyPrefix}.${sanitizeSecureStoreKeyPart(userId)}`;
 }

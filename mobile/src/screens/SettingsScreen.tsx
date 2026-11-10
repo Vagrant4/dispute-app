@@ -67,6 +67,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     String(DEFAULT_APP_SETTINGS.holidayMultiplier),
   );
   const [workHoursStatus, setWorkHoursStatus] = useState("");
+  const [projectRateStatus, setProjectRateStatus] = useState("");
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [rateProjectId, setRateProjectId] = useState<string | null>(null);
   const [rateProjectPickerOpen, setRateProjectPickerOpen] = useState(false);
@@ -153,9 +154,13 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }
 
   const loadWorkHours = useCallback(async () => {
-    try {
-      const [{ settings }, store, savedPeriod] = await Promise.all([loadSavedWorkHours(userId), getProjectScreenStore(userId), loadReportPeriod(userId)]);
-      const projectRows = await store.listProjects(userId);
+    const [workHoursResult, projectsResult, periodResult] = await Promise.allSettled([
+      loadSavedWorkHours(userId),
+      getProjectScreenStore(userId).then((store) => store.listProjects(userId)),
+      loadReportPeriod(userId),
+    ]);
+    if (workHoursResult.status === "fulfilled") {
+      const { settings } = workHoursResult.value;
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -164,13 +169,21 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
-      setWorkHoursStatus("");
-      setProjects(projectRows);
-      setReportPeriod(savedPeriod);
-      setRateProjectId((current) => projectRows.some((item) => item.id === current) ? current : projectRows[0]?.id ?? null);
-    } catch (error) {
-      setWorkHoursStatus("Couldn't load pay rate. Reopen the app and try again.");
     }
+    if (projectsResult.status === "fulfilled") {
+      const projectRows = projectsResult.value.filter((project) => project.status !== "archived");
+      setProjects(projectRows);
+      setRateProjectId((current) => projectRows.some((item) => item.id === current) ? current : projectRows[0]?.id ?? null);
+    }
+    if (periodResult.status === "fulfilled") setReportPeriod(periodResult.value);
+    const loadError = workHoursResult.status === "rejected"
+      ? "Couldn't load pay rate. Try again."
+      : projectsResult.status === "rejected"
+        ? "Couldn't load projects. Try again."
+        : periodResult.status === "rejected"
+          ? "Couldn't load report period. Try again."
+          : "";
+    setWorkHoursStatus(loadError);
   }, [userId]);
 
   useEffect(() => {
@@ -179,17 +192,26 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }, [projects, rateProjectId]);
 
   async function handleSaveProjectRate() {
-    const store = await getProjectScreenStore(userId);
-    const selectedProject = projects.find((item) => item.id === rateProjectId);
-    const storedProjects = selectedProject ? projects : await store.listProjects(userId);
-    const project = selectedProject ?? storedProjects[0];
-    if (!project) return;
-    const hourlyRateCents = parseRateAmountCents(projectRate);
-    await store.updateProject({ userId, projectId: project.id, name: project.name, description: project.description, hourlyRateCents });
-    await saveReportPeriod(userId, reportPeriod);
-    setProjects(storedProjects.map((item) => item.id === project.id ? { ...item, hourlyRateCents } : item));
-    setRateProjectId(project.id);
-    setWorkHoursStatus("Saved");
+    setProjectRateStatus("");
+    try {
+      const store = await getProjectScreenStore(userId);
+      const selectedProject = projects.find((item) => item.id === rateProjectId);
+      const storedProjects = selectedProject ? projects : await store.listProjects(userId);
+      const project = selectedProject ?? storedProjects.find((item) => item.status !== "archived");
+      if (!project) {
+        setProjectRateStatus("Add a project first.");
+        return;
+      }
+      const hourlyRateCents = parseRateAmountCents(projectRate);
+      await store.updateProject({ userId, projectId: project.id, name: project.name, description: project.description, hourlyRateCents });
+      await saveReportPeriod(userId, reportPeriod);
+      setProjects(storedProjects.map((item) => item.id === project.id ? { ...item, hourlyRateCents } : item));
+      setRateProjectId(project.id);
+      setProjectRateStatus("Saved");
+      setWorkHoursStatus("");
+    } catch {
+      setProjectRateStatus("Couldn't save. Try again.");
+    }
   }
 
   useEffect(() => {
@@ -285,7 +307,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           </Text>
           <Text style={styles.inputLabel}>Project</Text>
           <Pressable testID="settings-pay-rate-project-picker" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setRateProjectPickerOpen(true)}>
-            <Text style={styles.dropdownValue}>{projects.find((item) => item.id === rateProjectId)?.name ?? "No project"}</Text>
+            <Text style={styles.dropdownValue}>{projects.find((item) => item.id === rateProjectId)?.name ?? "No projects yet"}</Text>
             <Text style={styles.settingsDropdownChevron}>▼</Text>
           </Pressable>
           {rateProjectPickerOpen ? <ProjectPickerSheet
@@ -310,6 +332,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           <Pressable testID="settings-pay-rate-save" accessibilityRole="button" onPress={() => void handleSaveProjectRate()} style={styles.actionButton}>
             <Text style={styles.actionButtonText}>Save project rate &amp; report period</Text>
           </Pressable>
+          <Text style={styles.statusMessage}>{projectRateStatus}</Text>
           <Text style={styles.inputLabel}>Currency</Text>
           <View style={styles.dropdownContainer}>
             <Pressable

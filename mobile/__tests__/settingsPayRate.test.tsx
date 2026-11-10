@@ -17,6 +17,8 @@ const mockGetProjectScreenStore = jest.fn(async () => ({
   updateProject: mockUpdateProject,
 }));
 const mockSaveReportPeriod = jest.fn();
+let mockStoredReportPeriod: "week" | "month" = "week";
+const mockLoadReportPeriod = jest.fn(async () => mockStoredReportPeriod);
 
 jest.mock("../src/work/projectScreenStore", () => ({
   getProjectScreenStore: (...args: unknown[]) => mockGetProjectScreenStore(...args),
@@ -40,8 +42,11 @@ jest.mock("../src/work/workHoursSettings", () => ({
   saveWorkHours: jest.fn(),
 }));
 jest.mock("../src/reports/reportPeriodSettings", () => ({
-  loadReportPeriod: async () => "week",
-  saveReportPeriod: (...args: unknown[]) => mockSaveReportPeriod(...args),
+  loadReportPeriod: () => mockLoadReportPeriod(),
+  saveReportPeriod: (...args: [string, "week" | "month"]) => {
+    mockStoredReportPeriod = args[1];
+    return mockSaveReportPeriod(...args);
+  },
 }));
 jest.mock("../src/subscription/useSubscriptionAccess", () => ({
   useSubscriptionAccess: () => ({
@@ -102,7 +107,19 @@ test("pay rate Project field opens a readable project picker sheet", async () =>
   expect(screen.getByText("Choose project")).toBeTruthy();
 });
 
+test("a report period load failure does not hide loaded projects", async () => {
+  mockListProjects.mockReset();
+  mockListProjects.mockResolvedValue([storedProject]);
+  mockLoadReportPeriod.mockRejectedValueOnce(new Error("SecureStore unavailable"));
+  const screen = render(
+    <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
+  );
+  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
+  expect(screen.getByText("Couldn't load report period. Try again.")).toBeTruthy();
+});
+
 test("report period opens a picker and persists month through the existing Save", async () => {
+  mockStoredReportPeriod = "week";
   mockListProjects.mockReset();
   mockListProjects.mockResolvedValue([storedProject]);
   mockSaveReportPeriod.mockReset();
@@ -117,6 +134,36 @@ test("report period opens a picker and persists month through the existing Save"
   expect(screen.queryByTestId("settings-report-period-sheet")).toBeNull();
   fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
   await waitFor(() => expect(mockSaveReportPeriod).toHaveBeenCalledWith("u1", "month"));
+  expect(screen.getByText("Saved")).toBeTruthy();
+  screen.unmount();
+
+  const remounted = render(
+    <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
+  );
+  await waitFor(() => expect(remounted.getByText("This month")).toBeTruthy());
+});
+
+test("Save with no projects shows a visible instruction", async () => {
+  mockListProjects.mockReset();
+  mockListProjects.mockResolvedValue([]);
+  const screen = render(
+    <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
+  );
+  await waitFor(() => expect(screen.getByText("No projects yet")).toBeTruthy());
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
+  await waitFor(() => expect(screen.getByText("Add a project first.")).toBeTruthy());
+});
+
+test("Save errors are visible", async () => {
+  mockListProjects.mockReset();
+  mockListProjects.mockResolvedValue([storedProject]);
+  mockUpdateProject.mockRejectedValueOnce(new Error("write failed"));
+  const screen = render(
+    <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
+  );
+  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
+  await waitFor(() => expect(screen.getByText("Couldn't save. Try again.")).toBeTruthy());
 });
 
 test("first Save resolves an existing stored project and upserts a missing rate", async () => {
@@ -138,8 +185,8 @@ test("first Save resolves an existing stored project and upserts a missing rate"
   );
 
   await waitFor(() => expect(mockListProjects).toHaveBeenCalledTimes(1));
-  expect(screen.getByText("No project")).toBeTruthy();
-  expect(screen.getByText("Couldn't load pay rate. Reopen the app and try again.")).toBeTruthy();
+  expect(screen.getByText("No projects yet")).toBeTruthy();
+  expect(screen.getByText("Couldn't load projects. Try again.")).toBeTruthy();
   fireEvent.changeText(screen.getByTestId("settings-pay-rate-input"), "150");
   fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
 
@@ -149,6 +196,6 @@ test("first Save resolves an existing stored project and upserts a missing rate"
     projectId: storedProject.id,
     hourlyRateCents: 15_000,
   }));
-  expect(screen.queryByText("Couldn't load pay rate. Reopen the app and try again.")).toBeNull();
+  expect(screen.queryByText("Couldn't load projects. Try again.")).toBeNull();
 });
 
