@@ -321,7 +321,7 @@ export function ProjectDetailScreen({
               {entry.breakMinutes ? ` · Break ${entry.breakMinutes} min` : ""}
             </Text>
             {entry.locationNote ? (
-              <Text numberOfLines={1} style={styles.muted}>
+              <Text style={styles.muted}>
                 {entry.locationNote}
               </Text>
             ) : null}

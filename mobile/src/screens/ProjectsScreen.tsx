@@ -46,7 +46,7 @@ export function ProjectsScreen({
   onSeePhotos: (projectId: string) => void;
   onBack?: () => void;
 }) {
-  const [iconsLoaded] = useFonts(MaterialIcons.font);
+  useFonts(MaterialIcons.font);
   const userId = account.id ?? account.email.trim().toLowerCase();
   const access = useSubscriptionAccess(account);
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
@@ -248,7 +248,7 @@ export function ProjectsScreen({
     <View style={styles.projectsPage}>
       <View style={styles.projectsTitleRow}>
         {onBack ? (
-          <Pressable accessibilityLabel="Back to Today" disabled={!iconsLoaded} onPress={onBack} style={styles.projectsIconButton}>
+          <Pressable accessibilityLabel="Back to Today" onPress={onBack} style={styles.projectsIconButton}>
             <MaterialIcons name="arrow-back" size={28} color={theme.colors.text} />
           </Pressable>
         ) : null}

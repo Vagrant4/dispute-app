@@ -252,7 +252,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
           </View>} ListEmptyComponent={<Text style={styles.muted}>No photos for this project yet.</Text>} />
 
       </>}
-        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture || !iconsLoaded} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, { bottom: Math.max(insets.bottom, space.md) }, (!canCapture || !iconsLoaded) && styles.disabledButton]}><MaterialIcons testID="camera-fab-glyph" name="photo-camera" size={28} color={theme.colors.ink} /></Pressable>
+        <Pressable accessibilityLabel="Take photo" accessibilityRole="button" disabled={!canCapture || !iconsLoaded} onPress={() => void handlePhotoAction("camera")} onLongPress={() => setCaptureSheetOpen(true)} style={[styles.photoFab, { bottom: Math.max(insets.bottom, space.md) }, (!canCapture || !iconsLoaded) && styles.disabledButton]}><MaterialIcons testID="camera-fab-glyph" name="photo-camera" size={28} color={theme.colors.ink} style={(!canCapture || !iconsLoaded) && styles.disabledButtonText} /></Pressable>
       {!projectId ? <View><Text style={styles.muted}>Add a project before saving photo evidence.</Text><Pressable accessibilityRole="button" onPress={() => setProjectSheetOpen(true)} style={styles.textButton}><Text style={styles.body}>+ Add project</Text></Pressable></View> : null}
       {status ? <Text style={styles.muted}>{status}</Text> : null}
       <SwipeDownSheet visible={captureSheetOpen} backdropStyle={styles.photoSheetBackdrop} sheetStyle={styles.photoSheet} testID="photo-proof-sheet" onClose={() => { if (!saving) setCaptureSheetOpen(false); }}>
