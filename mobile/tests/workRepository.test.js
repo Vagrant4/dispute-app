@@ -82,9 +82,10 @@ test("schema version 13 keeps existing data and adds project discovery and audit
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
   assert.equal(LOCAL_MIGRATIONS.at(-1).version, 13);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /CREATE TABLE IF NOT EXISTS project_groups/);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /ALTER TABLE projects ADD COLUMN site_address/);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /project_status TEXT NOT NULL DEFAULT 'active'/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /CREATE TABLE IF NOT EXISTS project_groups/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /ALTER TABLE projects ADD COLUMN site_address/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /project_status TEXT NOT NULL DEFAULT 'active'/);
+  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /CREATE TABLE IF NOT EXISTS evidence_audit/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /rate_basis/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /base_rate_cents/);
 });
