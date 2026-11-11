@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -315,6 +315,10 @@ CREATE TABLE IF NOT EXISTS evidence_audit (id TEXT PRIMARY KEY NOT NULL, user_id
 CREATE INDEX IF NOT EXISTS idx_evidence_audit_owner_project ON evidence_audit(user_id, project_id, event_at);
 `;
 
+export const REPORT_LUNCH_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN lunch_minutes INTEGER NOT NULL DEFAULT 0;
+`;
+
 export const LOCAL_MIGRATIONS = [
   {
     version: 1,
@@ -357,4 +361,5 @@ export const LOCAL_MIGRATIONS = [
   { version: 11, name: "shift_breaks_and_tasks", sql: SHIFT_TASKS_MIGRATION_SQL },
   { version: 12, name: "project_groups_sites_and_status", sql: PROJECT_DISCOVERY_MIGRATION_SQL },
   { version: 13, name: "evidence_deletion_audit", sql: EVIDENCE_AUDIT_MIGRATION_SQL },
+  { version: 14, name: "report_lunch", sql: REPORT_LUNCH_MIGRATION_SQL },
 ] as const;

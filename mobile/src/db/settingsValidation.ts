@@ -11,6 +11,7 @@ export type AppSettings = {
   overtimeMultiplier: number;
   offDayMultiplier: number;
   holidayMultiplier: number;
+  lunchMinutes: number;
   status: "active" | "locked";
   lockHash: string | null;
   lockedAt: string | null;
@@ -29,6 +30,7 @@ export type AppSettingsPatch = Partial<
     | "overtimeMultiplier"
     | "offDayMultiplier"
     | "holidayMultiplier"
+    | "lunchMinutes"
   >
 >;
 
@@ -48,6 +50,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   overtimeMultiplier: 1.5,
   offDayMultiplier: 2,
   holidayMultiplier: 2,
+  lunchMinutes: 0,
   status: "active",
   lockHash: null,
   lockedAt: null,
@@ -87,6 +90,9 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
     settings.rateBasis !== "hourly"
   ) {
     errors.push("rateBasis must be daily, monthly or hourly");
+  }
+  if (!Number.isInteger(settings.lunchMinutes) || settings.lunchMinutes < 0 || settings.lunchMinutes > 240) {
+    errors.push("lunchMinutes must be between 0 and 240");
   }
   if (
     !Number.isInteger(settings.baseRateCents) ||

@@ -26,6 +26,7 @@ type SettingsRow = {
   overtime_multiplier: number;
   off_day_multiplier: number | null;
   holiday_multiplier: number | null;
+  lunch_minutes: number | null;
 };
 
 type ProjectRow = {
@@ -102,7 +103,7 @@ export class ProgressClaimSourceRepository {
     generatedAt?: string;
   }): Promise<ProgressClaimSnapshotInput> {
     const settings = await this.database.getFirstAsync<SettingsRow>(
-      `SELECT report_name, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier
+      `SELECT report_name, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, lunch_minutes
       FROM app_settings
       WHERE user_id = ?`,
       [params.userId],
@@ -189,6 +190,7 @@ export class ProgressClaimSourceRepository {
         overtimeMultiplier: settings?.overtime_multiplier ?? 1.5,
         offDayMultiplier: settings?.off_day_multiplier ?? 2,
         holidayMultiplier: settings?.holiday_multiplier ?? 2,
+        lunchMinutes: settings?.lunch_minutes ?? 0,
       },
     };
   }

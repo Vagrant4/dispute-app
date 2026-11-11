@@ -80,6 +80,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Entered rate", formatEnteredRate(snapshot)],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Normal hours from range", String(snapshot.rateCalculation.dailyNormalMinutes / 60)],
+    ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${snapshot.rateCalculation.lunchMinutes} min, centred in the normal window when fully covered (or a long day spans it)` : "None"],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
     ["Off day multiplier", String(snapshot.rateCalculation.offDayMultiplier)],
     ["Holiday multiplier", String(snapshot.rateCalculation.holidayMultiplier)],
@@ -105,13 +106,13 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   ])}
 
   <h2>Daily Work Log</h2>
-  <table>
-    <thead><tr><th>Date</th><th>Day type</th><th>Activity</th><th>Location</th><th>Normal hours</th><th>OT hours</th><th>Off day hours</th><th>Holiday hours</th><th>Photos</th></tr></thead>
+  <table class="daily-log">
+    <thead><tr><th>Date</th><th>Day type</th><th>Activity</th><th>Location</th><th>Normal h</th><th>OT h</th><th>Off h</th><th>Hol h</th><th>Basic pay</th><th>OT pay</th><th>Off pay</th><th>Hol pay</th><th>Total</th><th>Photos</th></tr></thead>
     <tbody>
       ${snapshot.dailyWorkLog
         .map(
           (item) =>
-            `<tr><td class="short-cell">${escapeHtml(formatDate(item.workDate))}</td><td class="short-cell">${escapeHtml(item.dayTypes.map(formatDayType).join(", "))}</td><td>${escapeHtml(item.activity)}</td><td>${escapeHtml(formatLocations(item.locations))}</td><td class="short-cell">${item.normalHours}</td><td class="short-cell">${item.overtimeHours}</td><td class="short-cell">${item.offDayHours}</td><td class="short-cell">${item.holidayHours}</td><td class="short-cell">${escapeHtml(item.photoEvidenceIds.join(", "))}</td></tr>`,
+            `<tr><td class="short-cell">${escapeHtml(formatDate(item.workDate))}</td><td class="short-cell">${escapeHtml(item.dayTypes.map(formatDayType).join(", "))}</td><td>${escapeHtml(item.activity)}${item.lunchDeductedMinutes ? `<br><span class="muted">Lunch deducted: ${item.lunchDeductedMinutes} min</span>` : ""}</td><td>${escapeHtml(formatLocations(item.locations))}</td><td class="short-cell">${item.normalHours}</td><td class="short-cell">${item.overtimeHours}</td><td class="short-cell">${item.offDayHours}</td><td class="short-cell">${item.holidayHours}</td><td class="short-cell">${formatMoney(item.basicPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.overtimePayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.offDayPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.holidayPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.grossPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${item.photoEvidenceIds.length}</td></tr>`,
         )
         .join("")}
     </tbody>

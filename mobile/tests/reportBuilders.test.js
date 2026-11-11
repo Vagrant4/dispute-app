@@ -247,6 +247,22 @@ test("buildProgressClaimHtml uses print-safe wrapping, local dates, and sealed p
   assert.match(html, /Sealed photo on this phone/);
 });
 
+test("report lunch deduction is report-time only and per-day cents remain the summary", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "full", workDate: "2026-11-11", startTime: "2026-11-11T08:00:00+08:00", endTime: "2026-11-11T17:00:00+08:00", durationMinutes: 540, activity: "full" },
+      { id: "short", workDate: "2026-11-12", startTime: "2026-11-12T09:00:00+08:00", endTime: "2026-11-12T11:00:00+08:00", durationMinutes: 120, activity: "short" },
+    ],
+    pay: { rateBasis: "hourly", baseRateCents: 1000, hourlyRateCents: 1000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60 },
+  });
+  assert.equal(snapshot.dailyWorkLog[0].normalHours, 8);
+  assert.equal(snapshot.dailyWorkLog[0].lunchDeductedMinutes, 60);
+  assert.equal(snapshot.dailyWorkLog[1].normalHours, 2);
+  assert.equal(snapshot.dailyWorkLog[1].lunchDeductedMinutes, 0);
+  assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day.grossPayCents, 0), snapshot.totals.grossPayCents);
+});
+
 test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   const { buildProgressClaimCsv } = createTsLoader()(
     "src/reports/progressClaimCsv.ts",

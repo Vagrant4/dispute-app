@@ -63,6 +63,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const [holidayMultiplier, setHolidayMultiplier] = useState(
     String(DEFAULT_APP_SETTINGS.holidayMultiplier),
   );
+  const [lunchMinutes, setLunchMinutes] = useState(String(DEFAULT_APP_SETTINGS.lunchMinutes));
+  const savedPayForm = useRef("");
   const [workHoursStatus, setWorkHoursStatus] = useState("");
   const paySettingsLoaded = useRef(false);
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
@@ -159,6 +161,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
+      setLunchMinutes(String(settings.lunchMinutes));
+      savedPayForm.current = payFormKey(settings, periodResult.status === "fulfilled" ? periodResult.value : reportPeriod);
     }
     if (periodResult.status === "fulfilled") setReportPeriod(periodResult.value);
     const loadError = workHoursResult.status === "rejected"
@@ -195,6 +199,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         overtimeMultiplier: multiplier,
         offDayMultiplier: offDayRate,
         holidayMultiplier: holidayRate,
+        lunchMinutes: Number.parseInt(lunchMinutes, 10) || 0,
       });
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
@@ -204,17 +209,16 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
+      setLunchMinutes(String(settings.lunchMinutes));
+      await saveReportPeriod(userId, reportPeriod);
+      savedPayForm.current = payFormKey(settings, reportPeriod);
       setWorkHoursStatus("Saved");
     } catch (error) {
       setWorkHoursStatus(getPayRateSaveErrorMessage(error));
     }
   }
 
-  useEffect(() => {
-    if (!paySettingsLoaded.current) return;
-    const timer = setTimeout(() => void handleSaveWorkHours(), 600);
-    return () => clearTimeout(timer);
-  }, [baseRate, currency, rateBasis]);
+  const isPayRateDirty = () => paySettingsLoaded.current && savedPayForm.current !== payFormKey({ currency, rateBasis, baseRateCents: parseRateAmountCents(baseRate), normalWorkStartTime: normalStart, normalWorkEndTime: normalEnd, overtimeMultiplier: Number(overtimeMultiplier), offDayMultiplier: Number(offDayMultiplier), holidayMultiplier: Number(holidayMultiplier), lunchMinutes: Number(lunchMinutes) || 0 }, reportPeriod);
 
   return (
     <View style={styles.todayScreen}>
@@ -273,7 +277,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           </Pressable>
           {reportPeriodPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setReportPeriodPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-report-period-sheet">
             <Text style={styles.heading}>Report period</Text>
-            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); void saveReportPeriod(userId, period).then(() => setWorkHoursStatus("Saved")).catch(() => setWorkHoursStatus("Couldn't save. Try again.")); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
+            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
               <Text style={styles.body}>{period === "week" ? "This week" : "This month"}{period === reportPeriod ? " ✓" : ""}</Text>
             </Pressable>)}
           </SwipeDownSheet> : null}
@@ -370,7 +374,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             inputMode="decimal"
             keyboardType="decimal-pad"
             onChangeText={setBaseRate}
-            onBlur={() => void handleSaveWorkHours()}
             placeholder={rateBasis === "monthly" ? "3000" : rateBasis === "hourly" ? "15" : "150"}
             style={styles.textInput}
             value={baseRate}
@@ -425,6 +428,9 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={holidayMultiplier}
           />
+          <Text style={styles.inputLabel}>Lunch break (minutes)</Text>
+          <TextInput accessibilityLabel="Lunch break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setLunchMinutes} placeholder="0" style={styles.textInput} value={lunchMinutes} />
+          <Pressable testID="settings-pay-rate-save" accessibilityRole="button" accessibilityState={{ disabled: !isPayRateDirty() }} disabled={!isPayRateDirty()} onPress={() => void handleSaveWorkHours()} style={[styles.clockPrimaryButton, !isPayRateDirty() ? styles.disabledButton : null]}><Text style={styles.clockPrimaryButtonText}>Save</Text></Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
         </View>
       ) : null}
@@ -506,6 +512,10 @@ function formatRateAmount(cents: number): string {
     return "";
   }
   return (cents / 100).toFixed(2).replace(/\.00$/, "");
+}
+
+function payFormKey(settings: Pick<AppSettings, "currency" | "rateBasis" | "baseRateCents" | "normalWorkStartTime" | "normalWorkEndTime" | "overtimeMultiplier" | "offDayMultiplier" | "holidayMultiplier" | "lunchMinutes">, period: ReportPeriod): string {
+  return JSON.stringify({ ...settings, period });
 }
 
 function getPayRateSaveErrorMessage(error: unknown): string {

@@ -27,7 +27,8 @@ export function buildProgressClaimSnapshot(
   const normalWorkEndTime =
     input.pay?.normalWorkEndTime ?? DEFAULT_NORMAL_WORK_END_TIME;
   const normalRangeMinutes = calculateNormalWindowMinutes(normalWorkStartTime, normalWorkEndTime);
-  const dailyNormalMinutes = input.pay?.dailyNormalMinutes ?? normalRangeMinutes;
+  const lunchMinutes = Math.max(0, input.pay?.lunchMinutes ?? 0);
+  const dailyNormalMinutes = Math.max(0, (input.pay?.dailyNormalMinutes ?? normalRangeMinutes) - lunchMinutes);
   const overtimeMultiplier =
     input.pay?.overtimeMultiplier ?? DEFAULT_OVERTIME_MULTIPLIER;
   const offDayMultiplier =
@@ -50,7 +51,7 @@ export function buildProgressClaimSnapshot(
     photoEvidence,
     dailyNormalMinutes,
     normalWorkStartTime,
-    normalWorkEndTime,
+    normalWorkEndTime, lunchMinutes,
   );
   const paidDailyWorkLog = dailyWorkLog.map((day) => addDailyPay(day, {
     rateBasis, baseRateCents, hourlyRateCents, normalRangeMinutes,
@@ -108,6 +109,7 @@ export function buildProgressClaimSnapshot(
       overtimeMultiplier,
       offDayMultiplier,
       holidayMultiplier,
+      lunchMinutes,
     },
     totals: {
       totalDaysWorked: paidDailyWorkLog.length,
@@ -144,6 +146,7 @@ function buildDailyWorkLog(
   dailyNormalMinutes: number,
   normalWorkStartTime: string,
   normalWorkEndTime: string,
+  lunchMinutes: number,
 ): DailyWorkLogItem[] {
   const entriesByDate = new Map<string, TimeEntrySnapshotInput[]>();
 
@@ -165,15 +168,19 @@ function buildDailyWorkLog(
         (sum, entry) => sum + Math.max(0, entry.durationMinutes),
         0,
       );
-      const { normalMinutes, overtimeMinutes } = splitNormalAndOvertimeMinutes(
+      const split = splitNormalAndOvertimeMinutes(
         normalEntries,
         normalDurationMinutes,
         dailyNormalMinutes,
         normalWorkStartTime,
         normalWorkEndTime,
       );
-      const offDayMinutes = sumDurationMinutesByDayType(entries, "off_day");
-      const holidayMinutes = sumDurationMinutesByDayType(entries, "holiday");
+      const deduction = shouldDeductLunch(entries, lunchMinutes, workDate, normalWorkStartTime, normalWorkEndTime) ? lunchMinutes : 0;
+      // Report-only lunch deduction: normal minutes first, then OT, before special-day multipliers.
+      const normalMinutes = Math.max(0, split.normalMinutes - deduction);
+      const overtimeMinutes = Math.max(0, split.overtimeMinutes - Math.max(0, deduction - split.normalMinutes));
+      const offDayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "off_day") - deduction);
+      const holidayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "holiday") - deduction);
       const dayTypes = [...new Set(entries.map((entry) => getDayType(entry)))];
       const locations = buildLocations(entries);
       const entryIds = new Set(entries.map((entry) => entry.id));
@@ -198,8 +205,30 @@ function buildDailyWorkLog(
         offDayPayCents: 0,
         holidayPayCents: 0,
         grossPayCents: 0,
+        lunchDeductedMinutes: deduction,
       };
     });
+}
+
+function shouldDeductLunch(entries: TimeEntrySnapshotInput[], lunchMinutes: number, workDate: string, startTime: string, endTime: string): boolean {
+  if (!lunchMinutes) return false;
+  const timed = entries.flatMap((entry) => {
+    if (!entry.startTime || !entry.endTime) return [];
+    const start = new Date(entry.startTime).getTime(); const end = new Date(entry.endTime).getTime();
+    return Number.isFinite(start) && end > start ? [[start, end] as [number, number]] : [];
+  }).sort((a, b) => a[0] - b[0]);
+  if (!timed.length) return false;
+  const merged: Array<[number, number]> = [];
+  for (const interval of timed) { const previous = merged.at(-1); if (previous && interval[0] <= previous[1]) previous[1] = Math.max(previous[1], interval[1]); else merged.push([...interval]); }
+  const first = merged[0][0], last = merged[merged.length - 1][1];
+  const total = merged.reduce((sum, [start, end]) => sum + (end - start) / 60000, 0);
+  const offset = entries.find((entry) => entry.startTime?.match(/(?:Z|[+-]\d\d:\d\d)$/))?.startTime?.match(/(?:Z|[+-]\d\d:\d\d)$/)?.[0] ?? "";
+  const rangeStart = new Date(`${workDate}T${startTime}:00${offset}`).getTime();
+  const rangeEnd = new Date(`${workDate}T${endTime}:00${offset}`).getTime();
+  const lunchStart = rangeStart + Math.floor((rangeEnd - rangeStart - lunchMinutes * 60000) / 2);
+  const lunchEnd = lunchStart + lunchMinutes * 60000;
+  const coversWindow = merged.some(([start, end]) => start <= lunchStart && end >= lunchEnd);
+  return coversWindow || (total > lunchMinutes + 240 && (last - first) / 60000 >= lunchMinutes);
 }
 
 function addDailyPay(

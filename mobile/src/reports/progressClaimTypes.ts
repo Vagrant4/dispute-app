@@ -80,6 +80,7 @@ export type PaySnapshotInput = {
   overtimeMultiplier?: number;
   offDayMultiplier?: number;
   holidayMultiplier?: number;
+  lunchMinutes?: number;
   allowancesCents?: number;
   deductionsCents?: number;
 };
@@ -116,6 +117,7 @@ export type DailyWorkLogItem = {
   offDayPayCents: number;
   holidayPayCents: number;
   grossPayCents: number;
+  lunchDeductedMinutes: number;
 };
 
 export type WorkLocationSnapshot = {
@@ -167,6 +169,7 @@ export type ProgressClaimSnapshot = {
     overtimeMultiplier: number;
     offDayMultiplier: number;
     holidayMultiplier: number;
+    lunchMinutes: number;
   };
   totals: ProgressClaimTotals;
   dailyWorkLog: DailyWorkLogItem[];
