@@ -302,6 +302,33 @@ test("buildProgressClaimSnapshot derives daily pay from the normal range without
   );
 });
 
+test("daily rate uses paid normal minutes and deducts a fully-covered dinner only from overtime", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "full", workDate: "2026-11-10", startTime: "2026-11-10T08:00:00", endTime: "2026-11-10T17:00:00", durationMinutes: 540, activity: "Full day" },
+      { id: "ot", workDate: "2026-11-11", startTime: "2026-11-11T08:00:00", endTime: "2026-11-11T20:00:00", durationMinutes: 720, activity: "OT" },
+    ],
+    pay: { currency: "SGD", rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00", overtimeMultiplier: 1.5 },
+  });
+  assert.equal(snapshot.rateCalculation.hourlyRateCents, 1875);
+  assert.equal(snapshot.dailyWorkLog[0].basicPayCents, 15000);
+  assert.equal(snapshot.dailyWorkLog[0].overtimeMinutes, 0);
+  assert.equal(snapshot.dailyWorkLog[1].normalMinutes, 480);
+  assert.equal(snapshot.dailyWorkLog[1].overtimeMinutes, 120);
+  assert.equal(snapshot.dailyWorkLog[1].dinnerDeductedMinutes, 60);
+  assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day.grossPayCents, 0), snapshot.totals.grossPayCents);
+});
+
+test("daily lunch-aware rate keeps Shi's partial-day cents exact", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const entry = { id: "shi", workDate: "2026-11-10", startTime: "2026-11-10T16:58:00", endTime: "2026-11-10T20:10:00", durationMinutes: 192, activity: "Shi" };
+  const withoutLunch = buildProgressClaimSnapshot({ timeEntries: [entry], pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5 } });
+  const withLunch = buildProgressClaimSnapshot({ timeEntries: [entry], pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, overtimeMultiplier: 1.5 } });
+  assert.deepEqual([withoutLunch.totals.basicPayCents, withoutLunch.totals.overtimePayCents], [56, 7917]);
+  assert.deepEqual([withLunch.rateCalculation.hourlyRateCents, withLunch.totals.basicPayCents, withLunch.totals.overtimePayCents], [1875, 63, 8906]);
+});
+
 test("ProgressClaimSourceRepository ignores an old project rate and uses the user's daily rate", async () => {
   const { ProgressClaimSourceRepository } = createTsLoader()(
     "src/reports/progressClaimSourceRepository.ts",

@@ -29,6 +29,8 @@ export function buildProgressClaimSnapshot(
   const normalRangeMinutes = calculateNormalWindowMinutes(normalWorkStartTime, normalWorkEndTime);
   const lunchMinutes = Math.max(0, input.pay?.lunchMinutes ?? 0);
   const dailyNormalMinutes = Math.max(0, (input.pay?.dailyNormalMinutes ?? normalRangeMinutes) - lunchMinutes);
+  const dinnerMinutes = Math.max(0, input.pay?.dinnerMinutes ?? 0);
+  const dinnerStartTime = input.pay?.dinnerStartTime ?? addMinutesToClock(normalWorkEndTime, 60);
   const overtimeMultiplier =
     input.pay?.overtimeMultiplier ?? DEFAULT_OVERTIME_MULTIPLIER;
   const offDayMultiplier =
@@ -39,7 +41,7 @@ export function buildProgressClaimSnapshot(
   const baseRateCents = input.pay?.baseRateCents ?? input.pay?.hourlyRateCents ?? 0;
   // Daily rates stay as integer cents until each day's pay is rounded to cents.
   const hourlyRateCents = rateBasis === "daily"
-    ? Math.round(baseRateCents / (normalRangeMinutes / 60))
+    ? Math.round(baseRateCents / (dailyNormalMinutes / 60))
     : input.pay?.hourlyRateCents ?? baseRateCents;
   const currency =
     input.pay?.currency ??
@@ -51,10 +53,10 @@ export function buildProgressClaimSnapshot(
     photoEvidence,
     dailyNormalMinutes,
     normalWorkStartTime,
-    normalWorkEndTime, lunchMinutes,
+    normalWorkEndTime, lunchMinutes, dinnerMinutes, dinnerStartTime,
   );
   const paidDailyWorkLog = dailyWorkLog.map((day) => addDailyPay(day, {
-    rateBasis, baseRateCents, hourlyRateCents, normalRangeMinutes,
+    rateBasis, baseRateCents, hourlyRateCents, paidNormalMinutes: dailyNormalMinutes,
     overtimeMultiplier, offDayMultiplier, holidayMultiplier,
   }));
   const totalNormalMinutes = paidDailyWorkLog.reduce(
@@ -110,6 +112,8 @@ export function buildProgressClaimSnapshot(
       offDayMultiplier,
       holidayMultiplier,
       lunchMinutes,
+      dinnerMinutes,
+      dinnerStartTime,
     },
     totals: {
       totalDaysWorked: paidDailyWorkLog.length,
@@ -151,6 +155,8 @@ function buildDailyWorkLog(
   normalWorkStartTime: string,
   normalWorkEndTime: string,
   lunchMinutes: number,
+  dinnerMinutes: number,
+  dinnerStartTime: string,
 ): DailyWorkLogItem[] {
   const entriesByDate = new Map<string, TimeEntrySnapshotInput[]>();
 
@@ -180,11 +186,13 @@ function buildDailyWorkLog(
         normalWorkEndTime,
       );
       const deduction = shouldDeductLunch(entries, lunchMinutes, workDate, normalWorkStartTime, normalWorkEndTime) ? lunchMinutes : 0;
+      // Report-only dinner rule: deduct from OT only when clocked OT covers the whole dinner window.
+      const dinnerDeduction = shouldDeductDinner(entries, dinnerMinutes, workDate, dinnerStartTime, normalWorkStartTime, normalWorkEndTime, dayTypesForEntries(entries));
       // Report-only lunch deduction: normal minutes first, then OT, before special-day multipliers.
       const normalMinutes = Math.max(0, split.normalMinutes - deduction);
-      const overtimeMinutes = Math.max(0, split.overtimeMinutes - Math.max(0, deduction - split.normalMinutes));
-      const offDayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "off_day") - deduction);
-      const holidayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "holiday") - deduction);
+      const overtimeMinutes = Math.max(0, split.overtimeMinutes - Math.max(0, deduction - split.normalMinutes) - dinnerDeduction.normal);
+      const offDayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "off_day") - deduction - dinnerDeduction.offDay);
+      const holidayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "holiday") - deduction - dinnerDeduction.holiday);
       const dayTypes = [...new Set(entries.map((entry) => getDayType(entry)))];
       const locations = buildLocations(entries);
       const entryIds = new Set(entries.map((entry) => entry.id));
@@ -214,8 +222,30 @@ function buildDailyWorkLog(
         holidayPayCents: 0,
         grossPayCents: 0,
         lunchDeductedMinutes: deduction,
+        dinnerDeductedMinutes: dinnerDeduction.normal + dinnerDeduction.offDay + dinnerDeduction.holiday,
       };
     });
+}
+
+function dayTypesForEntries(entries: TimeEntrySnapshotInput[]): Set<string> { return new Set(entries.map((entry) => getDayType(entry))); }
+
+function shouldDeductDinner(entries: TimeEntrySnapshotInput[], dinnerMinutes: number, workDate: string, dinnerStartTime: string, normalStartTime: string, normalEndTime: string, dayTypes: Set<string>): { normal: number; offDay: number; holiday: number } {
+  if (!dinnerMinutes || !coversClockWindow(entries, workDate, dinnerStartTime, dinnerMinutes)) return { normal: 0, offDay: 0, holiday: 0 };
+  if (dayTypes.has("off_day")) return { normal: 0, offDay: dinnerMinutes, holiday: 0 };
+  if (dayTypes.has("holiday")) return { normal: 0, offDay: 0, holiday: dinnerMinutes };
+  const dinnerStart = buildClockDate(workDate, dinnerStartTime).getTime();
+  const normalEnd = buildClockDate(workDate, normalEndTime).getTime();
+  const normalStart = buildClockDate(workDate, normalStartTime).getTime();
+  // Normal-day dinner is payable OT only when its entire window is outside normal hours.
+  return dinnerStart >= normalEnd || dinnerStart + dinnerMinutes * 60000 <= normalStart ? { normal: dinnerMinutes, offDay: 0, holiday: 0 } : { normal: 0, offDay: 0, holiday: 0 };
+}
+
+function coversClockWindow(entries: TimeEntrySnapshotInput[], workDate: string, startTime: string, minutes: number): boolean {
+  const windowStart = buildClockDate(workDate, startTime).getTime(); const windowEnd = windowStart + minutes * 60000;
+  const intervals = entries.flatMap((entry) => entry.startTime && entry.endTime ? [[new Date(entry.startTime).getTime(), new Date(entry.endTime).getTime()] as [number, number]] : []).filter(([start, end]) => Number.isFinite(start) && end > start).sort((first, second) => first[0] - second[0]);
+  const merged: Array<[number, number]> = [];
+  for (const interval of intervals) { const previous = merged.at(-1); if (previous && interval[0] <= previous[1]) previous[1] = Math.max(previous[1], interval[1]); else merged.push([...interval]); }
+  return merged.some(([start, end]) => start <= windowStart && end >= windowEnd);
 }
 
 function shouldDeductLunch(entries: TimeEntrySnapshotInput[], lunchMinutes: number, workDate: string, startTime: string, endTime: string): boolean {
@@ -245,15 +275,16 @@ function addDailyPay(
     rateBasis: "daily" | "monthly" | "hourly";
     baseRateCents: number;
     hourlyRateCents: number;
-    normalRangeMinutes: number;
+    paidNormalMinutes: number;
     overtimeMultiplier: number;
     offDayMultiplier: number;
     holidayMultiplier: number;
   },
 ): DailyWorkLogItem {
   const pay = (minutes: number, multiplier: number) => {
+    // Round once per daily line item; never round the derived daily hourly rate before multiplication.
     return rate.rateBasis === "daily"
-      ? Math.round((minutes * rate.baseRateCents * multiplier) / rate.normalRangeMinutes)
+      ? Math.round((minutes * rate.baseRateCents * multiplier) / rate.paidNormalMinutes)
       : calculatePayCents(minutes, rate.hourlyRateCents, multiplier);
   };
   const basicPayCents = pay(day.normalMinutes, 1);
@@ -268,6 +299,11 @@ function addDailyPay(
     holidayPayCents,
     grossPayCents: basicPayCents + overtimePayCents + offDayPayCents + holidayPayCents,
   };
+}
+
+function addMinutesToClock(clockTime: string, minutes: number): string {
+  const total = (minutesOfDay(clockTime) + minutes) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function buildLocations(entries: TimeEntrySnapshotInput[]): WorkLocationSnapshot[] {

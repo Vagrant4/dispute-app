@@ -1,6 +1,6 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
@@ -216,7 +216,7 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  activity TEXT NOT NULL,\n  day_type TEXT NOT NULL DEFAULT 'normal',\n  status TEXT NOT NULL DEFAULT 'draft',",
 ).replace(
   "  overtime_multiplier REAL NOT NULL,\n  status TEXT NOT NULL DEFAULT 'active',",
-  "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  lunch_minutes INTEGER NOT NULL DEFAULT 0,\n  status TEXT NOT NULL DEFAULT 'active',",
+  "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  lunch_minutes INTEGER NOT NULL DEFAULT 0,\n  dinner_minutes INTEGER NOT NULL DEFAULT 0,\n  dinner_start_time TEXT,\n  status TEXT NOT NULL DEFAULT 'active',",
 ).replace(
   "  overtime_multiplier REAL NOT NULL,\n  rate_basis",
   "  work_hours_saved INTEGER NOT NULL DEFAULT 0,\n  report_name TEXT,\n  overtime_multiplier REAL NOT NULL,\n  rate_basis",
@@ -319,6 +319,11 @@ export const REPORT_LUNCH_MIGRATION_SQL = `
 ALTER TABLE app_settings ADD COLUMN lunch_minutes INTEGER NOT NULL DEFAULT 0;
 `;
 
+export const REPORT_DINNER_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN dinner_minutes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE app_settings ADD COLUMN dinner_start_time TEXT;
+`;
+
 export const LOCAL_MIGRATIONS = [
   {
     version: 1,
@@ -362,4 +367,5 @@ export const LOCAL_MIGRATIONS = [
   { version: 12, name: "project_groups_sites_and_status", sql: PROJECT_DISCOVERY_MIGRATION_SQL },
   { version: 13, name: "evidence_deletion_audit", sql: EVIDENCE_AUDIT_MIGRATION_SQL },
   { version: 14, name: "report_lunch", sql: REPORT_LUNCH_MIGRATION_SQL },
+  { version: 15, name: "report_dinner_break", sql: REPORT_DINNER_MIGRATION_SQL },
 ] as const;

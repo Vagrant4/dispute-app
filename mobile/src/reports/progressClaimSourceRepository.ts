@@ -27,6 +27,8 @@ type SettingsRow = {
   off_day_multiplier: number | null;
   holiday_multiplier: number | null;
   lunch_minutes: number | null;
+  dinner_minutes: number | null;
+  dinner_start_time: string | null;
 };
 
 type ProjectRow = {
@@ -103,7 +105,7 @@ export class ProgressClaimSourceRepository {
     generatedAt?: string;
   }): Promise<ProgressClaimSnapshotInput> {
     const settings = await this.database.getFirstAsync<SettingsRow>(
-      `SELECT report_name, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, lunch_minutes
+      `SELECT report_name, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier, lunch_minutes, dinner_minutes, dinner_start_time
       FROM app_settings
       WHERE user_id = ?`,
       [params.userId],
@@ -191,6 +193,8 @@ export class ProgressClaimSourceRepository {
         offDayMultiplier: settings?.off_day_multiplier ?? 2,
         holidayMultiplier: settings?.holiday_multiplier ?? 2,
         lunchMinutes: settings?.lunch_minutes ?? 0,
+        dinnerMinutes: settings?.dinner_minutes ?? 0,
+        dinnerStartTime: settings?.dinner_start_time ?? null,
       },
     };
   }

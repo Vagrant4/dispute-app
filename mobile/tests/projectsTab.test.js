@@ -139,10 +139,13 @@ test("0.3.25 app settings upgrade adds lunch minutes before settings are saved",
   // Version 13 is the 0.3.25-shaped database, before report_lunch.
   for (const migration of LOCAL_MIGRATIONS.filter((migration) => migration.version < 14)) database.sqlite.exec(migration.sql);
   database.sqlite.exec(LOCAL_MIGRATIONS.find((migration) => migration.version === 14).sql);
+  database.sqlite.exec(LOCAL_MIGRATIONS.find((migration) => migration.version === 15).sql);
   const settings = new (load("src/db/settingsRepository.ts").SettingsRepository)(database);
   const saved = await settings.updateSettings({ lunchMinutes: 60 }, "upgraded-user");
   assert.equal(saved.lunchMinutes, 60);
   assert.equal((await settings.getSettings("upgraded-user")).lunchMinutes, 60);
+  const dinner = await settings.updateSettings({ dinnerMinutes: 60, dinnerStartTime: "18:00" }, "upgraded-user");
+  assert.deepEqual([dinner.dinnerMinutes, dinner.dinnerStartTime], [60, "18:00"]);
 });
 
 test("web shared work-hours save persists multipliers and the saved report name", async () => {

@@ -12,6 +12,8 @@ export type AppSettings = {
   offDayMultiplier: number;
   holidayMultiplier: number;
   lunchMinutes: number;
+  dinnerMinutes: number;
+  dinnerStartTime: string | null;
   status: "active" | "locked";
   lockHash: string | null;
   lockedAt: string | null;
@@ -31,6 +33,8 @@ export type AppSettingsPatch = Partial<
     | "offDayMultiplier"
     | "holidayMultiplier"
     | "lunchMinutes"
+    | "dinnerMinutes"
+    | "dinnerStartTime"
   >
 >;
 
@@ -51,6 +55,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   offDayMultiplier: 2,
   holidayMultiplier: 2,
   lunchMinutes: 0,
+  dinnerMinutes: 0,
+  dinnerStartTime: null,
   status: "active",
   lockHash: null,
   lockedAt: null,
@@ -93,6 +99,12 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
   }
   if (!Number.isInteger(settings.lunchMinutes) || settings.lunchMinutes < 0 || settings.lunchMinutes > 240) {
     errors.push("lunchMinutes must be between 0 and 240");
+  }
+  if (!Number.isInteger(settings.dinnerMinutes) || settings.dinnerMinutes < 0 || settings.dinnerMinutes > 240) {
+    errors.push("dinnerMinutes must be between 0 and 240");
+  }
+  if (settings.dinnerStartTime !== null && !isValidClockTime(settings.dinnerStartTime)) {
+    errors.push("dinnerStartTime must be HH:MM or null");
   }
   if (
     !Number.isInteger(settings.baseRateCents) ||

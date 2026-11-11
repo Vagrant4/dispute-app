@@ -60,12 +60,12 @@ function createTsLoader() {
   return load;
 }
 
-test("schema version 14 keeps existing data and adds project discovery, audit and lunch fields", () => {
+test("schema version 15 keeps existing data and adds project discovery, audit, lunch and dinner fields", () => {
   const { CURRENT_SCHEMA_VERSION, LOCAL_MIGRATIONS, MOBILE_SCHEMA_SQL } = createTsLoader()(
     "src/db/schema.ts",
   );
 
-  assert.equal(CURRENT_SCHEMA_VERSION, 14);
+  assert.equal(CURRENT_SCHEMA_VERSION, 15);
   for (const field of [
     "break_minutes",
     "location_text",
@@ -78,15 +78,18 @@ test("schema version 14 keeps existing data and adds project discovery, audit an
     "day_type",
     "rate_basis",
     "base_rate_cents",
+    "dinner_minutes",
+    "dinner_start_time",
   ]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
-  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 14);
+  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 15);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /CREATE TABLE IF NOT EXISTS project_groups/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /ALTER TABLE projects ADD COLUMN site_address/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /project_status TEXT NOT NULL DEFAULT 'active'/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 13).sql, /CREATE TABLE IF NOT EXISTS evidence_audit/);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /lunch_minutes/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 14).sql, /lunch_minutes/);
+  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /dinner_minutes/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /rate_basis/);
   assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /base_rate_cents/);
 });
