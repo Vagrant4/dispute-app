@@ -38,9 +38,10 @@ test("main list uses plain wording and no segmented Account menu", () => {
   assert.doesNotMatch(source, /isTrialDebugOverrideEnabled|Debug: trial clock/);
   assert.match(source, /setWorkHoursStatus\("Saved"\)/);
   assert.match(source, /styles.todayTitle\}>Pay rate/);
-  assert.match(source, /onBlur=\{\(\) => void handleSaveWorkHours\(\)\}/);
-  assert.match(source, /setTimeout\(\(\) => void handleSaveWorkHours\(\), 600\)/);
-  assert.doesNotMatch(source, />Save<\/Text>/);
+  assert.doesNotMatch(source, /onBlur=\{\(\) => void handleSaveWorkHours\(\)\}/);
+  assert.doesNotMatch(source, /setTimeout\(\(\) => void handleSaveWorkHours\(\), 600\)/);
+  assert.match(source, /testID="settings-pay-rate-save"/);
+  assert.match(source, />Save<\/Text>/);
 });
 
 test("all legacy initialPanel ids map to their panels with More back navigation", () => {
