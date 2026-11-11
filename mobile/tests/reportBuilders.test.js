@@ -188,11 +188,11 @@ test("buildProgressClaimHtml renders the revised palette, dynamic overview, and 
   assert.match(html, /#f2a900/);
   assert.match(html, /SGD 987\.65/);
   assert.match(html, />7<\/strong>/);
-  assert.match(html, /2026-07-01 &ndash; 2026-07-31/);
+  assert.match(html, /1 Jul 2026 &ndash; 31 Jul 2026/);
   assert.match(html, /@page \{ margin: 18mm 14mm; size: A4; \}/);
   assert.match(html, /thead \{ display: table-header-group; \}/);
   assert.match(html, /page-break-inside: avoid/);
-  assert.match(html, /overflow-wrap: anywhere/);
+  assert.match(html, /\.long-token \{ overflow-wrap: break-word/);
   assert.match(html, /tr, \.report-section \{[^}]*page-break-inside: avoid/);
 });
 
@@ -231,6 +231,20 @@ test("buildProgressClaimHtml never sends raw local photo URIs to the print WebVi
   assert.doesNotMatch(html, /src="file:\/\//);
   assert.doesNotMatch(html, /src="content:\/\//);
   assert.match(html, /Photo file reference only/);
+});
+
+test("buildProgressClaimHtml uses print-safe wrapping, local dates, and sealed phone labels", () => {
+  const { buildProgressClaimHtml } = createTsLoader()("src/reports/progressClaimHtml.ts");
+  const snapshot = createSnapshot();
+  snapshot.generatedAt = "2026-11-11T15:04:00.000Z";
+  snapshot.claimPeriod = { start: "2026-11-10", end: "2026-11-11" };
+  snapshot.photoEvidence[0].localUri = "file:///private/photo.jpg";
+  snapshot.photoEvidence[0].capturedAt = "2026-11-11T06:25:09.379Z";
+  const html = buildProgressClaimHtml(snapshot);
+  assert.doesNotMatch(html, /overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(html, /file:\/\//);
+  assert.match(html, /10 Nov 2026/);
+  assert.match(html, /Sealed photo on this phone/);
 });
 
 test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {

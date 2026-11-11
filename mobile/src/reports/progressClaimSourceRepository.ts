@@ -181,6 +181,8 @@ export class ProgressClaimSourceRepository {
       pay: {
         currency: settings?.currency ?? project.currency,
         hourlyRateCents,
+        rateBasis: settings?.rate_basis ?? "daily",
+        baseRateCents: settings?.base_rate_cents ?? 0,
         dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
         normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
         normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",

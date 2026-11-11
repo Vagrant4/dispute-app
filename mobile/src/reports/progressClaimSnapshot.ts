@@ -22,23 +22,24 @@ export function buildProgressClaimSnapshot(
 ): ProgressClaimSnapshot {
   const timeEntries = [...(input.timeEntries ?? [])].sort(compareTimeEntries);
   const photoEvidence = [...(input.photoEvidence ?? [])].sort(comparePhotoEvidence);
-  const dailyNormalMinutes =
-    input.pay?.dailyNormalMinutes ??
-    calculateNormalWindowMinutes(
-      input.pay?.normalWorkStartTime ?? DEFAULT_NORMAL_WORK_START_TIME,
-      input.pay?.normalWorkEndTime ?? DEFAULT_NORMAL_WORK_END_TIME,
-    );
   const normalWorkStartTime =
     input.pay?.normalWorkStartTime ?? DEFAULT_NORMAL_WORK_START_TIME;
   const normalWorkEndTime =
     input.pay?.normalWorkEndTime ?? DEFAULT_NORMAL_WORK_END_TIME;
+  const normalRangeMinutes = calculateNormalWindowMinutes(normalWorkStartTime, normalWorkEndTime);
+  const dailyNormalMinutes = input.pay?.dailyNormalMinutes ?? normalRangeMinutes;
   const overtimeMultiplier =
     input.pay?.overtimeMultiplier ?? DEFAULT_OVERTIME_MULTIPLIER;
   const offDayMultiplier =
     input.pay?.offDayMultiplier ?? DEFAULT_OFF_DAY_MULTIPLIER;
   const holidayMultiplier =
     input.pay?.holidayMultiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
-  const hourlyRateCents = input.pay?.hourlyRateCents ?? 0;
+  const rateBasis = input.pay?.rateBasis ?? "hourly";
+  const baseRateCents = input.pay?.baseRateCents ?? input.pay?.hourlyRateCents ?? 0;
+  // Daily rates stay as integer cents until each day's pay is rounded to cents.
+  const hourlyRateCents = rateBasis === "daily"
+    ? Math.round(baseRateCents / (normalRangeMinutes / 60))
+    : input.pay?.hourlyRateCents ?? baseRateCents;
   const currency =
     input.pay?.currency ??
     input.project?.currency ??
@@ -51,40 +52,33 @@ export function buildProgressClaimSnapshot(
     normalWorkStartTime,
     normalWorkEndTime,
   );
-  const totalNormalMinutes = dailyWorkLog.reduce(
+  const paidDailyWorkLog = dailyWorkLog.map((day) => addDailyPay(day, {
+    rateBasis, baseRateCents, hourlyRateCents, normalRangeMinutes,
+    overtimeMultiplier, offDayMultiplier, holidayMultiplier,
+  }));
+  const totalNormalMinutes = paidDailyWorkLog.reduce(
     (sum, item) => sum + Math.round(item.normalHours * 60),
     0,
   );
-  const totalOvertimeMinutes = dailyWorkLog.reduce(
+  const totalOvertimeMinutes = paidDailyWorkLog.reduce(
     (sum, item) => sum + Math.round(item.overtimeHours * 60),
     0,
   );
-  const totalOffDayMinutes = dailyWorkLog.reduce(
+  const totalOffDayMinutes = paidDailyWorkLog.reduce(
     (sum, item) => sum + Math.round(item.offDayHours * 60),
     0,
   );
-  const totalHolidayMinutes = dailyWorkLog.reduce(
+  const totalHolidayMinutes = paidDailyWorkLog.reduce(
     (sum, item) => sum + Math.round(item.holidayHours * 60),
     0,
   );
   const allowancesCents = input.pay?.allowancesCents ?? 0;
   const deductionsCents = input.pay?.deductionsCents ?? 0;
-  const basicPayCents = calculatePayCents(totalNormalMinutes, hourlyRateCents, 1);
-  const overtimePayCents = calculatePayCents(
-    totalOvertimeMinutes,
-    hourlyRateCents,
-    overtimeMultiplier,
-  );
-  const offDayPayCents = calculatePayCents(
-    totalOffDayMinutes,
-    hourlyRateCents,
-    offDayMultiplier,
-  );
-  const holidayPayCents = calculatePayCents(
-    totalHolidayMinutes,
-    hourlyRateCents,
-    holidayMultiplier,
-  );
+  // Summary is the sum of the rounded per-day cents shown in the work log.
+  const basicPayCents = paidDailyWorkLog.reduce((sum, day) => sum + day.basicPayCents, 0);
+  const overtimePayCents = paidDailyWorkLog.reduce((sum, day) => sum + day.overtimePayCents, 0);
+  const offDayPayCents = paidDailyWorkLog.reduce((sum, day) => sum + day.offDayPayCents, 0);
+  const holidayPayCents = paidDailyWorkLog.reduce((sum, day) => sum + day.holidayPayCents, 0);
   const grossPayCents =
     basicPayCents +
     overtimePayCents +
@@ -106,6 +100,8 @@ export function buildProgressClaimSnapshot(
     rateCalculation: {
       currency,
       hourlyRateCents,
+      rateBasis,
+      baseRateCents,
       dailyNormalMinutes,
       normalWorkStartTime,
       normalWorkEndTime,
@@ -114,7 +110,7 @@ export function buildProgressClaimSnapshot(
       holidayMultiplier,
     },
     totals: {
-      totalDaysWorked: dailyWorkLog.length,
+      totalDaysWorked: paidDailyWorkLog.length,
       totalNormalHours: minutesToHours(totalNormalMinutes),
       totalOvertimeHours: minutesToHours(totalOvertimeMinutes),
       totalOffDayHours: minutesToHours(totalOffDayMinutes),
@@ -129,7 +125,7 @@ export function buildProgressClaimSnapshot(
       netPayCents,
       totalClaimAmountCents: netPayCents,
     },
-    dailyWorkLog,
+    dailyWorkLog: paidDailyWorkLog,
     photoEvidence,
     evidenceAudit: input.evidenceAudit ?? [],
     signature: {
@@ -197,8 +193,45 @@ function buildDailyWorkLog(
         locationEntries: entries,
         durationMinutes,
         photoEvidenceIds,
+        basicPayCents: 0,
+        overtimePayCents: 0,
+        offDayPayCents: 0,
+        holidayPayCents: 0,
+        grossPayCents: 0,
       };
     });
+}
+
+function addDailyPay(
+  day: DailyWorkLogItem,
+  rate: {
+    rateBasis: "daily" | "monthly" | "hourly";
+    baseRateCents: number;
+    hourlyRateCents: number;
+    normalRangeMinutes: number;
+    overtimeMultiplier: number;
+    offDayMultiplier: number;
+    holidayMultiplier: number;
+  },
+): DailyWorkLogItem {
+  const pay = (hours: number, multiplier: number) => {
+    const minutes = Math.round(hours * 60);
+    return rate.rateBasis === "daily"
+      ? Math.round((minutes * rate.baseRateCents * multiplier) / rate.normalRangeMinutes)
+      : calculatePayCents(minutes, rate.hourlyRateCents, multiplier);
+  };
+  const basicPayCents = pay(day.normalHours, 1);
+  const overtimePayCents = pay(day.overtimeHours, rate.overtimeMultiplier);
+  const offDayPayCents = pay(day.offDayHours, rate.offDayMultiplier);
+  const holidayPayCents = pay(day.holidayHours, rate.holidayMultiplier);
+  return {
+    ...day,
+    basicPayCents,
+    overtimePayCents,
+    offDayPayCents,
+    holidayPayCents,
+    grossPayCents: basicPayCents + overtimePayCents + offDayPayCents + holidayPayCents,
+  };
 }
 
 function buildLocations(entries: TimeEntrySnapshotInput[]): WorkLocationSnapshot[] {

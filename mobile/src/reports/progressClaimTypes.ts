@@ -71,6 +71,8 @@ export type PhotoEvidenceSnapshotInput = {
 
 export type PaySnapshotInput = {
   hourlyRateCents?: number | null;
+  rateBasis?: "daily" | "monthly" | "hourly";
+  baseRateCents?: number | null;
   currency?: string;
   dailyNormalMinutes?: number;
   normalWorkStartTime?: string;
@@ -109,6 +111,11 @@ export type DailyWorkLogItem = {
   locationEntries?: TimeEntrySnapshotInput[];
   durationMinutes: number;
   photoEvidenceIds: string[];
+  basicPayCents: number;
+  overtimePayCents: number;
+  offDayPayCents: number;
+  holidayPayCents: number;
+  grossPayCents: number;
 };
 
 export type WorkLocationSnapshot = {
@@ -152,6 +159,8 @@ export type ProgressClaimSnapshot = {
   rateCalculation: {
     currency: string;
     hourlyRateCents: number;
+    rateBasis: "daily" | "monthly" | "hourly";
+    baseRateCents: number;
     dailyNormalMinutes: number;
     normalWorkStartTime: string;
     normalWorkEndTime: string;

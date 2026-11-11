@@ -271,6 +271,37 @@ test("buildProgressClaimSnapshot calculates short normal time and overtime from 
   assert.equal(overtimeSnapshot.totals.totalClaimAmountCents, 25625);
 });
 
+test("buildProgressClaimSnapshot derives daily pay from the normal range without treating a daily rate as hourly", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()(
+    "src/reports/progressClaimSnapshot.ts",
+  );
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "shi-1", workDate: "2026-11-10", startTime: "2026-11-10T17:00:00", endTime: "2026-11-10T17:01:00", durationMinutes: 1, activity: "Short OT" },
+      { id: "shi-2", workDate: "2026-11-11", startTime: "2026-11-11T16:58:00", endTime: "2026-11-11T20:09:00", durationMinutes: 191, activity: "Normal and OT" },
+    ],
+    pay: {
+      currency: "SGD",
+      rateBasis: "daily",
+      baseRateCents: 15000,
+      normalWorkStartTime: "08:00",
+      normalWorkEndTime: "17:00",
+      overtimeMultiplier: 1.5,
+    },
+  });
+
+  assert.equal(snapshot.rateCalculation.hourlyRateCents, 1667);
+  assert.equal(snapshot.totals.totalNormalHours, 0.03);
+  assert.equal(snapshot.totals.totalOvertimeHours, 3.17);
+  assert.equal(snapshot.totals.basicPayCents, 56);
+  assert.equal(snapshot.totals.overtimePayCents, 7917);
+  assert.equal(snapshot.totals.grossPayCents, 7973);
+  assert.equal(
+    snapshot.dailyWorkLog.reduce((total, day) => total + day.basicPayCents + day.overtimePayCents + day.offDayPayCents + day.holidayPayCents, 0),
+    snapshot.totals.grossPayCents,
+  );
+});
+
 test("ProgressClaimSourceRepository ignores an old project rate and uses the user's daily rate", async () => {
   const { ProgressClaimSourceRepository } = createTsLoader()(
     "src/reports/progressClaimSourceRepository.ts",

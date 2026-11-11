@@ -13,8 +13,10 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     body { color: #17233b; font-family: Arial, sans-serif; line-height: 1.4; margin: 0; }
     h1 { color: #ffffff; font-size: 28px; letter-spacing: .3px; margin: 0 0 8px; }
     h2 { border-bottom: 2px solid #2f6fed; color: #102447; font-size: 18px; margin-top: 28px; padding-bottom: 6px; page-break-after: avoid; }
-    table { border-collapse: collapse; margin-top: 10px; width: 100%; }
-    th, td { border: 1px solid #d5e2de; font-size: 12px; overflow-wrap: anywhere; padding: 8px; text-align: left; vertical-align: top; }
+    table { border-collapse: collapse; margin-top: 10px; table-layout: fixed; width: 100%; }
+    th, td { border: 1px solid #d5e2de; font-size: 12px; overflow-wrap: normal; padding: 8px; text-align: left; vertical-align: top; word-break: normal; }
+    .short-cell { white-space: nowrap; }
+    .long-token { overflow-wrap: break-word; word-break: break-word; }
     th { background: #edf4ff; color: #102447; }
     tr, .report-section { page-break-inside: avoid; }
     thead { display: table-header-group; }
@@ -35,13 +37,13 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
 <body>
   <header class="report-header">
     <h1>${escapeHtml(snapshot.title)}</h1>
-    <p class="muted">Generated ${escapeHtml(snapshot.generatedAt)}</p>
+    <p class="muted">Generated ${escapeHtml(formatLocalDateTime(snapshot.generatedAt))}</p>
   </header>
 
   <section class="claim-highlight" aria-label="Claim overview">
     <div><span>Total claim amount</span><strong>${escapeHtml(snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency) : "Rate not set")}</strong></div>
     <div><span>Days worked</span><strong>${snapshot.totals.totalDaysWorked}</strong></div>
-    <div><span>Claim period</span><strong>${escapeHtml(snapshot.claimPeriod.start)} &ndash; ${escapeHtml(snapshot.claimPeriod.end)}</strong></div>
+    <div><span>Claim period</span><strong>${escapeHtml(formatDate(snapshot.claimPeriod.start))} &ndash; ${escapeHtml(formatDate(snapshot.claimPeriod.end))}</strong></div>
   </section>
 
   <h2>Worker Profile</h2>
@@ -68,13 +70,14 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
 
   <h2>Claim Period</h2>
   ${detailsTable([
-    ["Start", snapshot.claimPeriod.start],
-    ["End", snapshot.claimPeriod.end],
+    ["Start", formatDate(snapshot.claimPeriod.start)],
+    ["End", formatDate(snapshot.claimPeriod.end)],
   ])}
 
   <h2>Rate Calculation</h2>
   ${detailsTable([
-    ["Hourly rate", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.rateCalculation.hourlyRateCents, snapshot.rateCalculation.currency) : "Rate not set"],
+    ["Hourly rate", snapshot.rateCalculation.hourlyRateCents > 0 ? `${formatMoney(snapshot.rateCalculation.hourlyRateCents, snapshot.rateCalculation.currency)}/h` : "Rate not set"],
+    ["Entered rate", formatEnteredRate(snapshot)],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Normal hours from range", String(snapshot.rateCalculation.dailyNormalMinutes / 60)],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
@@ -108,7 +111,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
       ${snapshot.dailyWorkLog
         .map(
           (item) =>
-            `<tr><td>${escapeHtml(item.workDate)}</td><td>${escapeHtml(item.dayTypes.map(formatDayType).join(", "))}</td><td>${escapeHtml(item.activity)}</td><td>${escapeHtml(formatLocations(item.locations))}</td><td>${item.normalHours}</td><td>${item.overtimeHours}</td><td>${item.offDayHours}</td><td>${item.holidayHours}</td><td>${escapeHtml(item.photoEvidenceIds.join(", "))}</td></tr>`,
+            `<tr><td class="short-cell">${escapeHtml(formatDate(item.workDate))}</td><td class="short-cell">${escapeHtml(item.dayTypes.map(formatDayType).join(", "))}</td><td>${escapeHtml(item.activity)}</td><td>${escapeHtml(formatLocations(item.locations))}</td><td class="short-cell">${item.normalHours}</td><td class="short-cell">${item.overtimeHours}</td><td class="short-cell">${item.offDayHours}</td><td class="short-cell">${item.holidayHours}</td><td class="short-cell">${escapeHtml(item.photoEvidenceIds.join(", "))}</td></tr>`,
         )
         .join("")}
     </tbody>
@@ -124,12 +127,12 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <p>${snapshot.evidenceAudit?.length ? snapshot.evidenceAudit.map((event) => `${escapeHtml(event.message)} — sealed chain status: 1 item deleted by user at ${escapeHtml(event.eventAt)}`).join("<br>") : "No evidence deletion events."}</p>
   <h2>Photo Evidence</h2>
   <table>
-    <thead><tr><th>Photo Evidence ID</th><th>Linked Time Entry ID</th><th>Type</th><th>Caption</th><th>Captured at</th><th>Local reference</th></tr></thead>
+    <thead><tr><th>Photo Evidence ID</th><th>Linked Time Entry ID</th><th>Type</th><th>Caption</th><th>Captured at</th></tr></thead>
     <tbody>
       ${snapshot.photoEvidence
         .map(
           (photo) =>
-            `<tr><td>${escapeHtml(photo.id)}</td><td>${escapeHtml(photo.timeEntryId ?? "")}</td><td>${escapeHtml(photo.evidenceType ?? "")}</td><td>${escapeHtml(photo.caption ?? "")}</td><td>${escapeHtml(photo.capturedAt ?? "")}</td><td>${escapeHtml(photoReferenceLabel(photo.localUri))}</td></tr>`,
+            `<tr><td class="long-token">${escapeHtml(photo.id)}</td><td class="long-token">${escapeHtml(photo.timeEntryId ?? "")}</td><td>${escapeHtml(photo.evidenceType ?? "")}</td><td>${escapeHtml(photo.caption ?? "")}</td><td class="short-cell">${escapeHtml(photo.capturedAt ? formatLocalDateTime(photo.capturedAt) : "")}</td></tr>`,
         )
         .join("")}
     </tbody>
@@ -162,18 +165,38 @@ function buildPhotoEvidenceCards(snapshot: ProgressClaimSnapshot): string {
         ["Linked time entry", photo.timeEntryId],
         ["Type", photo.evidenceType],
         ["Caption", photo.caption],
-        ["Captured at", photo.capturedAt ?? "Time unknown"],
+        ["Captured at", photo.capturedAt ? formatLocalDateTime(photo.capturedAt) : "Time unknown"],
         ["Source", photo.captureSource ?? "Source not recorded (older record)"],
         ["Time source", photo.captureTimeSource ?? "unknown"],
         ["Seal hash (first 12 hex)", photo.lockHash?.slice(0, 12) ?? "Unavailable"],
-        ["Local reference", photoReferenceLabel(photo.localUri)],
+        ["Photo storage", photoReferenceLabel(photo.localUri)],
       ])}</div></div></div>`;
     })
     .join("");
 }
 
 function photoReferenceLabel(uri: string): string {
-  return uri.startsWith("data:image/") ? "Embedded image data" : uri;
+  return uri.startsWith("data:image/") ? "Embedded image data" : "Sealed photo on this phone";
+}
+
+function formatEnteredRate(snapshot: ProgressClaimSnapshot): string {
+  const { baseRateCents, currency, hourlyRateCents, rateBasis } = snapshot.rateCalculation;
+  const enteredCents = Number.isFinite(baseRateCents) ? baseRateCents : hourlyRateCents;
+  if (rateBasis === "daily") return `${formatMoney(enteredCents, currency)} per day → ${formatMoney(hourlyRateCents, currency)}/h`;
+  return `${formatMoney(enteredCents, currency)} per ${rateBasis === "monthly" ? "month" : "hour"}`;
+}
+
+function formatDate(value: string): string {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatLocalDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const dateText = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const timeText = date.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" });
+  return `${dateText}, ${timeText}`;
 }
 
 function detailsTable(rows: Array<[string, string | number | null | undefined]>): string {
