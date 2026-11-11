@@ -125,6 +125,7 @@ export type DailyWorkLogItem = {
   grossPayCents: number;
   lunchDeductedMinutes: number;
   dinnerDeductedMinutes: number;
+  unpaidBeforeNormalStartMinutes: number;
 };
 
 export type WorkLocationSnapshot = {

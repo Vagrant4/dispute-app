@@ -85,6 +85,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Entered rate", formatEnteredRate(snapshot)],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Normal hours from range", formatHoursAndMinutes(snapshot.rateCalculation.dailyNormalMinutes)],
+    ["Normal-day start rule", `Time before normal start (${snapshot.rateCalculation.normalWorkStartTime}) is not paid on normal days.`],
     ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${formatLunch(snapshot.rateCalculation.lunchMinutes)}, window ${lunchWindow(snapshot.rateCalculation.normalWorkStartTime, snapshot.rateCalculation.normalWorkEndTime, snapshot.rateCalculation.lunchMinutes)}; deducted when the clocked time covers the window or the day is longer than lunch + 4 h` : "None"],
     ["Dinner break", snapshot.rateCalculation.dinnerMinutes ? `${formatLunch(snapshot.rateCalculation.dinnerMinutes)}, window ${snapshot.rateCalculation.dinnerStartTime}–${addMinutesToClock(snapshot.rateCalculation.dinnerStartTime, snapshot.rateCalculation.dinnerMinutes)}; deducted from OT only when clocked OT covers the whole window. Off-day and holiday payable minutes are deducted before their multiplier.` : "None"],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
@@ -208,7 +209,7 @@ function detailsTable(rows: Array<[string, string | number | null | undefined]>)
 
 function dailyLogCard(item: ProgressClaimSnapshot["dailyWorkLog"][number], currency: string, hourlyRateCents: number): string {
   const values = [["Normal", formatHoursAndMinutes(item.normalMinutes)], ["OT", formatHoursAndMinutes(item.overtimeMinutes)], ["Off day", formatHoursAndMinutes(item.offDayMinutes)], ["Holiday", formatHoursAndMinutes(item.holidayMinutes)], ["Rate", formatMoney(hourlyRateCents, currency)], ["Basic pay", formatMoney(item.basicPayCents ?? 0, currency)], ["OT pay", formatMoney(item.overtimePayCents ?? 0, currency)], ["Off day pay", formatMoney(item.offDayPayCents ?? 0, currency)], ["Holiday pay", formatMoney(item.holidayPayCents ?? 0, currency)], ["Photos", item.photoEvidenceIds.length], ["Day total", formatMoney(item.grossPayCents ?? 0, currency)]];
-  const dinnerNote = item.dinnerDeductedMinutes ? `<p class="muted">Dinner deducted: ${formatLunch(item.dinnerDeductedMinutes)}</p>` : "";
+  const dinnerNote = (item.dinnerDeductedMinutes ? `<p class="muted">Dinner deducted: ${formatLunch(item.dinnerDeductedMinutes)}</p>` : "") + (item.unpaidBeforeNormalStartMinutes ? `<p class="muted">Before start (unpaid): ${formatHoursAndMinutes(item.unpaidBeforeNormalStartMinutes)}</p>` : "");
   return `<section class="daily-log-card"><span class="daily-log-date short-cell">${escapeHtml(formatDate(item.workDate))} · ${escapeHtml(item.dayTypes.map(formatDayType).join(", "))} day</span><p class="daily-log-copy"><strong>Activity:</strong> ${escapeHtml(item.activity)}</p><p class="daily-log-copy"><strong>Location:</strong> ${escapeHtml(formatLocations(item.locations))}</p>${item.lunchDeductedMinutes ? `<p class="muted">Lunch deducted: ${formatLunch(item.lunchDeductedMinutes)}</p>` : ""}${dinnerNote}<div class="daily-log-grid">${values.map(([label, value]) => `<span><strong>${label}:</strong> ${value}</span>`).join("")}</div></section>`;
 }
 

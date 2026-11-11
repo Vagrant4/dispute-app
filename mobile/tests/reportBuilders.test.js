@@ -273,6 +273,67 @@ test("report lunch deduction is report-time only and per-day cents remain the su
   assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day.grossPayCents, 0), snapshot.totals.grossPayCents);
 });
 
+test("normal-day early clock-in is unpaid and cannot trigger lunch duration rule", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "early-normal", workDate: "2026-11-10", startTime: "2026-11-10T07:55:00+08:00", endTime: "2026-11-10T17:00:00+08:00", durationMinutes: 545, activity: "Normal shift" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60 },
+  });
+  const day = snapshot.dailyWorkLog[0];
+  assert.deepEqual([day.normalMinutes, day.overtimeMinutes, day.unpaidBeforeNormalStartMinutes, day.basicPayCents], [480, 0, 5, 15000]);
+
+  const shortPayable = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "early-lunch", workDate: "2026-11-11", startTime: "2026-11-11T03:00:00+08:00", endTime: "2026-11-11T08:01:00+08:00", durationMinutes: 301, activity: "Early only" }],
+    pay: { normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60 },
+  });
+  assert.equal(shortPayable.dailyWorkLog[0].lunchDeductedMinutes, 0);
+});
+
+test("normal-day early clock-in stays unpaid before OT and entirely early entries pay nothing", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const longDay = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "early-ot", workDate: "2026-11-10", startTime: "2026-11-10T07:30:00+08:00", endTime: "2026-11-10T20:00:00+08:00", durationMinutes: 750, activity: "Long shift" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5, lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00" },
+  }).dailyWorkLog[0];
+  assert.deepEqual([longDay.normalMinutes, longDay.overtimeMinutes, longDay.unpaidBeforeNormalStartMinutes, longDay.basicPayCents, longDay.overtimePayCents], [480, 120, 30, 15000, 5625]);
+
+  const entirelyEarly = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "all-early", workDate: "2026-11-11", startTime: "2026-11-11T06:00:00+08:00", endTime: "2026-11-11T07:30:00+08:00", durationMinutes: 90, activity: "Before start" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00" },
+  }).dailyWorkLog[0];
+  assert.deepEqual([entirelyEarly.normalMinutes, entirelyEarly.overtimeMinutes, entirelyEarly.unpaidBeforeNormalStartMinutes, entirelyEarly.grossPayCents], [0, 0, 90, 0]);
+});
+
+test("off-day and holiday early entries retain recorded payable minutes", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "off", workDate: "2026-11-10", startTime: "2026-11-10T06:00:00+08:00", endTime: "2026-11-10T08:00:00+08:00", durationMinutes: 120, dayType: "off_day", activity: "Off day" },
+      { id: "holiday", workDate: "2026-11-11", startTime: "2026-11-11T06:00:00+08:00", endTime: "2026-11-11T08:00:00+08:00", durationMinutes: 120, dayType: "holiday", activity: "Holiday" },
+    ],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", offDayMultiplier: 2, holidayMultiplier: 2 },
+  });
+  assert.deepEqual(snapshot.dailyWorkLog.map((day) => [day.offDayMinutes, day.holidayMinutes, day.unpaidBeforeNormalStartMinutes, day.grossPayCents]), [[120, 0, 0, 6667], [0, 120, 0, 6667]]);
+});
+
+test("early-time HTML explains the report-only unpaid rule and daily figures sum to pay summary", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "normal", workDate: "2026-11-10", startTime: "2026-11-10T07:55:00+08:00", endTime: "2026-11-10T17:00:00+08:00", durationMinutes: 545, activity: "Normal" },
+      { id: "ot", workDate: "2026-11-11", startTime: "2026-11-11T07:30:00+08:00", endTime: "2026-11-11T20:00:00+08:00", durationMinutes: 750, activity: "OT" },
+      { id: "off", workDate: "2026-11-12", startTime: "2026-11-12T06:00:00+08:00", endTime: "2026-11-12T08:00:00+08:00", durationMinutes: 120, dayType: "off_day", activity: "Off" },
+    ],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5, offDayMultiplier: 2, lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00" },
+  });
+  const html = buildProgressClaimHtml(snapshot);
+  assert.match(html, /Time before normal start \(08:00\) is not paid on normal days/);
+  assert.match(html, /Before start \(unpaid\): 5 min/);
+  for (const field of ["basicPayCents", "overtimePayCents", "offDayPayCents", "holidayPayCents", "grossPayCents"]) assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day[field], 0), snapshot.totals[field]);
+});
+
 test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   const { buildProgressClaimCsv } = createTsLoader()(
     "src/reports/progressClaimCsv.ts",
