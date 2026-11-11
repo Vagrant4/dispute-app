@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { ProjectsScreen } from "../src/screens/ProjectsScreen";
+import { ProjectsScreen, voiceSearchErrorMessage } from "../src/screens/ProjectsScreen";
 
 const mockStart = jest.fn();
 const mockStop = jest.fn();
@@ -74,8 +74,16 @@ test("permission denial shows a visible message", async () => {
 
   fireEvent.press(screen.getByLabelText("Search projects by voice"));
 
-  expect(await screen.findByText("Microphone permission is required for voice search.")).toBeTruthy();
+  expect(await screen.findByText("Microphone permission needed for voice search.")).toBeTruthy();
   expect(mockStart).not.toHaveBeenCalled();
+});
+
+test("native speech errors use calm app messages and never render raw text", async () => {
+  const screen = await renderProjects();
+  act(() => speechListeners.error({ error: "language-not-supported", message: "Requested language is supported, but not yet downloaded." }));
+  expect(await screen.findByText("Voice search unavailable on this phone.")).toBeTruthy();
+  expect(screen.queryByText(/Requested language/)).toBeNull();
+  expect(voiceSearchErrorMessage("no-speech")).toBe("Didn't catch that. Try again.");
 });
 
 test("unavailable recognition hides the mic", async () => {

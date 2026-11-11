@@ -38,6 +38,19 @@ type ProjectStore = Awaited<ReturnType<typeof getProjectScreenStore>> & {
   addProjectGroup?: (userId: string, name: string) => Promise<ProjectGroup>;
 };
 
+export function voiceSearchErrorMessage(code?: string) {
+  switch (code) {
+    case "no-speech": return "Didn't catch that. Try again.";
+    case "not-allowed": return "Microphone permission needed for voice search.";
+    case "audio-capture": return "Microphone permission needed for voice search.";
+    case "language-not-supported":
+    case "network":
+    case "service-not-allowed":
+    case "busy": return "Voice search unavailable on this phone.";
+    default: return "Voice search unavailable on this phone.";
+  }
+}
+
 export function ProjectsScreen({
   account,
   onCreateAccount,
@@ -88,7 +101,7 @@ export function ProjectsScreen({
   });
   useSpeechRecognitionEvent("error", (event) => {
     setListening(false);
-    setSpeechError(event.message || "Voice search could not start.");
+    setSpeechError(voiceSearchErrorMessage(event.error));
   });
 
   async function toggleVoiceSearch() {
@@ -101,7 +114,7 @@ export function ProjectsScreen({
     const permission =
       await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
-      setSpeechError("Microphone permission is required for voice search.");
+      setSpeechError("Microphone permission needed for voice search.");
       return;
     }
     ExpoSpeechRecognitionModule.start({ lang: "en-US", interimResults: true });
@@ -332,7 +345,7 @@ export function ProjectsScreen({
             <View style={styles.projectSearchContainer}>
               <TextInput
                 accessibilityLabel="Search projects"
-                onChangeText={setQuery}
+                onChangeText={(value) => { setQuery(value); setSpeechError(""); }}
                 placeholder="Search name or address"
                 placeholderTextColor={theme.colors.placeholder}
                 style={styles.projectSearch}
@@ -361,7 +374,7 @@ export function ProjectsScreen({
               <MaterialIcons name="tune" size={26} color={theme.colors.text} />
             </Pressable>
           </View>
-          {speechError ? <Text style={styles.projectActionError}>{speechError}</Text> : null}
+          {speechError ? <Text style={styles.muted}>{speechError}</Text> : null}
           {error ? <Text style={styles.body}>{error}</Text> : null}
           {visible.map(card)}
           {!visible.length ? (
