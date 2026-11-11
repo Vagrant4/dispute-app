@@ -283,14 +283,23 @@ export function ProjectsScreen({
             <View
               style={[
                 styles.projectStatusDot,
-                project.projectStatus === "lead"
+                project.status === "archived"
+                  ? styles.projectStatusArchived
+                  : project.projectStatus === "lead"
                   ? styles.projectStatusLead
                   : project.projectStatus === "completed"
                     ? styles.projectStatusCompleted
                     : styles.projectStatusActive,
               ]}
+              testID={`project-status-dot-${project.id}`}
             />
-            <Text style={styles.projectStatusText}>
+            <Text
+              testID={`project-status-text-${project.id}`}
+              style={[
+                styles.projectStatusText,
+                project.status === "archived" && styles.projectStatusArchivedText,
+              ]}
+            >
               {project.status === "archived"
                 ? "Archived"
                 : project.projectStatus[0].toUpperCase() + project.projectStatus.slice(1)}

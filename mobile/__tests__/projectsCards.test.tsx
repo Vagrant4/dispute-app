@@ -1,6 +1,8 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 import { ProjectsScreen } from "../src/screens/ProjectsScreen";
+import { styles, theme } from "../src/styles";
 
 let summaries = [
   { id: "active-1", name: "Marina fitout", status: "active", projectStatus: "active", siteAddress: "10 Bayfront Avenue", siteLatitude: 1.3, siteLongitude: 103.85, latestPhotoUri: null },
@@ -99,6 +101,27 @@ test("project cards show Address: None when no address is saved", async () => {
   summaries = [{ ...summaries[0], siteAddress: null }];
   const screen = renderProjects();
   expect(await screen.findByText("Address: None")).toBeTruthy();
+});
+
+test("archived project badges use neutral grey while active badges retain lime", async () => {
+  const screen = renderProjects();
+  await screen.findByText("Marina fitout");
+
+  const activeDot = StyleSheet.flatten(screen.getByTestId("project-status-dot-active-1").props.style);
+  const activeText = StyleSheet.flatten(screen.getByTestId("project-status-text-active-1").props.style);
+  expect(activeDot.backgroundColor).toBe(theme.colors.primary);
+  expect(activeText.color).toBe(theme.colors.text);
+
+  fireEvent.press(screen.getByLabelText("Filter projects"));
+  fireEvent.press(screen.getByText("Archived"));
+  await screen.findByText("Old warehouse");
+
+  const archivedDot = StyleSheet.flatten(screen.getByTestId("project-status-dot-archived-1").props.style);
+  const archivedText = StyleSheet.flatten(screen.getByTestId("project-status-text-archived-1").props.style);
+  expect(archivedDot.backgroundColor).toBe(theme.colors.textMuted);
+  expect(archivedDot.backgroundColor).not.toBe(theme.colors.primary);
+  expect(archivedText.color).toBe(theme.colors.textMuted);
+  expect(archivedText.color).not.toBe(theme.colors.primary);
 });
 
 test("restoring from Archived refreshes the active projects immediately", async () => {
