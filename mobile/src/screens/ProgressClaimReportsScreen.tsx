@@ -20,6 +20,7 @@ import { expoSharingAdapter } from "../reports/reportSharingExpo";
 import { viewGeneratedDocument } from "../reports/reportViewing";
 import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
 import { listActiveProjects } from "../work/activeProjects";
+import { projectAddressLabel } from "../work/projectAddress";
 import { progressClaimReportContent } from "../screenContent";
 import { styles, type, space, radius } from "../styles";
 import {
@@ -519,6 +520,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           <Text style={styles.heading}>
             {reportPreview.project.name ?? "Project report"}
           </Text>
+          <Text style={styles.muted}>{projectAddressLabel(reportPreview.project.siteAddress)}</Text>
           <Text style={styles.muted}>
             {reportPreview.claimPeriod.start} to {reportPreview.claimPeriod.end}
           </Text>

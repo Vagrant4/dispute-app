@@ -54,6 +54,7 @@ function createSnapshot() {
       name: "Shop \"A\" renovation",
       currency: "SGD",
       hourlyRateCents: 5000,
+      siteAddress: "10 Anson Road, Singapore 079903",
     },
     rateCalculation: {
       currency: "SGD",
@@ -128,6 +129,10 @@ test("buildProgressClaimHtml includes clean report sections without signature or
   );
 
   const html = buildProgressClaimHtml(createSnapshot());
+  assert.match(html, /Address: 10 Anson Road, Singapore 079903/);
+  const noAddress = createSnapshot();
+  noAddress.project.siteAddress = null;
+  assert.match(buildProgressClaimHtml(noAddress), /Address: None/);
 
   for (const expected of [
     "Progress Claim Report",

@@ -5,7 +5,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Alert } from "react-native";
 
 const mockListProjects = jest.fn(async () => [
-  { id: "project-1111", userId: "u1", name: "1111.", description: "", hourlyRateCents: 0 },
+  { id: "project-1111", userId: "u1", name: "1111.", description: "", siteAddress: "531377", hourlyRateCents: 0 },
   { id: "project-2222", userId: "u1", name: "2222.", description: "", hourlyRateCents: 0 },
 ]);
 const mockSetProjectStatus = jest.fn(async () => undefined);
@@ -56,6 +56,11 @@ test("project picker opens a project sheet and selects another project", async (
   expect(screen.getByTestId("project-detail-picker-sheet")).toBeTruthy();
   fireEvent.press(screen.getByText("2222."));
   expect(onSelectProject).toHaveBeenCalledWith("project-2222");
+});
+
+test("project detail prefixes its displayed address", async () => {
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  expect(await screen.findByText("Address: 531377")).toBeTruthy();
 });
 
 test("delete opens the dark in-app archive dialog without a native alert", async () => {

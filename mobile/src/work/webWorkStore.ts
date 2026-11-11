@@ -382,6 +382,7 @@ export function buildWebWorkProgressClaimSnapshot(params: {
       id: selectedProject.id,
       name: selectedProject.name,
       description: selectedProject.description,
+      siteAddress: selectedProject.siteAddress,
       hourlyRateCents,
       currency: selectedProject.currency,
     },

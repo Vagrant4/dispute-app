@@ -1,4 +1,5 @@
 import type { ProgressClaimSnapshot } from "./progressClaimTypes";
+import { projectAddressLabel } from "../work/projectAddress";
 
 export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string {
   return `<!doctype html>
@@ -60,6 +61,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <h2>Project Details</h2>
   ${detailsTable([
     ["Project", snapshot.project.name],
+    ["Site", projectAddressLabel(snapshot.project.siteAddress)],
     ["Description", snapshot.project.description],
     ["Currency", snapshot.project.currency],
   ])}

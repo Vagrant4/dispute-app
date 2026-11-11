@@ -22,6 +22,7 @@ export type ProjectSnapshot = {
   id?: string;
   name?: string;
   description?: string | null;
+  siteAddress?: string | null;
   hourlyRateCents?: number | null;
   currency?: string;
 };

@@ -15,6 +15,7 @@ import type {
 } from "../work/workRepository";
 import { getProjectScreenStore } from "../work/projectScreenStore";
 import { styles, theme } from "../styles";
+import { projectAddressLabel } from "../work/projectAddress";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
 import { ProjectPickerSheet } from "./ProjectPickerSheet";
 import { TaskPickerSheet } from "./TaskPickerSheet";
@@ -153,9 +154,7 @@ export function ProjectDetailScreen({
     <>
       <View style={styles.photoProjectHeader}>
         <Text style={styles.todayTitle}>{project?.name ?? "Project"}</Text>
-        {project?.siteAddress ? (
-          <Text style={styles.muted}>{project.siteAddress}</Text>
-        ) : null}
+        <Text style={styles.muted}>{projectAddressLabel(project?.siteAddress)}</Text>
         <View style={styles.projectStatusBadge}>
           <Text style={styles.projectStatusText}>
             {project?.projectStatus === "lead" ? "Lead" : project?.projectStatus === "completed" ? "Completed" : "Active"}

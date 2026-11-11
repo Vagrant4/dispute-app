@@ -54,13 +54,19 @@ beforeEach(() => {
 
 test("project card keeps its site address and adds distance when current location arrives", async () => {
   const screen = renderProjects();
-  expect(await screen.findByText("10 Bayfront Avenue")).toBeTruthy();
+  expect(await screen.findByText("Address: 10 Bayfront Avenue")).toBeTruthy();
   expect(screen.queryByText("1.1 km")).toBeNull();
 
   resolvePosition({ coords: { latitude: 1.29, longitude: 103.85 } });
 
   expect(await screen.findByText("1.1 km")).toBeTruthy();
-  expect(screen.getByText("10 Bayfront Avenue")).toBeTruthy();
+  expect(screen.getByText("Address: 10 Bayfront Avenue")).toBeTruthy();
+});
+
+test("project cards show Address: None when no address is saved", async () => {
+  summaries = [{ ...summaries[0], siteAddress: null }];
+  const screen = renderProjects();
+  expect(await screen.findByText("Address: None")).toBeTruthy();
 });
 
 test("restoring from Archived refreshes the active projects immediately", async () => {

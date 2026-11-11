@@ -28,6 +28,7 @@ import {
   type ProjectStatus,
 } from "../work/projectDiscovery";
 import { styles, theme } from "../styles";
+import { projectAddressLabel } from "../work/projectAddress";
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProjectDetailScreen } from "./ProjectDetailScreen";
 import { SwipeDownSheet } from "../components/SwipeDownSheet";
@@ -242,11 +243,9 @@ export function ProjectsScreen({
           <Text numberOfLines={1} style={styles.heading}>
             {project.name}
           </Text>
-          {project.siteAddress ? (
-            <Text numberOfLines={1} style={styles.muted}>
-              {project.siteAddress}
-            </Text>
-          ) : null}
+          <Text numberOfLines={1} style={styles.muted}>
+            {projectAddressLabel(project.siteAddress)}
+          </Text>
           <View style={styles.projectStatusBadge}>
             <View
               style={[

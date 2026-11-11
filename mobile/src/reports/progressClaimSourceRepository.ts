@@ -29,6 +29,7 @@ type ProjectRow = {
   id: string;
   name: string;
   description: string | null;
+  site_address: string | null;
   hourly_rate_cents: number | null;
   currency: string;
   client_id: string;
@@ -105,13 +106,13 @@ export class ProgressClaimSourceRepository {
     );
     const project = params.projectId
       ? await this.database.getFirstAsync<ProjectRow>(
-          `SELECT id, name, description, hourly_rate_cents, currency, client_id
+          `SELECT id, name, description, site_address, hourly_rate_cents, currency, client_id
           FROM projects
           WHERE id = ? AND user_id = ?`,
           [params.projectId, params.userId],
         )
       : await this.database.getFirstAsync<ProjectRow>(
-          `SELECT id, name, description, hourly_rate_cents, currency, client_id
+          `SELECT id, name, description, site_address, hourly_rate_cents, currency, client_id
           FROM projects
           WHERE user_id = ?
           ORDER BY updated_at DESC
@@ -162,6 +163,7 @@ export class ProgressClaimSourceRepository {
         id: project.id,
         name: project.name,
         description: project.description,
+        siteAddress: project.site_address,
         hourlyRateCents,
         currency: project.currency,
       },
