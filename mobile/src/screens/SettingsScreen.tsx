@@ -64,11 +64,15 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     String(DEFAULT_APP_SETTINGS.holidayMultiplier),
   );
   const [lunchMinutes, setLunchMinutes] = useState(String(DEFAULT_APP_SETTINGS.lunchMinutes));
+  const [lunchChoice, setLunchChoice] = useState<LunchChoice>("none");
+  const [lunchPickerOpen, setLunchPickerOpen] = useState(false);
   const savedPayForm = useRef("");
   const [workHoursStatus, setWorkHoursStatus] = useState("");
   const paySettingsLoaded = useRef(false);
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
   const [reportPeriodPickerOpen, setReportPeriodPickerOpen] = useState(false);
+  const [leavePromptOpen, setLeavePromptOpen] = useState(false);
+  const [leaveTarget, setLeaveTarget] = useState<SettingsPage>("main");
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
   const {
     subscription,
@@ -88,14 +92,15 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
       if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }
       if (reportPeriodPickerOpen) { setReportPeriodPickerOpen(false); return true; }
+      if (lunchPickerOpen) { setLunchPickerOpen(false); return true; }
       if (panel !== "main") {
-        setPanel(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
+        requestPayRateLeave(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
         return true;
       }
       return false;
     });
     return () => subscription.remove();
-  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, reportPeriodPickerOpen]);
+  }, [currencyDropdownOpen, lunchPickerOpen, panel, rateBasisDropdownOpen, reportPeriodPickerOpen]);
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : rateBasis === "hourly" ? "hour" : "day"}` : "Not set" },
@@ -162,6 +167,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
       setLunchMinutes(String(settings.lunchMinutes));
+      setLunchChoice(lunchChoiceForMinutes(settings.lunchMinutes));
       savedPayForm.current = payFormKey(settings, periodResult.status === "fulfilled" ? periodResult.value : reportPeriod);
     }
     if (periodResult.status === "fulfilled") setReportPeriod(periodResult.value);
@@ -179,8 +185,13 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     return () => clearTimeout(initialLoad);
   }, [loadWorkHours]);
 
-  async function handleSaveWorkHours() {
-    if (!paySettingsLoaded.current) return;
+  async function handleSaveWorkHours(): Promise<boolean> {
+    if (!paySettingsLoaded.current) return false;
+    const parsedLunchMinutes = Number.parseInt(lunchMinutes, 10) || 0;
+    if (lunchChoice === "custom" && (parsedLunchMinutes < 1 || parsedLunchMinutes > 240)) {
+      setWorkHoursStatus("Custom lunch break must be 1–240 minutes.");
+      return false;
+    }
     try {
       const multiplier = Number.parseFloat(overtimeMultiplier);
       const offDayRate = Number.parseFloat(offDayMultiplier);
@@ -199,7 +210,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         overtimeMultiplier: multiplier,
         offDayMultiplier: offDayRate,
         holidayMultiplier: holidayRate,
-        lunchMinutes: Number.parseInt(lunchMinutes, 10) || 0,
+        lunchMinutes: parsedLunchMinutes,
       });
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
@@ -210,15 +221,40 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
       setLunchMinutes(String(settings.lunchMinutes));
+      setLunchChoice(lunchChoiceForMinutes(settings.lunchMinutes));
       await saveReportPeriod(userId, reportPeriod);
       savedPayForm.current = payFormKey(settings, reportPeriod);
       setWorkHoursStatus("Saved");
+      return true;
     } catch (error) {
       setWorkHoursStatus(getPayRateSaveErrorMessage(error));
+      return false;
     }
   }
 
   const isPayRateDirty = () => paySettingsLoaded.current && savedPayForm.current !== payFormKey({ currency, rateBasis, baseRateCents: parseRateAmountCents(baseRate), normalWorkStartTime: normalStart, normalWorkEndTime: normalEnd, overtimeMultiplier: Number(overtimeMultiplier), offDayMultiplier: Number(offDayMultiplier), holidayMultiplier: Number(holidayMultiplier), lunchMinutes: Number(lunchMinutes) || 0 }, reportPeriod);
+
+  function requestPayRateLeave(target: SettingsPage) {
+    if (panel === "pay_rate" && isPayRateDirty()) {
+      setLeaveTarget(target);
+      setLeavePromptOpen(true);
+      return;
+    }
+    setPanel(target);
+  }
+
+  async function discardPayRateChanges() {
+    setLeavePromptOpen(false);
+    await loadWorkHours();
+    setPanel(leaveTarget);
+  }
+
+  async function saveAndLeavePayRate() {
+    if (await handleSaveWorkHours()) {
+      setLeavePromptOpen(false);
+      setPanel(leaveTarget);
+    }
+  }
 
   return (
     <View style={styles.todayScreen}>
@@ -226,7 +262,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         <><View style={styles.todayHeader}><Text style={styles.todayTitle}>Settings</Text><Text style={styles.todayWordmark}>DISPUTE</Text></View><Pressable accessibilityRole="button" onPress={() => setPanel("name")} style={styles.settingsProfile}><View style={styles.settingsProfileAvatar}><Text style={styles.settingsProfileInitial}>{(account.name?.trim() || account.email || "W")[0].toUpperCase()}</Text></View><View style={styles.settingsRowContent}><Text style={styles.heading}>{account.name?.trim() || "Worker"}</Text>{account.email ? <Text numberOfLines={2} style={[styles.muted, styles.settingsProfileEmail]}>{account.email}</Text> : null}</View><Text style={styles.settingsChevron}>›</Text></Pressable></>
       ) : null}
       {panel !== "main" ? (
-        <Pressable accessibilityRole="button" onPress={() => setPanel(panel === "delete_account" ? "privacy_data" : insideMore ? "more" : "main")} style={styles.settingsBackRow}>
+        <Pressable accessibilityRole="button" onPress={() => requestPayRateLeave(panel === "delete_account" ? "privacy_data" : insideMore ? "more" : "main")} style={styles.settingsBackRow}>
           <Text style={styles.settingsBackText}>{panel === "delete_account" ? "‹ Privacy & data" : insideMore ? "‹ More" : "‹ Settings"}</Text>
         </Pressable>
       ) : null}
@@ -428,10 +464,28 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={holidayMultiplier}
           />
-          <Text style={styles.inputLabel}>Lunch break (minutes)</Text>
-          <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Lunch break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setLunchMinutes} placeholder="0" style={styles.textInput} value={lunchMinutes} />
+          <Text style={styles.inputLabel}>Lunch break</Text>
+          <Pressable testID="settings-lunch-break" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setLunchPickerOpen(true)}>
+            <Text style={styles.dropdownValue}>{lunchChoiceLabel(lunchChoice, lunchMinutes)}</Text>
+            <Text style={styles.settingsDropdownChevron}>▼</Text>
+          </Pressable>
+          {lunchPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setLunchPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-lunch-break-sheet">
+            <Text style={styles.heading}>Lunch break</Text>
+            {LUNCH_CHOICES.map((choice) => <Pressable accessibilityRole="button" key={choice.id} onPress={() => { setLunchChoice(choice.id); if (choice.minutes !== null) setLunchMinutes(String(choice.minutes)); setLunchPickerOpen(false); }} style={choice.id === lunchChoice ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-lunch-${choice.id}`}>
+              <Text style={styles.body}>{choice.label}{choice.id === lunchChoice ? " ✓" : ""}</Text>
+            </Pressable>)}
+          </SwipeDownSheet> : null}
+          {lunchChoice === "custom" ? <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Custom lunch break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setLunchMinutes} placeholder="1–240" style={styles.textInput} value={lunchMinutes} /> : null}
           <Pressable testID="settings-pay-rate-save" accessibilityRole="button" accessibilityState={{ disabled: !isPayRateDirty() }} disabled={!isPayRateDirty()} onPress={() => void handleSaveWorkHours()} style={[styles.actionButton, !isPayRateDirty() ? styles.disabledButton : null]}><Text style={[styles.actionButtonText, !isPayRateDirty() ? styles.disabledButtonText : null]}>Save</Text></Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
+          {leavePromptOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setLeavePromptOpen(false)} sheetStyle={styles.projectSheet} testID="settings-pay-rate-leave-sheet">
+            <Text style={styles.heading}>Save changes before leaving?</Text>
+            <Text style={styles.body}>Your pay rate changes have not been saved.</Text>
+            <View style={styles.clockButtonRow}>
+              <Pressable accessibilityRole="button" onPress={() => void discardPayRateChanges()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Discard</Text></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => void saveAndLeavePayRate()} style={styles.actionButton}><Text style={styles.actionButtonText}>Save</Text></Pressable>
+            </View>
+          </SwipeDownSheet> : null}
         </View>
       ) : null}
 
@@ -487,6 +541,26 @@ const RATE_BASIS_OPTIONS: { id: AppSettings["rateBasis"]; label: string }[] = [
   { id: "daily", label: "Daily" },
   { id: "monthly", label: "Monthly" },
 ];
+
+type LunchChoice = "none" | "30" | "60" | "90" | "120" | "custom";
+
+const LUNCH_CHOICES: { id: LunchChoice; label: string; minutes: number | null }[] = [
+  { id: "none", label: "None", minutes: 0 },
+  { id: "30", label: "30 min", minutes: 30 },
+  { id: "60", label: "1 h", minutes: 60 },
+  { id: "90", label: "1.5 h", minutes: 90 },
+  { id: "120", label: "2 h", minutes: 120 },
+  { id: "custom", label: "Custom", minutes: null },
+];
+
+function lunchChoiceForMinutes(minutes: number): LunchChoice {
+  return LUNCH_CHOICES.find((choice) => choice.minutes === minutes)?.id ?? "custom";
+}
+
+function lunchChoiceLabel(choice: LunchChoice, minutes: string): string {
+  if (choice !== "custom") return LUNCH_CHOICES.find((item) => item.id === choice)?.label ?? "None";
+  return minutes ? `Custom (${minutes} min)` : "Custom";
+}
 
 function getCurrencyLabel(currency: string): string {
   const option = CURRENCY_OPTIONS.find((item) => item.code === currency);

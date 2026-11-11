@@ -47,7 +47,7 @@ test("Settings uses lime only for primary actions and the wordmark", () => {
     }
     if (!["SettingsScreen", "PlanBillingPanel"].includes(file)) assert.doesNotMatch(source, /styles.actionButton\b/);
   }
-  assert.equal((settings.match(/style=\{styles.actionButton\}/g) || []).length, 0);
+  assert.equal((settings.match(/style=\{styles.actionButton\}/g) || []).length, 1);
   assert.match(styles, /actionButton: \{[\s\S]*?height: control.height/);
 });
 
@@ -62,6 +62,17 @@ test("Pay retains its fields and saves the user's rate only when Save is pressed
   assert.match(settings, />Save<\/Text>/);
   assert.match(settings, /await saveWorkHours\(userId/);
   assert.match(settings, /setWorkHoursStatus\("Saved"\)/);
+});
+
+test("Pay rate uses a lunch picker and protects dirty changes before leaving", () => {
+  for (const label of ["None", "30 min", "1 h", "1.5 h", "2 h", "Custom"]) assert.match(settings, new RegExp(label));
+  assert.match(settings, /testID="settings-lunch-break"/);
+  assert.match(settings, /testID="settings-lunch-break-sheet"/);
+  assert.match(settings, /Custom lunch break minutes/);
+  assert.match(settings, /requestPayRateLeave/);
+  assert.match(settings, /Save changes before leaving\?/);
+  assert.match(settings, />Discard<\/Text>/);
+  assert.match(settings, /BackHandler\.addEventListener/);
 });
 
 test("Paid by options remain complete without between-option dividers", () => {
