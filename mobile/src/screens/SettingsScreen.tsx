@@ -176,6 +176,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }, [loadWorkHours]);
 
   async function handleSaveWorkHours() {
+    if (!paySettingsLoaded.current) return;
     try {
       const multiplier = Number.parseFloat(overtimeMultiplier);
       const offDayRate = Number.parseFloat(offDayMultiplier);
