@@ -22,6 +22,10 @@ jest.mock("../src/screens/PhotoEvidenceScreen", () => ({
 
 import { ProjectDetailScreen } from "../src/screens/ProjectDetailScreen";
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 test("project page renders only its picker and PDF action", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProjectDetailScreen.tsx"), "utf8");
   expect(source).toMatch(/testID="project-picker"/);
@@ -54,12 +58,30 @@ test("project picker opens a project sheet and selects another project", async (
   expect(onSelectProject).toHaveBeenCalledWith("project-2222");
 });
 
+test("delete opens the dark in-app archive dialog without a native alert", async () => {
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  await waitFor(() => screen.getByText("Delete project"));
+  fireEvent.press(screen.getByText("Delete project"));
+  expect(screen.getByTestId("archive-confirm-dialog")).toBeTruthy();
+  expect(alert).not.toHaveBeenCalled();
+});
+
+test("archive dialog cancel closes without changing the project", async () => {
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  await waitFor(() => screen.getByText("Delete project"));
+  fireEvent.press(screen.getByText("Delete project"));
+  fireEvent.press(screen.getByTestId("archive-confirm-cancel"));
+  expect(screen.queryByTestId("archive-confirm-dialog")).toBeNull();
+  expect(mockSetProjectStatus).not.toHaveBeenCalled();
+});
+
 test("archive confirmation persists and returns to the project list", async () => {
   const onSelectProject = jest.fn();
-  jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => buttons?.find((button) => button.text === "Archive")?.onPress?.());
   const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={onSelectProject} projectId="project-1111" />);
   await waitFor(() => screen.getByText("Delete project"));
   fireEvent.press(screen.getByText("Delete project"));
+  fireEvent.press(screen.getByTestId("archive-confirm-archive"));
   await waitFor(() => expect(mockSetProjectStatus).toHaveBeenCalledWith("u1", "project-1111", "archived"));
   expect(onSelectProject).toHaveBeenCalledWith("");
 });
@@ -67,10 +89,10 @@ test("archive confirmation persists and returns to the project list", async () =
 test("archive failure stays on detail and shows a visible error", async () => {
   mockSetProjectStatus.mockRejectedValueOnce(new Error("database unavailable"));
   const onSelectProject = jest.fn();
-  jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => buttons?.find((button) => button.text === "Archive")?.onPress?.());
   const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={onSelectProject} projectId="project-1111" />);
   await waitFor(() => screen.getByText("Delete project"));
   fireEvent.press(screen.getByText("Delete project"));
+  fireEvent.press(screen.getByTestId("archive-confirm-archive"));
   await waitFor(() => expect(screen.getByText("Could not archive this project. Try again.")).toBeTruthy());
   expect(onSelectProject).not.toHaveBeenCalled();
 });

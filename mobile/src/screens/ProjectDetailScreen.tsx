@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  Platform,
+  Modal,
   Pressable,
   Text,
   TextInput,
@@ -44,6 +43,8 @@ export function ProjectDetailScreen({
   const [groups, setGroups] = useState<ProjectGroup[]>([]);
   const [siteAddress, setSiteAddress] = useState("");
   const [actionError, setActionError] = useState("");
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const archiveExplanation = "The project is archived (hidden from lists and pickers), all shifts, photos and reports are kept, and it can be restored from the Archived filter.";
   async function refreshTasks() {
     const store = await getProjectScreenStore(userId);
     if ("listTasks" in store)
@@ -135,30 +136,17 @@ export function ProjectDetailScreen({
     }
   }
 
-  function confirmArchive() {
-    const message =
-      "The project is archived (hidden from lists and pickers), all shifts, photos and reports are kept, and it can be restored from the Archived filter.";
-    const archive = async () => {
-      try {
-        const store = await getProjectScreenStore(userId);
-        await store.setProjectStatus(userId, projectId, "archived");
-        setActionError("");
-        onSelectProject("");
-      } catch {
-        setActionError("Could not archive this project. Try again.");
-      }
-    };
-    if (Platform.OS === "web") {
-      if (globalThis.confirm(message)) void archive();
-    } else
-      Alert.alert("Delete project", message, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Archive",
-          style: "destructive",
-          onPress: () => void archive(),
-        },
-      ]);
+  async function archiveProject() {
+    try {
+      const store = await getProjectScreenStore(userId);
+      await store.setProjectStatus(userId, projectId, "archived");
+      setArchiveConfirmOpen(false);
+      setActionError("");
+      onSelectProject("");
+    } catch {
+      setArchiveConfirmOpen(false);
+      setActionError("Could not archive this project. Try again.");
+    }
   }
 
   return (
@@ -285,7 +273,7 @@ export function ProjectDetailScreen({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          onPress={confirmArchive}
+          onPress={() => setArchiveConfirmOpen(true)}
           style={styles.dangerButtonSecondary}
         >
           <Text style={styles.dangerButtonSecondaryText}>Delete project</Text>
@@ -296,6 +284,41 @@ export function ProjectDetailScreen({
           </Text>
         ) : null}
       </View>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setArchiveConfirmOpen(false)}
+        transparent
+        visible={archiveConfirmOpen}
+      >
+        <View style={styles.archiveModalBackdrop}>
+          <View
+            accessibilityRole="alert"
+            style={styles.archiveModalDialog}
+            testID="archive-confirm-dialog"
+          >
+            <Text style={styles.heading}>Delete project</Text>
+            <Text style={styles.body}>{archiveExplanation}</Text>
+            <View style={styles.archiveModalActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setArchiveConfirmOpen(false)}
+                style={styles.archiveModalCancel}
+                testID="archive-confirm-cancel"
+              >
+                <Text style={styles.archiveModalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void archiveProject()}
+                style={styles.dangerButton}
+                testID="archive-confirm-archive"
+              >
+                <Text style={styles.dangerButtonText}>Archive</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {tasksOpen ? (
         <TaskPickerSheet
           manage
