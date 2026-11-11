@@ -122,19 +122,31 @@ export function ProjectsScreen({
     }
   }
   useEffect(() => {
+    let mounted = true;
     void refresh();
-    void Location.requestForegroundPermissionsAsync()
-      .then((permission) =>
-        permission.granted
-          ? Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            })
-          : null,
-      )
-      .then((reading) => {
-        if (reading) setPosition(reading.coords);
-      })
-      .catch(() => undefined);
+    void (async () => {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (!permission.granted) return;
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        if (lastKnown && mounted) setPosition(lastKnown.coords);
+
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        const fresh = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<null>((resolve) => {
+            timeout = setTimeout(() => resolve(null), 10_000);
+          }),
+        ]);
+        if (timeout) clearTimeout(timeout);
+        if (fresh && mounted) setPosition(fresh.coords);
+      } catch {
+        // A cached location, if available, still keeps distance useful offline.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, [userId]);
   useEffect(() => {
     const subscription = BackHandler.addEventListener(

@@ -11,6 +11,7 @@ const mockSetProjectStatus = jest.fn(async (_userId: string, projectId: string, 
   summaries = summaries.map((project) => project.id === projectId ? { ...project, status } : project);
 });
 let resolvePosition: (value: unknown) => void;
+const mockLastKnownPosition = jest.fn();
 
 jest.mock("expo-speech-recognition", () => ({
   ExpoSpeechRecognitionModule: { isRecognitionAvailable: () => false, requestPermissionsAsync: jest.fn(), start: jest.fn(), stop: jest.fn() },
@@ -19,6 +20,7 @@ jest.mock("expo-speech-recognition", () => ({
 jest.mock("expo-location", () => ({
   Accuracy: { Balanced: 3 },
   requestForegroundPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  getLastKnownPositionAsync: (...args: unknown[]) => mockLastKnownPosition(...args),
   getCurrentPositionAsync: jest.fn(() => new Promise((resolve) => { resolvePosition = resolve; })),
 }));
 jest.mock("../src/subscription/useSubscriptionAccess", () => ({
@@ -50,6 +52,22 @@ beforeEach(() => {
     { id: "archived-1", name: "Old warehouse", status: "archived", projectStatus: "completed", siteAddress: "1 Pioneer Road", siteLatitude: null, siteLongitude: null, latestPhotoUri: null },
   ];
   jest.clearAllMocks();
+  mockLastKnownPosition.mockResolvedValue(null);
+});
+
+test("project card shows distance from the last known location without a fresh fix", async () => {
+  mockLastKnownPosition.mockResolvedValue({ coords: { latitude: 1.29, longitude: 103.85 } });
+  const screen = renderProjects();
+  await waitFor(() => expect(mockLastKnownPosition).toHaveBeenCalled());
+  expect(await screen.findByText("1.1 km")).toBeTruthy();
+});
+
+test("a fresh location updates the last known distance", async () => {
+  mockLastKnownPosition.mockResolvedValue({ coords: { latitude: 1.29, longitude: 103.85 } });
+  const screen = renderProjects();
+  expect(await screen.findByText("1.1 km")).toBeTruthy();
+  resolvePosition({ coords: { latitude: 1.3, longitude: 103.85 } });
+  expect(await screen.findByText("0 m")).toBeTruthy();
 });
 
 test("project card keeps its site address and adds distance when current location arrives", async () => {
