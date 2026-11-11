@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import type { LocalAccount } from "../auth/localAuth";
 import type {
-  ProjectGroup,
   WorkEntry,
   WorkProject,
   WorkTask,
@@ -44,7 +43,6 @@ export function ProjectDetailScreen({
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [tasksOpen, setTasksOpen] = useState(false);
   const [entries, setEntries] = useState<WorkEntry[]>([]);
-  const [groups, setGroups] = useState<ProjectGroup[]>([]);
   const [siteAddress, setSiteAddress] = useState("");
   const [actionError, setActionError] = useState("");
   const [siteNotice, setSiteNotice] = useState(initialSiteNotice ?? "");
@@ -77,35 +75,6 @@ export function ProjectDetailScreen({
   useEffect(() => {
     void refreshEntries();
   }, [projectId, userId]);
-  useEffect(() => {
-    void getProjectScreenStore(userId)
-      .then(
-        (store) =>
-          (
-            store as typeof store & {
-              listProjectGroups?: (id: string) => Promise<ProjectGroup[]>;
-            }
-          ).listProjectGroups?.(userId) ?? [],
-      )
-      .then(setGroups);
-  }, [projectId, userId]);
-
-  async function assignGroup(groupId: string | null) {
-    try {
-      const store = await getProjectScreenStore(userId);
-      if (
-        !("assignProjectGroup" in store) ||
-        typeof store.assignProjectGroup !== "function"
-      )
-        throw new Error("Project groups are unavailable.");
-      await store.assignProjectGroup(userId, projectId, groupId);
-      setProject((current) => (current ? { ...current, groupId } : current));
-      setActionError("");
-    } catch {
-      setActionError("Could not update the project group. Try again.");
-    }
-  }
-
   async function saveDiscovery(status = project?.projectStatus ?? "active") {
     try {
       const store = await getProjectScreenStore(userId);
@@ -195,44 +164,6 @@ export function ProjectDetailScreen({
             testID="project-detail-picker-sheet"
           />
         ) : null}
-        <Text style={styles.inputLabel}>Group</Text>
-        <View style={styles.chipRow}>
-          <Pressable
-            onPress={() => void assignGroup(null)}
-            style={!project?.groupId ? styles.chipSelected : styles.chip}
-          >
-            <Text
-              style={
-                !project?.groupId
-                  ? styles.selectedSecondaryText
-                  : styles.chipText
-              }
-            >
-              None
-            </Text>
-          </Pressable>
-          {groups.map((group) => (
-            <Pressable
-              key={group.id}
-              onPress={() => void assignGroup(group.id)}
-              style={
-                project?.groupId === group.id
-                  ? styles.chipSelected
-                  : styles.chip
-              }
-            >
-              <Text
-                style={
-                  project?.groupId === group.id
-                    ? styles.selectedSecondaryText
-                    : styles.chipText
-                }
-              >
-                {group.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
         <Text style={styles.inputLabel}>Site address</Text>
         <TextInput
           accessibilityLabel="Site address"

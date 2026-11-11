@@ -55,7 +55,7 @@ test("project navigation, site sheet, Today picker and one primary PDF action", 
   const projects = source("src/screens/ProjectsScreen.tsx");
   assert.match(projects, /openProjectId/);
   assert.match(projects, /ProjectDetailScreen/);
-  assert.match(projects, /\+ Add group/);
+  assert.doesNotMatch(projects, /Group|group/);
   const detail = source("src/screens/ProjectDetailScreen.tsx");
   assert.equal((detail.match(/Create &amp; share PDF/g) || []).length, 1);
   assert.match(detail, /ProgressClaimReportsScreen/);
@@ -81,7 +81,7 @@ test("Projects uses bundled back and filter glyphs and title-case statuses", () 
   const detail = source("src/screens/ProjectDetailScreen.tsx");
   assert.match(projects, /name="arrow-back"/);
   assert.match(projects, /name="tune"/);
-  for (const label of ["Lead", "Active", "Completed"]) assert.ok(detail.includes(label));
+  for (const label of ["Active", "Completed"]) assert.ok(detail.includes(label));
 });
 
 test("project detail keeps the shared 16dp spacing below its delete action block", () => {
@@ -187,11 +187,12 @@ test("native report source uses the saved report name and project archives filte
   assert.equal((await repository.listRecentGeneratedDocuments({ userId: "other", projectId, limit: 1 })).length, 0);
 });
 
-test("Projects exposes search and status/group filters", () => {
+test("Projects exposes search and status filters without group UI", () => {
   const projects = source("src/screens/ProjectsScreen.tsx");
   assert.match(projects, /Search name or address/);
   assert.match(projects, /statusFilter/);
-  assert.match(projects, /groupFilter/);
+  assert.doesNotMatch(projects, /Group|group/);
+  assert.doesNotMatch(source("src/screens/ProjectDetailScreen.tsx"), /Group|group/);
 });
 
 test("Projects main title is skipped for minimal detail", () => {

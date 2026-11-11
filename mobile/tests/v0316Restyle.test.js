@@ -14,12 +14,11 @@ test("Settings uses a real profile card, grouped rows, and outlined logout", () 
   assert.doesNotMatch(row, /borderTopWidth|borderBottomWidth/);
 });
 
-test("Projects layout exposes real tabs, search, filters and groups without a dead mic", () => {
+test("Projects layout exposes search and filters without a dead mic", () => {
   const screen = read("src/screens/ProjectsScreen.tsx");
   assert.match(screen, /Search name or address/);
   assert.match(screen, /Filter projects/);
-  assert.match(screen, /\+ Add group/);
-  assert.match(screen, /listProjectGroups/);
+  assert.doesNotMatch(screen, /Group|group/);
   assert.match(screen, /Search projects by voice/);
   assert.match(screen, /requestPermissionsAsync/);
   assert.match(screen, /isRecognitionAvailable/);

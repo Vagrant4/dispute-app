@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import type { LocalAccount } from "../auth/localAuth";
-import type { ProjectGroup, ProjectSummary } from "../work/workRepository";
+import type { ProjectSummary } from "../work/workRepository";
 import {
   currentWeekStart,
   getProjectScreenStore,
@@ -32,11 +32,6 @@ import { projectAddressLabel } from "../work/projectAddress";
 import { ProjectNameSheet } from "./ProjectNameSheet";
 import { ProjectDetailScreen } from "./ProjectDetailScreen";
 import { SwipeDownSheet } from "../components/SwipeDownSheet";
-
-type ProjectStore = Awaited<ReturnType<typeof getProjectScreenStore>> & {
-  listProjectGroups?: (userId: string) => Promise<ProjectGroup[]>;
-  addProjectGroup?: (userId: string, name: string) => Promise<ProjectGroup>;
-};
 
 export function voiceSearchErrorMessage(code?: string) {
   switch (code) {
@@ -68,8 +63,6 @@ export function ProjectsScreen({
   const userId = account.id ?? account.email.trim().toLowerCase();
   const access = useSubscriptionAccess(account);
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
-  const [groups, setGroups] = useState<ProjectGroup[]>([]);
-  const [tab, setTab] = useState<"projects" | "groups">("projects");
   const [query, setQuery] = useState("");
   const [speechAvailable] = useState(() =>
     ExpoSpeechRecognitionModule.isRecognitionAvailable(),
@@ -81,10 +74,7 @@ export function ProjectsScreen({
   const [statusFilter, setStatusFilter] = useState<
     ProjectStatus | "all" | "archived"
   >("all");
-  const [groupFilter, setGroupFilter] = useState<string | "all">("all");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [groupOpen, setGroupOpen] = useState(false);
   const [position, setPosition] = useState<{
     latitude: number;
     longitude: number;
@@ -124,13 +114,8 @@ export function ProjectsScreen({
 
   async function refresh() {
     try {
-      const store = (await getProjectScreenStore(userId)) as ProjectStore;
-      const [nextProjects, nextGroups] = await Promise.all([
-        store.listProjectSummaries(userId, currentWeekStart()),
-        store.listProjectGroups?.(userId) ?? Promise.resolve([]),
-      ]);
-      setSummaries(nextProjects);
-      setGroups(nextGroups);
+      const store = await getProjectScreenStore(userId);
+      setSummaries(await store.listProjectSummaries(userId, currentWeekStart()));
     } catch {
       setError("Could not load projects.");
     }
@@ -207,16 +192,6 @@ export function ProjectsScreen({
     );
     setOpenProjectId(project.id);
   }
-  async function addGroup() {
-    const name = groupName.trim();
-    if (!name) return;
-    const store = (await getProjectScreenStore(userId)) as ProjectStore;
-    await store.addProjectGroup?.(userId, name);
-    setGroupName("");
-    setGroupOpen(false);
-    await refresh();
-  }
-
   const visible = useMemo(() => {
     const rows = summaries.filter((project) =>
       statusFilter === "archived"
@@ -227,9 +202,8 @@ export function ProjectsScreen({
       rows,
       query,
       statusFilter === "archived" ? "all" : statusFilter,
-      groupFilter,
     );
-  }, [summaries, query, statusFilter, groupFilter]);
+  }, [summaries, query, statusFilter]);
   if (openProjectId)
     return (
       <ProjectDetailScreen
@@ -335,30 +309,7 @@ export function ProjectsScreen({
         ) : null}
         <Text style={styles.screenTitle}>Projects</Text>
       </View>
-      <View style={styles.projectTabs}>
-        {(["projects", "groups"] as const).map((item) => (
-          <Pressable
-            key={item}
-            onPress={() => setTab(item)}
-            style={[
-              styles.projectTab,
-              tab === item && styles.projectTabSelected,
-            ]}
-          >
-            <Text
-              style={
-                tab === item
-                  ? styles.projectTabTextSelected
-                  : styles.projectTabText
-              }
-            >
-              {item[0].toUpperCase() + item.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {tab === "projects" ? (
-        <>
+      <>
           <View style={styles.projectSearchRow}>
             <View style={styles.projectSearchContainer}>
               <TextInput
@@ -405,28 +356,7 @@ export function ProjectsScreen({
           >
             <Text style={styles.actionButtonSecondaryText}>+ Add project</Text>
           </Pressable>
-        </>
-      ) : (
-        <>
-          <Pressable
-            onPress={() => setGroupOpen(true)}
-            style={styles.actionButtonSecondary}
-          >
-            <Text style={styles.actionButtonSecondaryText}>+ Add group</Text>
-          </Pressable>
-          {groups.map((group) => (
-            <View key={group.id} style={styles.projectGroup}>
-              <Text style={styles.heading}>{group.name}</Text>
-              {summaries
-                .filter((project) => project.groupId === group.id)
-                .map(card)}
-              {!summaries.some((project) => project.groupId === group.id) ? (
-                <Text style={styles.muted}>No projects assigned.</Text>
-              ) : null}
-            </View>
-          ))}
-        </>
-      )}
+      </>
       {creating ? (
         <ProjectNameSheet onSave={create} onClose={() => setCreating(false)} />
       ) : null}
@@ -462,50 +392,6 @@ export function ProjectsScreen({
             ),
           )}
         </View>
-        <Text style={styles.inputLabel}>Group</Text>
-        <View style={styles.chipRow}>
-          {[{ id: "all", name: "All" }, ...groups].map((group) => (
-            <Pressable
-              key={group.id}
-              onPress={() => setGroupFilter(group.id)}
-              style={
-                groupFilter === group.id ? styles.chipSelected : styles.chip
-              }
-            >
-              <Text
-                style={
-                  groupFilter === group.id
-                    ? styles.selectedSecondaryText
-                    : styles.chipText
-                }
-              >
-                {group.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </SwipeDownSheet>
-      <SwipeDownSheet
-        visible={groupOpen}
-        backdropStyle={styles.projectSheetBackdrop}
-        sheetStyle={styles.projectSheet}
-        onClose={() => setGroupOpen(false)}
-      >
-        <Text style={styles.heading}>Add group</Text>
-        <TextInput
-          accessibilityLabel="Group name"
-          onChangeText={setGroupName}
-          placeholder="Group name"
-          placeholderTextColor={theme.colors.placeholder}
-          style={styles.textInput}
-          value={groupName}
-        />
-        <Pressable
-          onPress={() => void addGroup()}
-          style={styles.actionButtonSecondary}
-        >
-          <Text style={styles.actionButtonSecondaryText}>Save group</Text>
-        </Pressable>
       </SwipeDownSheet>
     </View>
   );
