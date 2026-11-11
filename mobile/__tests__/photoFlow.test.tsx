@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Platform } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
 
@@ -41,6 +41,7 @@ jest.mock("../src/subscription/useSubscriptionAccess", () => ({ useSubscriptionA
 jest.mock("../src/db/repositories", () => ({ getLocalRepositories: (...args: unknown[]) => mockGetLocalRepositories(...args) }));
 
 import { PhotoEvidenceScreen } from "../src/screens/PhotoEvidenceScreen";
+import { styles } from "../src/styles";
 
 beforeEach(() => {
   mockSavedRows = [];
@@ -65,6 +66,19 @@ test("camera asset shows proof preview, saves, and appears in the list", async (
   expect(screen.getByLabelText(/Open photo:/)).toBeTruthy();
   expect(screen.getByTestId("photo-seal-icon")).toBeTruthy();
   expect(screen.getByTestId("photo-delete-icon")).toBeTruthy();
+});
+
+test("camera proof sheet puts full-size gallery, save, and cancel actions in order", async () => {
+  mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => expect(screen.getByLabelText("Take photo")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Take photo"));
+  const proofSheet = await screen.findByTestId("photo-proof-sheet");
+  const actionLabels = proofSheet.findAll((node) => ["Import from gallery", "Save", "Cancel"].includes(node.props.children)).map((node) => node.props.children).filter((label, index, labels) => label !== labels[index - 1]);
+
+  expect(actionLabels).toEqual(["Import from gallery", "Save", "Cancel"]);
+  expect(StyleSheet.flatten(screen.getByText("Cancel").parent?.parent?.props.style)).toMatchObject(StyleSheet.flatten(styles.actionButtonSecondary));
+  expect(StyleSheet.flatten(screen.getByText("Cancel").props.style)).toMatchObject(StyleSheet.flatten(styles.actionButtonSecondaryText));
 });
 
 test("camera action renders a camera glyph instead of a bare dot", async () => {
@@ -132,6 +146,8 @@ test("seal failure shows Retry and retry succeeds without retaking", async () =>
   await waitFor(() => screen.getByText("Save"));
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(screen.getByText("Retry")).toBeTruthy());
+  const actionLabels = screen.getByTestId("photo-proof-sheet").findAll((node) => ["Import from gallery", "Save", "Retry", "Cancel"].includes(node.props.children)).map((node) => node.props.children).filter((label, index, labels) => label !== labels[index - 1]);
+  expect(actionLabels).toEqual(["Import from gallery", "Save", "Retry", "Cancel"]);
   fireEvent.press(screen.getByText("Retry"));
   await waitFor(() => expect(screen.getByText("Photo saved.")).toBeTruthy());
 });
