@@ -52,7 +52,7 @@ function fromRow(row: AppSettingsRow): AppSettings {
     offDayMultiplier: row.off_day_multiplier ?? 2,
     holidayMultiplier: row.holiday_multiplier ?? 2,
     lunchMinutes: row.lunch_minutes ?? 0,
-    status: row.status,
+    status: row.status ?? "active",
     lockHash: row.lock_hash,
     lockedAt: row.locked_at,
   });
