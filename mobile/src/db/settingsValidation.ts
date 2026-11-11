@@ -167,7 +167,7 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
   return settings;
 }
 
-function isValidClockTime(value: string): boolean {
+export function isValidClockTime(value: string): boolean {
   if (!/^\d{2}:\d{2}$/.test(value)) {
     return false;
   }

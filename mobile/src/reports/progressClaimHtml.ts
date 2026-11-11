@@ -180,7 +180,7 @@ function photoReferenceLabel(uri: string): string {
 function formatEnteredRate(snapshot: ProgressClaimSnapshot): string {
   const { baseRateCents, currency, hourlyRateCents, rateBasis, dailyNormalMinutes } = snapshot.rateCalculation;
   const enteredCents = Number.isFinite(baseRateCents) ? baseRateCents : hourlyRateCents;
-  if (rateBasis === "daily") return `${formatMoney(enteredCents, currency)} per day → ${formatMoney(hourlyRateCents, currency)}/h (${formatHoursAndMinutes(dailyNormalMinutes)} paid)`;
+  if (rateBasis === "daily") return `${formatMoney(enteredCents, currency)} per day ${String.fromCharCode(0x2192)} ${formatMoney(hourlyRateCents, currency)}/h (${formatHoursAndMinutes(dailyNormalMinutes).replace(" h", " paid h")})`;
   return `${formatMoney(enteredCents, currency)} per ${rateBasis === "monthly" ? "month" : "hour"}`;
 }
 

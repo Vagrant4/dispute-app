@@ -163,6 +163,39 @@ test("own rate saves only when Save is pressed and persists across a remount", a
   await waitFor(() => expect(remounted.getByTestId("pay-rate-own-rate").props.value).toBe("150"));
 });
 
+test("dinner settings default from normal end, save, validate, and participate in the leave guard", async () => {
+  const screen = render(<SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />);
+  await waitFor(() => expect(screen.getByLabelText("Normal work start time").props.value).toBe("09:00"));
+  fireEvent.press(screen.getByTestId("settings-dinner-break"));
+  fireEvent.press(screen.getByTestId("settings-dinner-60"));
+  expect(screen.getByLabelText("Dinner start time").props.value).toBe("19:00");
+  fireEvent.changeText(screen.getByLabelText("Dinner start time"), "18:00");
+  expect(screen.getByRole("button", { name: "Save" }).props.accessibilityState.disabled).toBe(false);
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
+  await waitFor(() => expect(mockSaveWorkHours).toHaveBeenCalledWith("u1", expect.objectContaining({ dinnerMinutes: 60, dinnerStartTime: "18:00" })));
+  await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Dinner start time"), "25:00");
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
+  await waitFor(() => expect(screen.getByText("Dinner start time must be HH:MM.")).toBeTruthy());
+  expect(mockSaveWorkHours).toHaveBeenCalledTimes(1);
+  fireEvent.changeText(screen.getByLabelText("Dinner start time"), "18:00");
+  fireEvent.press(screen.getByRole("button", { name: /Settings/ }));
+  expect(screen.getByTestId("settings-pay-rate-leave-sheet")).toBeTruthy();
+  fireEvent.press(screen.getByText("Discard"));
+  await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
+});
+
+test("custom dinner outside 1–240 minutes is not saved", async () => {
+  const screen = render(<SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />);
+  await waitFor(() => expect(screen.getByLabelText("Normal work start time").props.value).toBe("09:00"));
+  fireEvent.press(screen.getByTestId("settings-dinner-break"));
+  fireEvent.press(screen.getByTestId("settings-dinner-custom"));
+  fireEvent.changeText(screen.getByLabelText("Custom dinner break minutes"), "241");
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
+  await waitFor(() => expect(screen.getByText(/Custom dinner break must be 1.*240 minutes\./)).toBeTruthy());
+  expect(mockSaveWorkHours).not.toHaveBeenCalled();
+});
+
 test("dirty leave offers Discard or Save before returning to Settings", async () => {
   const screen = render(
     <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,

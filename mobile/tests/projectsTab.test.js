@@ -132,20 +132,28 @@ test("pay preferences distinguish default reads from saves, survive backup and r
   assert.deepEqual(columns(db), columns(migrated));
 });
 
-test("0.3.25 app settings upgrade adds lunch minutes before settings are saved", async () => {
+test("fresh installs save and load dinner settings from the current CREATE TABLE schema", async () => {
+  const load = createLoader();
+  const { MOBILE_SCHEMA_SQL } = load("src/db/schema.ts");
+  const database = sqliteDatabase();
+  database.sqlite.exec(MOBILE_SCHEMA_SQL);
+  const settings = new (load("src/db/settingsRepository.ts").SettingsRepository)(database);
+  await settings.updateSettings({ dinnerMinutes: 60, dinnerStartTime: "18:00" }, "fresh-user");
+  assert.deepEqual([(await settings.getSettings("fresh-user")).dinnerMinutes, (await settings.getSettings("fresh-user")).dinnerStartTime], [60, "18:00"]);
+});
+
+test("0.3.26 settings upgrade preserves lunch and adds default dinner columns", async () => {
   const load = createLoader();
   const { LOCAL_MIGRATIONS } = load("src/db/schema.ts");
   const database = sqliteDatabase();
-  // Version 13 is the 0.3.25-shaped database, before report_lunch.
-  for (const migration of LOCAL_MIGRATIONS.filter((migration) => migration.version < 14)) database.sqlite.exec(migration.sql);
-  database.sqlite.exec(LOCAL_MIGRATIONS.find((migration) => migration.version === 14).sql);
+  for (const migration of LOCAL_MIGRATIONS.filter((migration) => migration.version < 15)) database.sqlite.exec(migration.sql);
+  database.sqlite.prepare("INSERT INTO app_settings (id, user_id, currency, daily_hours, weekly_hours, overtime_multiplier, lunch_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)").run("settings:upgrade", "upgraded-user", "SGD", 8, 44, 1.5, 60);
   database.sqlite.exec(LOCAL_MIGRATIONS.find((migration) => migration.version === 15).sql);
   const settings = new (load("src/db/settingsRepository.ts").SettingsRepository)(database);
-  const saved = await settings.updateSettings({ lunchMinutes: 60 }, "upgraded-user");
-  assert.equal(saved.lunchMinutes, 60);
-  assert.equal((await settings.getSettings("upgraded-user")).lunchMinutes, 60);
-  const dinner = await settings.updateSettings({ dinnerMinutes: 60, dinnerStartTime: "18:00" }, "upgraded-user");
-  assert.deepEqual([dinner.dinnerMinutes, dinner.dinnerStartTime], [60, "18:00"]);
+  const upgraded = await settings.getSettings("upgraded-user");
+  assert.deepEqual([upgraded.lunchMinutes, upgraded.dinnerMinutes, upgraded.dinnerStartTime], [60, 0, null]);
+  await settings.updateSettings({ dinnerMinutes: 60, dinnerStartTime: "18:00" }, "upgraded-user");
+  assert.deepEqual([(await settings.getSettings("upgraded-user")).dinnerMinutes, (await settings.getSettings("upgraded-user")).dinnerStartTime], [60, "18:00"]);
 });
 
 test("web shared work-hours save persists multipliers and the saved report name", async () => {

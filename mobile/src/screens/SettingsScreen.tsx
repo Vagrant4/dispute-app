@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
-import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
+import { DEFAULT_APP_SETTINGS, isValidClockTime, type AppSettings } from "../db/settingsValidation";
 import { saveWorkHours, loadWorkHours as loadSavedWorkHours, calculateNormalHours } from "../work/workHoursSettings";
 import { styles, theme } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
@@ -202,6 +202,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       return false;
     }
     if (dinnerChoice === "custom" && (parsedDinnerMinutes < 1 || parsedDinnerMinutes > 240)) { setWorkHoursStatus("Custom dinner break must be 1–240 minutes."); return false; }
+    if (parsedDinnerMinutes && !isValidClockTime(dinnerStart)) { setWorkHoursStatus("Dinner start time must be HH:MM."); return false; }
     try {
       const multiplier = Number.parseFloat(overtimeMultiplier);
       const offDayRate = Number.parseFloat(offDayMultiplier);
