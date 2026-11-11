@@ -216,7 +216,7 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  activity TEXT NOT NULL,\n  day_type TEXT NOT NULL DEFAULT 'normal',\n  status TEXT NOT NULL DEFAULT 'draft',",
 ).replace(
   "  overtime_multiplier REAL NOT NULL,\n  status TEXT NOT NULL DEFAULT 'active',",
-  "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  status TEXT NOT NULL DEFAULT 'active',",
+  "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  lunch_minutes INTEGER NOT NULL DEFAULT 0,\n  status TEXT NOT NULL DEFAULT 'active',",
 ).replace(
   "  overtime_multiplier REAL NOT NULL,\n  rate_basis",
   "  work_hours_saved INTEGER NOT NULL DEFAULT 0,\n  report_name TEXT,\n  overtime_multiplier REAL NOT NULL,\n  rate_basis",

@@ -132,6 +132,19 @@ test("pay preferences distinguish default reads from saves, survive backup and r
   assert.deepEqual(columns(db), columns(migrated));
 });
 
+test("0.3.25 app settings upgrade adds lunch minutes before settings are saved", async () => {
+  const load = createLoader();
+  const { LOCAL_MIGRATIONS } = load("src/db/schema.ts");
+  const database = sqliteDatabase();
+  // Version 13 is the 0.3.25-shaped database, before report_lunch.
+  for (const migration of LOCAL_MIGRATIONS.filter((migration) => migration.version < 14)) database.sqlite.exec(migration.sql);
+  database.sqlite.exec(LOCAL_MIGRATIONS.find((migration) => migration.version === 14).sql);
+  const settings = new (load("src/db/settingsRepository.ts").SettingsRepository)(database);
+  const saved = await settings.updateSettings({ lunchMinutes: 60 }, "upgraded-user");
+  assert.equal(saved.lunchMinutes, 60);
+  assert.equal((await settings.getSettings("upgraded-user")).lunchMinutes, 60);
+});
+
 test("web shared work-hours save persists multipliers and the saved report name", async () => {
   const values = new Map();
   global.localStorage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };

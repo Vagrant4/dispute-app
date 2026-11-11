@@ -430,7 +430,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           />
           <Text style={styles.inputLabel}>Lunch break (minutes)</Text>
           <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Lunch break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setLunchMinutes} placeholder="0" style={styles.textInput} value={lunchMinutes} />
-          <Pressable testID="settings-pay-rate-save" accessibilityRole="button" accessibilityState={{ disabled: !isPayRateDirty() }} disabled={!isPayRateDirty()} onPress={() => void handleSaveWorkHours()} style={[styles.clockPrimaryButton, !isPayRateDirty() ? styles.disabledButton : null]}><Text style={[styles.clockPrimaryButtonText, !isPayRateDirty() ? styles.disabledButtonText : null]}>Save</Text></Pressable>
+          <Pressable testID="settings-pay-rate-save" accessibilityRole="button" accessibilityState={{ disabled: !isPayRateDirty() }} disabled={!isPayRateDirty()} onPress={() => void handleSaveWorkHours()} style={[styles.actionButton, !isPayRateDirty() ? styles.disabledButton : null]}><Text style={[styles.actionButtonText, !isPayRateDirty() ? styles.disabledButtonText : null]}>Save</Text></Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
         </View>
       ) : null}

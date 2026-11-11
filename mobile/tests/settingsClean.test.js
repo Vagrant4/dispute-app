@@ -51,13 +51,15 @@ test("Settings uses lime only for primary actions and the wordmark", () => {
   assert.match(styles, /actionButton: \{[\s\S]*?height: control.height/);
 });
 
-test("Pay retains its fields and autosaves the user's rate with the concise explanation", () => {
+test("Pay retains its fields and saves the user's rate only when Save is pressed", () => {
   assert.ok(settings.includes("Set your normal hours and rates. Overtime, off-day and holiday rates apply automatically."));
   for (const label of ["Base rate amount", "Normal work start time", "Normal work end time", "Overtime rate multiplier", "Off day rate multiplier", "Holiday rate multiplier", "Currency dropdown", "Rate entry type dropdown"]) assert.ok(settings.includes(`accessibilityLabel="${label}"`));
   assert.match(settings, /testID="pay-rate-own-rate"/);
-  assert.match(settings, /onBlur=\{\(\) => void handleSaveWorkHours\(\)\}/);
-  assert.match(settings, /setTimeout\(\(\) => void handleSaveWorkHours\(\), 600\)/);
-  assert.doesNotMatch(settings, />Save<\/Text>/);
+  assert.doesNotMatch(settings, /onBlur=\{\(\) => void handleSaveWorkHours\(\)\}/);
+  assert.doesNotMatch(settings, /setTimeout\(\(\) => void handleSaveWorkHours\(\), 600\)/);
+  assert.match(settings, /testID="settings-pay-rate-save"/);
+  assert.match(settings, /disabled=\{!isPayRateDirty\(\)\}/);
+  assert.match(settings, />Save<\/Text>/);
   assert.match(settings, /await saveWorkHours\(userId/);
   assert.match(settings, /setWorkHoursStatus\("Saved"\)/);
 });
