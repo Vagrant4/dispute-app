@@ -268,7 +268,7 @@ export function ProjectsScreen({
           <Pressable
             accessibilityRole="button"
             onPress={async (event) => {
-              event.stopPropagation();
+              event?.stopPropagation();
               const store = await getProjectScreenStore(userId);
               await store.setProjectStatus(userId, project.id, "active");
               await refresh();
