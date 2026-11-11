@@ -238,6 +238,7 @@ test("updateSettings uses id and user scoped update parameters", async () => {
     1.5,
     2.25,
     3,
+    0,
     "settings:user-a",
     "user-a",
   ]);
