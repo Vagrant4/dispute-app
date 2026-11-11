@@ -58,19 +58,19 @@ export function buildProgressClaimSnapshot(
     overtimeMultiplier, offDayMultiplier, holidayMultiplier,
   }));
   const totalNormalMinutes = paidDailyWorkLog.reduce(
-    (sum, item) => sum + Math.round(item.normalHours * 60),
+    (sum, item) => sum + item.normalMinutes,
     0,
   );
   const totalOvertimeMinutes = paidDailyWorkLog.reduce(
-    (sum, item) => sum + Math.round(item.overtimeHours * 60),
+    (sum, item) => sum + item.overtimeMinutes,
     0,
   );
   const totalOffDayMinutes = paidDailyWorkLog.reduce(
-    (sum, item) => sum + Math.round(item.offDayHours * 60),
+    (sum, item) => sum + item.offDayMinutes,
     0,
   );
   const totalHolidayMinutes = paidDailyWorkLog.reduce(
-    (sum, item) => sum + Math.round(item.holidayHours * 60),
+    (sum, item) => sum + item.holidayMinutes,
     0,
   );
   const allowancesCents = input.pay?.allowancesCents ?? 0;
@@ -113,6 +113,10 @@ export function buildProgressClaimSnapshot(
     },
     totals: {
       totalDaysWorked: paidDailyWorkLog.length,
+      totalNormalMinutes,
+      totalOvertimeMinutes,
+      totalOffDayMinutes,
+      totalHolidayMinutes,
       totalNormalHours: minutesToHours(totalNormalMinutes),
       totalOvertimeHours: minutesToHours(totalOvertimeMinutes),
       totalOffDayHours: minutesToHours(totalOffDayMinutes),
@@ -191,6 +195,10 @@ function buildDailyWorkLog(
       return {
         workDate,
         activity: entries.map((entry) => entry.activity).join("; "),
+        normalMinutes,
+        overtimeMinutes,
+        offDayMinutes,
+        holidayMinutes,
         normalHours: minutesToHours(normalMinutes),
         overtimeHours: minutesToHours(overtimeMinutes),
         offDayHours: minutesToHours(offDayMinutes),
@@ -243,16 +251,15 @@ function addDailyPay(
     holidayMultiplier: number;
   },
 ): DailyWorkLogItem {
-  const pay = (hours: number, multiplier: number) => {
-    const minutes = Math.round(hours * 60);
+  const pay = (minutes: number, multiplier: number) => {
     return rate.rateBasis === "daily"
       ? Math.round((minutes * rate.baseRateCents * multiplier) / rate.normalRangeMinutes)
       : calculatePayCents(minutes, rate.hourlyRateCents, multiplier);
   };
-  const basicPayCents = pay(day.normalHours, 1);
-  const overtimePayCents = pay(day.overtimeHours, rate.overtimeMultiplier);
-  const offDayPayCents = pay(day.offDayHours, rate.offDayMultiplier);
-  const holidayPayCents = pay(day.holidayHours, rate.holidayMultiplier);
+  const basicPayCents = pay(day.normalMinutes, 1);
+  const overtimePayCents = pay(day.overtimeMinutes, rate.overtimeMultiplier);
+  const offDayPayCents = pay(day.offDayMinutes, rate.offDayMultiplier);
+  const holidayPayCents = pay(day.holidayMinutes, rate.holidayMultiplier);
   return {
     ...day,
     basicPayCents,

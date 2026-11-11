@@ -103,6 +103,10 @@ export type ProgressClaimSnapshotInput = {
 export type DailyWorkLogItem = {
   workDate: string;
   activity: string;
+  normalMinutes: number;
+  overtimeMinutes: number;
+  offDayMinutes: number;
+  holidayMinutes: number;
   normalHours: number;
   overtimeHours: number;
   offDayHours: number;
@@ -133,6 +137,10 @@ export type WorkLocationSnapshot = {
 
 export type ProgressClaimTotals = {
   totalDaysWorked: number;
+  totalNormalMinutes: number;
+  totalOvertimeMinutes: number;
+  totalOffDayMinutes: number;
+  totalHolidayMinutes: number;
   totalNormalHours: number;
   totalOvertimeHours: number;
   totalOffDayHours: number;

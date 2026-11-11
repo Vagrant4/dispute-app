@@ -84,7 +84,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Hourly rate", snapshot.rateCalculation.hourlyRateCents > 0 ? `${formatMoney(snapshot.rateCalculation.hourlyRateCents, snapshot.rateCalculation.currency)}/h` : "Rate not set"],
     ["Entered rate", formatEnteredRate(snapshot)],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
-    ["Normal hours from range", String(snapshot.rateCalculation.dailyNormalMinutes / 60)],
+    ["Normal hours from range", formatHoursAndMinutes(snapshot.rateCalculation.dailyNormalMinutes)],
     ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${formatLunch(snapshot.rateCalculation.lunchMinutes)}, window ${lunchWindow(snapshot.rateCalculation.normalWorkStartTime, snapshot.rateCalculation.normalWorkEndTime, snapshot.rateCalculation.lunchMinutes)}; deducted when the clocked time covers the window or the day is longer than lunch + 4 h` : "None"],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
     ["Off day multiplier", String(snapshot.rateCalculation.offDayMultiplier)],
@@ -96,10 +96,10 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <h2>Pay Summary</h2>
   ${detailsTable([
     ["Days worked", String(snapshot.totals.totalDaysWorked)],
-    ["Normal hours", String(snapshot.totals.totalNormalHours)],
-    ["Overtime hours", String(snapshot.totals.totalOvertimeHours)],
-    ["Off day hours", String(snapshot.totals.totalOffDayHours)],
-    ["Holiday hours", String(snapshot.totals.totalHolidayHours)],
+    ["Normal hours", formatHoursAndMinutes(snapshot.totals.totalNormalMinutes)],
+    ["Overtime hours", formatHoursAndMinutes(snapshot.totals.totalOvertimeMinutes)],
+    ["Off day hours", formatHoursAndMinutes(snapshot.totals.totalOffDayMinutes)],
+    ["Holiday hours", formatHoursAndMinutes(snapshot.totals.totalHolidayMinutes)],
     ["Basic pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.basicPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
     ["OT pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.overtimePayCents, snapshot.rateCalculation.currency) : "Rate not set"],
     ["Off day pay", snapshot.rateCalculation.hourlyRateCents > 0 ? formatMoney(snapshot.totals.offDayPayCents, snapshot.rateCalculation.currency) : "Rate not set"],
@@ -123,13 +123,13 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <h2>Evidence Audit</h2>
   <p>${snapshot.evidenceAudit?.length ? snapshot.evidenceAudit.map((event) => `${escapeHtml(event.message)} — sealed chain status: 1 item deleted by user at ${escapeHtml(event.eventAt)}`).join("<br>") : "No evidence deletion events."}</p>
   <h2>Photo Evidence</h2>
-  <table><colgroup><col style="width:28%"><col style="width:22%"><col style="width:12%"><col style="width:23%"><col style="width:15%"></colgroup>
+  <table><colgroup><col style="width:26%"><col style="width:20%"><col style="width:14%"><col style="width:20%"><col style="width:20%"></colgroup>
     <thead><tr><th>Photo Evidence ID</th><th>Linked Time Entry ID</th><th>Type</th><th>Caption</th><th>Captured at</th></tr></thead>
     <tbody>
       ${snapshot.photoEvidence
         .map(
           (photo) =>
-            `<tr><td class="long-token">${escapeHtml(photo.id)}</td><td class="long-token">${escapeHtml(photo.timeEntryId ?? "")}</td><td>${escapeHtml(photo.evidenceType ?? "")}</td><td>${escapeHtml(photo.caption ?? "")}</td><td class="short-cell">${escapeHtml(photo.capturedAt ? formatLocalDateTime(photo.capturedAt) : "")}</td></tr>`,
+            `<tr><td class="long-token">${escapeHtml(photo.id)}</td><td class="long-token">${escapeHtml(photo.timeEntryId ?? "")}</td><td>${escapeHtml(formatEvidenceType(photo.evidenceType))}</td><td>${escapeHtml(photo.caption ?? "")}</td><td>${escapeHtml(photo.capturedAt ? formatLocalDateTime(photo.capturedAt) : "")}</td></tr>`,
         )
         .join("")}
     </tbody>
@@ -160,7 +160,7 @@ function buildPhotoEvidenceCards(snapshot: ProgressClaimSnapshot): string {
         : `<div class="photo-placeholder">Photo file reference only</div>`;
       return `<div class="photo-card"><div class="photo-card-header">Photo Evidence ID: ${escapeHtml(photo.id)}</div><div class="photo-card-body">${imageMarkup}<div>${detailsTable([
         ["Linked time entry", photo.timeEntryId],
-        ["Type", photo.evidenceType],
+        ["Type", formatEvidenceType(photo.evidenceType)],
         ["Caption", photo.caption],
         ["Captured at", photo.capturedAt ? formatLocalDateTime(photo.capturedAt) : "Time unknown"],
         ["Source", photo.captureSource ?? "Source not recorded (older record)"],
@@ -191,8 +191,8 @@ function formatDate(value: string): string {
 function formatLocalDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  const dateText = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const timeText = date.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" });
+  const dateText = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Singapore" });
+  const timeText = date.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short", timeZone: "Asia/Singapore" });
   return `${dateText}, ${timeText}`;
 }
 
@@ -206,11 +206,13 @@ function detailsTable(rows: Array<[string, string | number | null | undefined]>)
 }
 
 function dailyLogCard(item: ProgressClaimSnapshot["dailyWorkLog"][number], currency: string, hourlyRateCents: number): string {
-  const values = [["Normal", item.normalHours], ["OT", item.overtimeHours], ["Off day", item.offDayHours], ["Holiday", item.holidayHours], ["Rate", formatMoney(hourlyRateCents, currency)], ["Basic pay", formatMoney(item.basicPayCents ?? 0, currency)], ["OT pay", formatMoney(item.overtimePayCents ?? 0, currency)], ["Off day pay", formatMoney(item.offDayPayCents ?? 0, currency)], ["Holiday pay", formatMoney(item.holidayPayCents ?? 0, currency)], ["Photos", item.photoEvidenceIds.length], ["Day total", formatMoney(item.grossPayCents ?? 0, currency)]];
+  const values = [["Normal", formatHoursAndMinutes(item.normalMinutes)], ["OT", formatHoursAndMinutes(item.overtimeMinutes)], ["Off day", formatHoursAndMinutes(item.offDayMinutes)], ["Holiday", formatHoursAndMinutes(item.holidayMinutes)], ["Rate", formatMoney(hourlyRateCents, currency)], ["Basic pay", formatMoney(item.basicPayCents ?? 0, currency)], ["OT pay", formatMoney(item.overtimePayCents ?? 0, currency)], ["Off day pay", formatMoney(item.offDayPayCents ?? 0, currency)], ["Holiday pay", formatMoney(item.holidayPayCents ?? 0, currency)], ["Photos", item.photoEvidenceIds.length], ["Day total", formatMoney(item.grossPayCents ?? 0, currency)]];
   return `<section class="daily-log-card"><span class="daily-log-date short-cell">${escapeHtml(formatDate(item.workDate))} · ${escapeHtml(item.dayTypes.map(formatDayType).join(", "))} day</span><p class="daily-log-copy"><strong>Activity:</strong> ${escapeHtml(item.activity)}</p><p class="daily-log-copy"><strong>Location:</strong> ${escapeHtml(formatLocations(item.locations))}</p>${item.lunchDeductedMinutes ? `<p class="muted">Lunch deducted: ${formatLunch(item.lunchDeductedMinutes)}</p>` : ""}<div class="daily-log-grid">${values.map(([label, value]) => `<span><strong>${label}:</strong> ${value}</span>`).join("")}</div></section>`;
 }
 
-function dailyTotalsCard(snapshot: ProgressClaimSnapshot): string { return `<section class="daily-log-card"><span class="daily-log-date short-cell">Totals</span><div class="daily-log-grid"><span><strong>Basic pay:</strong> ${formatMoney(snapshot.totals.basicPayCents, snapshot.rateCalculation.currency)}</span><span><strong>OT pay:</strong> ${formatMoney(snapshot.totals.overtimePayCents, snapshot.rateCalculation.currency)}</span><span><strong>Day total:</strong> ${formatMoney(snapshot.totals.grossPayCents, snapshot.rateCalculation.currency)}</span></div></section>`; }
+function dailyTotalsCard(snapshot: ProgressClaimSnapshot): string { const totals = snapshot.totals; return `<section class="daily-log-card"><span class="daily-log-date short-cell">Totals</span><div class="daily-log-grid"><span><strong>Normal:</strong> ${formatHoursAndMinutes(totals.totalNormalMinutes)}</span><span><strong>OT:</strong> ${formatHoursAndMinutes(totals.totalOvertimeMinutes)}</span><span><strong>Off day:</strong> ${formatHoursAndMinutes(totals.totalOffDayMinutes)}</span><span><strong>Holiday:</strong> ${formatHoursAndMinutes(totals.totalHolidayMinutes)}</span><span><strong>Basic pay:</strong> ${formatMoney(totals.basicPayCents, snapshot.rateCalculation.currency)}</span><span><strong>OT pay:</strong> ${formatMoney(totals.overtimePayCents, snapshot.rateCalculation.currency)}</span><span><strong>Off day pay:</strong> ${formatMoney(totals.offDayPayCents, snapshot.rateCalculation.currency)}</span><span><strong>Holiday pay:</strong> ${formatMoney(totals.holidayPayCents, snapshot.rateCalculation.currency)}</span><span><strong>Day total:</strong> ${formatMoney(totals.grossPayCents, snapshot.rateCalculation.currency)}</span></div></section>`; }
+function formatHoursAndMinutes(minutes: number): string { const safeMinutes = Math.max(0, Math.round(minutes)); const hours = Math.floor(safeMinutes / 60); const remainder = safeMinutes % 60; return hours ? `${hours} h${remainder ? ` ${remainder} min` : ""}` : `${remainder} min`; }
+function formatEvidenceType(value: string | null | undefined): string { const words = (value ?? "").split("_").filter(Boolean).map((word) => word.toLowerCase()); return words.map((word, index) => index === 0 ? word[0].toUpperCase() + word.slice(1) : word).join(" "); }
 function formatLunch(minutes: number): string { return minutes === 60 ? "1 h" : minutes === 90 ? "1.5 h" : minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`; }
 function lunchWindow(start: string, end: string, minutes: number): string { const parse = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; }; const print = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`; const middle = Math.floor((parse(start) + parse(end)) / 2); return `${print(middle - Math.floor(minutes / 2))}–${print(middle + Math.ceil(minutes / 2))}`; }
 
@@ -263,7 +265,7 @@ function buildGpsAppendix(snapshot: ProgressClaimSnapshot): string {
       });
     }) ?? day.locations;
     return fixes.filter((fix) => fix.latitude != null && fix.longitude != null)
-      .map((fix) => `<div class="gps-appendix">${escapeHtml(`${day.workDate} · ${fix.phase ?? "start/stop"} · ${formatCoordinates(fix.latitude ?? null, fix.longitude ?? null)} · ${fix.accuracy == null ? "accuracy unknown" : `±${fix.accuracy} m`} · ${fix.source ?? "legacy"}${fix.locatedAt ? ` · ${fix.locatedAt}` : ""}`)}</div>`);
+      .map((fix) => `<div class="gps-appendix">${escapeHtml(`${day.workDate} · ${fix.phase ?? "start/stop"} · ${formatCoordinates(fix.latitude ?? null, fix.longitude ?? null)} · ${fix.accuracy == null ? "accuracy unknown" : `±${Math.round(fix.accuracy)} m`} · ${fix.source ?? "legacy"}${fix.locatedAt ? ` · ${formatLocalDateTime(fix.locatedAt)}` : ""}`)}</div>`);
   }).join("");
 }
 

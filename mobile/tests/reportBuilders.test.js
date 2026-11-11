@@ -322,3 +322,39 @@ test("work sites group addresses by distinct day; GPS appendix retains both phas
   assert.match(csv, /,1\.2,103\.4,1\.2,103\.4/);
   assert.doesNotMatch(csv, /Local Storage,Notice/);
 });
+
+test("report renders exact minute totals, print-safe photo timestamps, and local GPS evidence", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "shi-normal", workDate: "2026-11-10", startTime: "2026-11-10T08:00:00+08:00", endTime: "2026-11-10T08:02:00+08:00", durationMinutes: 2, activity: "Opening check", locationText: "10 Anson Road, Singapore 079903", clockOutLocationText: "10 Anson Road, Singapore 079903", clockInLocationSource: "gps", clockOutLocationSource: "gps", clockInGpsLatitude: 1.27651, clockInGpsLongitude: 103.84581, clockOutGpsLatitude: 1.27652, clockOutGpsLongitude: 103.84582, clockInGpsAccuracyM: 4.4, clockOutGpsAccuracyM: 6.2, clockInLocatedAt: "2026-11-10T08:58:00.000Z", clockOutLocatedAt: "2026-11-10T09:00:00.000Z" },
+      { id: "shi-ot", workDate: "2026-11-11", startTime: "2026-11-11T17:00:00+08:00", endTime: "2026-11-11T20:10:00+08:00", durationMinutes: 190, activity: "Overtime repair", locationText: "10 Anson Road, Singapore 079903", clockInLocationSource: "gps", clockInGpsLatitude: 1.27651, clockInGpsLongitude: 103.84581, clockInGpsAccuracyM: 5, clockInLocatedAt: "2026-11-11T09:00:00.000Z" },
+    ],
+    photoEvidence: [{ id: "photo-123456789012345678", timeEntryId: "shi-normal", localUri: "file:///photo.jpg", evidenceType: "DURING_WORK", captureSource: "camera", capturedAt: "2026-11-11T06:25:09.379Z" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5 },
+  });
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.equal(snapshot.totals.totalNormalMinutes, 2);
+  assert.equal(snapshot.totals.totalOvertimeMinutes, 190);
+  assert.equal(snapshot.totals.basicPayCents, 56);
+  assert.equal(snapshot.totals.overtimePayCents, 7917);
+  for (const text of ["2 min", "3 h 10 min", "SGD 0.56", "SGD 79.17", "During work", "camera", "10 Nov 2026, 4:58 pm GMT+8"]) assert.match(html, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /<td class="short-cell">11 Nov 2026,/);
+  assert.match(html, /<col style="width:26%"><col style="width:20%"><col style="width:14%"><col style="width:20%"><col style="width:20%">/);
+  assert.match(html, /1\.27651, 103\.84581 · ±4 m · gps · 10 Nov 2026, 4:58 pm GMT\+8/);
+  assert.match(html, /<h2>Work sites<\/h2>[\s\S]*10 Anson Road, Singapore 079903/);
+
+  for (const table of html.match(/<table>[\s\S]*?<\/table>/g) ?? []) {
+    const widths = [...table.matchAll(/<col style="width:(\d+)%">/g)].map((match) => Number(match[1]));
+    const cells = [...table.matchAll(/<td class="short-cell">([^<]*)<\/td>/g)];
+    for (const cell of cells) {
+      const before = table.slice(0, cell.index);
+      const column = (before.match(/<t[dh][^>]*>/g) ?? []).length % widths.length;
+      const characterBudget = Math.floor((690 * widths[column] / 100) / 6.5);
+      assert.ok(cell[1].length <= characterBudget, `${cell[1]} exceeds ${characterBudget} characters in column ${column + 1}`);
+    }
+  }
+});
