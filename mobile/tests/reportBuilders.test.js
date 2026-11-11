@@ -247,6 +247,16 @@ test("buildProgressClaimHtml uses print-safe wrapping, local dates, and sealed p
   assert.match(html, /Sealed photo on this phone/);
 });
 
+test("daily work log uses per-day cards and every report table declares widths", () => {
+  const { buildProgressClaimHtml } = createTsLoader()("src/reports/progressClaimHtml.ts");
+  const html = buildProgressClaimHtml(createSnapshot());
+  assert.match(html, /class="daily-log-card"/);
+  assert.match(html, /class="daily-log-date short-cell">1 Jun 2026/);
+  assert.doesNotMatch(html, /<table\b[^>]*>(?!\s*<colgroup)/);
+  assert.doesNotMatch(html, /overflow:\s*hidden|word-break:\s*break-all/);
+  assert.doesNotMatch(html, />2026-\d{2}-\d{2}</);
+});
+
 test("report lunch deduction is report-time only and per-day cents remain the summary", () => {
   const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
   const snapshot = buildProgressClaimSnapshot({

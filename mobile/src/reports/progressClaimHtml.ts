@@ -27,7 +27,12 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     .claim-highlight strong { color: #102447; display: block; font-size: 18px; }
     .claim-highlight span { color: #62708a; font-size: 11px; text-transform: uppercase; }
     .gps-appendix { color: #62708a; font-size: 10px; }
-    .photo-card { border: 1px solid #d5e2de; border-radius: 12px; margin-top: 10px; overflow: hidden; page-break-inside: avoid; }
+    .photo-card { border: 1px solid #d5e2de; border-radius: 12px; margin-top: 10px; page-break-inside: avoid; }
+    .daily-log-card { border: 1px solid #d5e2de; border-radius: 12px; margin-top: 10px; page-break-inside: avoid; }
+    .daily-log-card { padding: 10px; }
+    .daily-log-date { display: block; font-weight: 700; margin-bottom: 8px; }
+    .daily-log-copy { margin: 4px 0; }
+    .daily-log-grid { display: grid; gap: 4px 12px; grid-template-columns: repeat(3, 1fr); margin-top: 8px; }
     .photo-card-header { background: #edf4ff; border-left: 5px solid #f2a900; color: #102447; font-size: 12px; font-weight: 700; padding: 8px 10px; }
     .photo-card-body { display: grid; gap: 10px; grid-template-columns: 150px 1fr; padding: 10px; }
     .photo-thumb { border: 1px solid #d5e2de; border-radius: 8px; max-height: 120px; max-width: 150px; object-fit: cover; }
@@ -80,7 +85,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Entered rate", formatEnteredRate(snapshot)],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Normal hours from range", String(snapshot.rateCalculation.dailyNormalMinutes / 60)],
-    ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${snapshot.rateCalculation.lunchMinutes} min, centred in the normal window when fully covered (or a long day spans it)` : "None"],
+    ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${formatLunch(snapshot.rateCalculation.lunchMinutes)}, window ${lunchWindow(snapshot.rateCalculation.normalWorkStartTime, snapshot.rateCalculation.normalWorkEndTime, snapshot.rateCalculation.lunchMinutes)}; deducted when the clocked time covers the window or the day is longer than lunch + 4 h` : "None"],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
     ["Off day multiplier", String(snapshot.rateCalculation.offDayMultiplier)],
     ["Holiday multiplier", String(snapshot.rateCalculation.holidayMultiplier)],
@@ -106,20 +111,11 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   ])}
 
   <h2>Daily Work Log</h2>
-  <table class="daily-log">
-    <thead><tr><th>Date</th><th>Day type</th><th>Activity</th><th>Location</th><th>Normal h</th><th>OT h</th><th>Off h</th><th>Hol h</th><th>Basic pay</th><th>OT pay</th><th>Off pay</th><th>Hol pay</th><th>Total</th><th>Photos</th></tr></thead>
-    <tbody>
-      ${snapshot.dailyWorkLog
-        .map(
-          (item) =>
-            `<tr><td class="short-cell">${escapeHtml(formatDate(item.workDate))}</td><td class="short-cell">${escapeHtml(item.dayTypes.map(formatDayType).join(", "))}</td><td>${escapeHtml(item.activity)}${item.lunchDeductedMinutes ? `<br><span class="muted">Lunch deducted: ${item.lunchDeductedMinutes} min</span>` : ""}</td><td>${escapeHtml(formatLocations(item.locations))}</td><td class="short-cell">${item.normalHours}</td><td class="short-cell">${item.overtimeHours}</td><td class="short-cell">${item.offDayHours}</td><td class="short-cell">${item.holidayHours}</td><td class="short-cell">${formatMoney(item.basicPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.overtimePayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.offDayPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.holidayPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${formatMoney(item.grossPayCents, snapshot.rateCalculation.currency)}</td><td class="short-cell">${item.photoEvidenceIds.length}</td></tr>`,
-        )
-        .join("")}
-    </tbody>
-  </table>
+  ${snapshot.dailyWorkLog.map((item) => dailyLogCard(item, snapshot.rateCalculation.currency, snapshot.rateCalculation.hourlyRateCents)).join("")}
+  ${dailyTotalsCard(snapshot)}
 
   <h2>Shift evidence</h2>
-  <table><thead><tr><th>Date</th><th>Note</th><th>Break</th><th>Task segments</th></tr></thead><tbody>${snapshot.dailyWorkLog.flatMap((day) => (day.locationEntries ?? []).map((entry) => `<tr><td>${escapeHtml(day.workDate)}</td><td>${escapeHtml(entry.locationNote ?? "")}</td><td>${entry.breakMinutes ?? 0} min</td><td>${escapeHtml((entry.taskSegments ?? []).map((segment) => `${segment.taskName}: ${segment.start} - ${segment.end} (${segment.durationMinutes} min)`).join("; "))}</td></tr>`)).join("")}</tbody></table>
+  <table><colgroup><col style="width:18%"><col style="width:32%"><col style="width:15%"><col style="width:35%"></colgroup><thead><tr><th>Date</th><th>Note</th><th>Break</th><th>Task segments</th></tr></thead><tbody>${snapshot.dailyWorkLog.flatMap((day) => (day.locationEntries ?? []).map((entry) => `<tr><td class="short-cell">${escapeHtml(formatDate(day.workDate))}</td><td>${escapeHtml(entry.locationNote ?? "")}</td><td class="short-cell">${entry.breakMinutes ?? 0} min</td><td>${escapeHtml((entry.taskSegments ?? []).map((segment) => `${segment.taskName}: ${segment.start} - ${segment.end} (${segment.durationMinutes} min)`).join("; "))}</td></tr>`)).join("")}</tbody></table>
 
   <h2>Work sites</h2>
   ${buildWorkSites(snapshot)}
@@ -127,7 +123,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
   <h2>Evidence Audit</h2>
   <p>${snapshot.evidenceAudit?.length ? snapshot.evidenceAudit.map((event) => `${escapeHtml(event.message)} — sealed chain status: 1 item deleted by user at ${escapeHtml(event.eventAt)}`).join("<br>") : "No evidence deletion events."}</p>
   <h2>Photo Evidence</h2>
-  <table>
+  <table><colgroup><col style="width:28%"><col style="width:22%"><col style="width:12%"><col style="width:23%"><col style="width:15%"></colgroup>
     <thead><tr><th>Photo Evidence ID</th><th>Linked Time Entry ID</th><th>Type</th><th>Caption</th><th>Captured at</th></tr></thead>
     <tbody>
       ${snapshot.photoEvidence
@@ -201,13 +197,22 @@ function formatLocalDateTime(value: string): string {
 }
 
 function detailsTable(rows: Array<[string, string | number | null | undefined]>): string {
-  return `<table><tbody>${rows
+  return `<table><colgroup><col style="width:35%"><col style="width:65%"></colgroup><tbody>${rows
     .map(
       ([label, value]) =>
         `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(String(value ?? ""))}</td></tr>`,
     )
     .join("")}</tbody></table>`;
 }
+
+function dailyLogCard(item: ProgressClaimSnapshot["dailyWorkLog"][number], currency: string, hourlyRateCents: number): string {
+  const values = [["Normal", item.normalHours], ["OT", item.overtimeHours], ["Off day", item.offDayHours], ["Holiday", item.holidayHours], ["Rate", formatMoney(hourlyRateCents, currency)], ["Basic pay", formatMoney(item.basicPayCents ?? 0, currency)], ["OT pay", formatMoney(item.overtimePayCents ?? 0, currency)], ["Off day pay", formatMoney(item.offDayPayCents ?? 0, currency)], ["Holiday pay", formatMoney(item.holidayPayCents ?? 0, currency)], ["Photos", item.photoEvidenceIds.length], ["Day total", formatMoney(item.grossPayCents ?? 0, currency)]];
+  return `<section class="daily-log-card"><span class="daily-log-date short-cell">${escapeHtml(formatDate(item.workDate))} · ${escapeHtml(item.dayTypes.map(formatDayType).join(", "))} day</span><p class="daily-log-copy"><strong>Activity:</strong> ${escapeHtml(item.activity)}</p><p class="daily-log-copy"><strong>Location:</strong> ${escapeHtml(formatLocations(item.locations))}</p>${item.lunchDeductedMinutes ? `<p class="muted">Lunch deducted: ${formatLunch(item.lunchDeductedMinutes)}</p>` : ""}<div class="daily-log-grid">${values.map(([label, value]) => `<span><strong>${label}:</strong> ${value}</span>`).join("")}</div></section>`;
+}
+
+function dailyTotalsCard(snapshot: ProgressClaimSnapshot): string { return `<section class="daily-log-card"><span class="daily-log-date short-cell">Totals</span><div class="daily-log-grid"><span><strong>Basic pay:</strong> ${formatMoney(snapshot.totals.basicPayCents, snapshot.rateCalculation.currency)}</span><span><strong>OT pay:</strong> ${formatMoney(snapshot.totals.overtimePayCents, snapshot.rateCalculation.currency)}</span><span><strong>Day total:</strong> ${formatMoney(snapshot.totals.grossPayCents, snapshot.rateCalculation.currency)}</span></div></section>`; }
+function formatLunch(minutes: number): string { return minutes === 60 ? "1 h" : minutes === 90 ? "1.5 h" : minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`; }
+function lunchWindow(start: string, end: string, minutes: number): string { const parse = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; }; const print = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`; const middle = Math.floor((parse(start) + parse(end)) / 2); return `${print(middle - Math.floor(minutes / 2))}–${print(middle + Math.ceil(minutes / 2))}`; }
 
 function formatMoney(cents: number, currency: string): string {
   return `${currency} ${(cents / 100).toFixed(2)}`;
@@ -234,7 +239,7 @@ function buildWorkSites(snapshot: ProgressClaimSnapshot): string {
       sites.set(address, dates);
     }
   }
-  return `<table><thead><tr><th>Address</th><th>Days</th><th>First date</th><th>Last date</th></tr></thead><tbody>${[...sites].map(([address, dates]) => {
+  return `<table><colgroup><col style="width:52%"><col style="width:12%"><col style="width:18%"><col style="width:18%"></colgroup><thead><tr><th>Address</th><th>Days</th><th>First date</th><th>Last date</th></tr></thead><tbody>${[...sites].map(([address, dates]) => {
     const sorted = [...dates].sort();
     return `<tr><td>${escapeHtml(address)}</td><td class="short-cell">${dates.size}</td><td class="short-cell">${escapeHtml(formatDate(sorted[0]))}</td><td class="short-cell">${escapeHtml(formatDate(sorted[sorted.length - 1]))}</td></tr>`;
   }).join("")}</tbody></table>`;
