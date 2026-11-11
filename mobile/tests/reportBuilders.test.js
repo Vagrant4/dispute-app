@@ -192,7 +192,7 @@ test("buildProgressClaimHtml renders the revised palette, dynamic overview, and 
   assert.match(html, /@page \{ margin: 18mm 14mm; size: A4; \}/);
   assert.match(html, /thead \{ display: table-header-group; \}/);
   assert.match(html, /page-break-inside: avoid/);
-  assert.match(html, /\.long-token \{ overflow-wrap: break-word/);
+  assert.match(html, /\.long-token \{ overflow-wrap: break-word; word-break: normal/);
   assert.match(html, /tr, \.report-section \{[^}]*page-break-inside: avoid/);
 });
 
@@ -300,7 +300,7 @@ test("work sites group addresses by distinct day; GPS appendix retains both phas
   const html = buildProgressClaimHtml(snapshot);
   assert.match(html, /<h2>Work sites<\/h2>/);
   assert.doesNotMatch(html, /Location Graphic|location-map|location-grid|maps\.google|openstreetmap/);
-  assert.match(html, /<td>Site &lt;A&gt;<\/td><td>2<\/td><td>2026-10-26<\/td><td>2026-10-27<\/td>/);
+  assert.match(html, /<td>Site &lt;A&gt;<\/td><td class="short-cell">2<\/td><td class="short-cell">26 Oct 2026<\/td><td class="short-cell">27 Oct 2026<\/td>/);
   const workLog = html.split("<h2>Daily Work Log</h2>")[1].split("<h2>Work sites</h2>")[0];
   assert.doesNotMatch(workLog, /1\.20000|103\.40000|T01:00/);
   assert.match(workLog, /GPS ±5 m/);

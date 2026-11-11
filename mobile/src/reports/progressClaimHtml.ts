@@ -16,7 +16,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     table { border-collapse: collapse; margin-top: 10px; table-layout: fixed; width: 100%; }
     th, td { border: 1px solid #d5e2de; font-size: 12px; overflow-wrap: normal; padding: 8px; text-align: left; vertical-align: top; word-break: normal; }
     .short-cell { white-space: nowrap; }
-    .long-token { overflow-wrap: break-word; word-break: break-word; }
+    .long-token { overflow-wrap: break-word; word-break: normal; }
     th { background: #edf4ff; color: #102447; }
     tr, .report-section { page-break-inside: avoid; }
     thead { display: table-header-group; }
@@ -236,7 +236,7 @@ function buildWorkSites(snapshot: ProgressClaimSnapshot): string {
   }
   return `<table><thead><tr><th>Address</th><th>Days</th><th>First date</th><th>Last date</th></tr></thead><tbody>${[...sites].map(([address, dates]) => {
     const sorted = [...dates].sort();
-    return `<tr><td>${escapeHtml(address)}</td><td>${dates.size}</td><td>${escapeHtml(sorted[0])}</td><td>${escapeHtml(sorted[sorted.length - 1])}</td></tr>`;
+    return `<tr><td>${escapeHtml(address)}</td><td class="short-cell">${dates.size}</td><td class="short-cell">${escapeHtml(formatDate(sorted[0]))}</td><td class="short-cell">${escapeHtml(formatDate(sorted[sorted.length - 1]))}</td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
