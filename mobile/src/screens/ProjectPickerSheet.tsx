@@ -30,7 +30,7 @@ export function ProjectPickerSheet({ footer, onClose, onSelect, projects, testID
           accessibilityRole="button"
           key={project.id}
           onPress={() => onSelect(project.id)}
-          style={styles.dropdownOption}
+          style={[styles.dropdownOption, styles.projectPickerOption]}
         >
           <Text style={styles.body}>{project.name}</Text>
         </Pressable>

@@ -967,6 +967,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },
+  projectPickerOption: {
+    borderBottomWidth: 0,
+    marginBottom: theme.spacing.sm,
+  },
   dropdownOptionActive: {
     backgroundColor: theme.colors.primary,
     borderBottomColor: theme.colors.primary,
