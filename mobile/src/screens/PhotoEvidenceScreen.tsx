@@ -15,7 +15,7 @@ import type { PhotoEvidenceRow } from "../photos/photoEvidenceRepository";
 import { type PhotoEvidenceType, type PhotoGpsResult } from "../photos/photoEvidenceTypes";
 import { photoEvidenceContent } from "../screenContent";
 import { photoCaptureMetadata, photoSealBadge, photoTimeLabel, sealPhoto } from "../photos/photoSeal";
-import { projectPickerLabel } from "../work/projectLabels";
+import { keepActiveProjectId, listActiveProjects } from "../work/activeProjects";
 import { space, styles, theme } from "../styles";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import type { WorkProject } from "../work/workRepository";
@@ -65,22 +65,24 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
   async function refresh() {
     if (Platform.OS === "web") {
       const { webWorkStore } = await import("../work/webWorkStore");
-      const nextProjects = await webWorkStore.listProjects(userId);
+      const nextProjects = await listActiveProjects(webWorkStore, userId);
       setProjects(nextProjects);
       const home = await webWorkStore.getHomeState(userId);
-      setProjectId((current) => home.activeEntry?.projectId || current || readWebPhotoEvidenceRows(userId)[0]?.project_id || home.recentEntries[0]?.projectId || nextProjects[0]?.id || "");
+      setProjectId((current) => chooseActivePhotoProject(nextProjects, home.activeEntry?.projectId, current, readWebPhotoEvidenceRows(userId)[0]?.project_id, home.recentEntries[0]?.projectId));
+      setFilterProjectId((current) => keepActiveProjectId(nextProjects, current) ?? "");
       setRows(readWebPhotoEvidenceRows(userId));
       return;
     }
     try {
       const repositories = await getNativeRepositories(userId);
       const [nextProjects, nextRows] = await Promise.all([
-        repositories.work.listProjects(userId),
+        listActiveProjects(repositories.work, userId),
         repositories.photoEvidence.listRecentPhotoEvidence({ userId }),
       ]);
       setProjects(nextProjects);
       const home = await repositories.work.getHomeState(userId);
-      setProjectId((current) => home.activeEntry?.projectId || current || nextRows[0]?.project_id || home.recentEntries[0]?.projectId || nextProjects[0]?.id || "");
+      setProjectId((current) => chooseActivePhotoProject(nextProjects, home.activeEntry?.projectId, current, nextRows[0]?.project_id, home.recentEntries[0]?.projectId));
+      setFilterProjectId((current) => keepActiveProjectId(nextProjects, current) ?? "");
       setRows(nextRows);
     } catch (error) {
       setStatus(getErrorMessage(error, "load the photos"));
@@ -232,7 +234,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
       {!projectScoped ? <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View> : null}
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       {!projectScoped ? <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
-        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.id ? projectPickerLabel(project, projects) : project.name}</Text></Pressable>)}
+        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.name}</Text></Pressable>)}
       </ScrollView> : null}
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
         <Text style={styles.photoEmptyIcon}>▧</Text>
@@ -298,6 +300,14 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
       </SwipeDownSheet>
     </View>
   );
+}
+
+function chooseActivePhotoProject(projects: WorkProject[], ...candidates: Array<string | null | undefined>): string {
+  for (const candidate of candidates) {
+    const activeId = keepActiveProjectId(projects, candidate);
+    if (activeId) return activeId;
+  }
+  return projects[0]?.id ?? "";
 }
 
 function getExtension(uri: string): string {

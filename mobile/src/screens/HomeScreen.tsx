@@ -23,6 +23,7 @@ import { getWorkLocationWithTimeout, locationRetryAction, type WorkLocationReaso
 import { summarizeBreaks } from "../work/shiftTimeline";
 import { formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
+import { listActiveProjects } from "../work/activeProjects";
 import type { LocalAccount } from "../auth/localAuth";
 import { formatTrialDaysLeft } from "../uiReviewFormatters";
 
@@ -104,11 +105,11 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       const store = await getWorkStore(userId);
       const [nextState, nextProjects] = await Promise.all([
         store.getHomeState(userId),
-        store.listProjects(userId),
+        listActiveProjects(store, userId),
       ]);
       setHomeState(nextState);
       setProjects(nextProjects);
-      const activeProjects = nextProjects.filter((project) => project.status !== "archived");
+      const activeProjects = nextProjects;
       if (nextState.activeEntry?.startTime) {
         setSelectedProjectId(nextState.activeEntry.projectId);
         setDayType(nextState.activeEntry.dayType);

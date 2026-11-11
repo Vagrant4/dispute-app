@@ -23,6 +23,7 @@ import { getProjectScreenStore } from "../work/projectScreenStore";
 import type { WorkProject } from "../work/workRepository";
 import { loadReportPeriod, saveReportPeriod, type ReportPeriod } from "../reports/reportPeriodSettings";
 import { ProjectPickerSheet } from "./ProjectPickerSheet";
+import { listActiveProjects } from "../work/activeProjects";
 import { SwipeDownSheet } from "../components/SwipeDownSheet";
 
 type SettingsScreenProps = {
@@ -157,7 +158,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const loadWorkHours = useCallback(async () => {
     const [workHoursResult, projectsResult, periodResult] = await Promise.allSettled([
       loadSavedWorkHours(userId),
-      getProjectScreenStore(userId).then((store) => store.listProjects(userId)),
+      getProjectScreenStore(userId).then((store) => listActiveProjects(store, userId)),
       loadReportPeriod(userId),
     ]);
     if (workHoursResult.status === "fulfilled") {
@@ -172,7 +173,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setHolidayMultiplier(String(settings.holidayMultiplier));
     }
     if (projectsResult.status === "fulfilled") {
-      const projectRows = projectsResult.value.filter((project) => project.status !== "archived");
+      const projectRows = projectsResult.value;
       setProjects(projectRows);
       setRateProjectId((current) => projectRows.some((item) => item.id === current) ? current : projectRows[0]?.id ?? null);
     }
@@ -198,8 +199,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     try {
       const store = await getProjectScreenStore(userId);
       const selectedProject = projects.find((item) => item.id === projectId);
-      const storedProjects = selectedProject ? projects : await store.listProjects(userId);
-      const project = selectedProject ?? storedProjects.find((item) => item.status !== "archived");
+      const storedProjects = selectedProject ? projects : await listActiveProjects(store, userId);
+      const project = selectedProject ?? storedProjects[0];
       if (!project) {
         setProjectRateStatus("Add a project first.");
         return;
@@ -319,7 +320,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           {rateProjectPickerOpen ? <ProjectPickerSheet
             onClose={() => setRateProjectPickerOpen(false)}
             onSelect={async (projectId) => { if (rateDirty.current) await handleSaveProjectRate(rateProjectId, rateValue.current); setRateProjectId(projectId); setRateProjectPickerOpen(false); }}
-            projects={projects.filter((project) => project.status !== "archived")}
+            projects={projects}
             testID="settings-pay-rate-project-sheet"
           /> : null}
           <Text style={styles.inputLabel}>Project hourly rate ({currency})</Text>

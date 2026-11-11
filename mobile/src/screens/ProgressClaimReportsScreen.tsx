@@ -19,6 +19,7 @@ import { shareGeneratedDocument } from "../reports/reportSharing";
 import { expoSharingAdapter } from "../reports/reportSharingExpo";
 import { viewGeneratedDocument } from "../reports/reportViewing";
 import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
+import { listActiveProjects } from "../work/activeProjects";
 import { progressClaimReportContent } from "../screenContent";
 import { styles, type, space, radius } from "../styles";
 import {
@@ -173,7 +174,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           limit: 10,
           projectId: detailProjectId,
         }),
-        repositories.work.listProjects(userId),
+        listActiveProjects(repositories.work, userId),
         repositories.work.getHomeState(userId),
       ]);
       setDocuments(detailProjectId ? rows.filter((row) => row.project_id === detailProjectId) : rows);

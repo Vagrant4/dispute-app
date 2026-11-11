@@ -11,7 +11,7 @@ const mockSeal = jest.fn();
 const mockInsert = jest.fn();
 let mockSavedRows: any[] = [];
 const mockGetLocalRepositories = jest.fn(async () => ({
-  work: { listProjects: async () => [{ id: "project-1", userId: "u1", name: "1111.", status: "active" }, { id: "project-2", userId: "u1", name: "Other project", status: "active" }], getHomeState: async () => ({ activeEntry: null, recentEntries: [] }) },
+  work: { listProjects: async () => [{ id: "archived", userId: "u1", name: "Archived project", status: "archived", siteAddress: "531377" }, { id: "project-1", userId: "u1", name: "1111.", status: "active" }, { id: "project-2", userId: "u1", name: "Other project", status: "active" }], getHomeState: async () => ({ activeEntry: null, recentEntries: [] }) },
   photoEvidence: {
     listRecentPhotoEvidence: async () => mockSavedRows,
     insertPhotoEvidence: (...args: unknown[]) => mockInsert(...args),
@@ -79,6 +79,15 @@ test("project-scoped gallery excludes global headers and other project filters",
   expect(screen.queryByText("Other project")).toBeNull();
   expect(screen.queryByText("All")).toBeNull();
   expect(screen.queryByText("1111.")).toBeNull();
+});
+
+test("photos excludes archived projects from filters and capture defaults", async () => {
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} initialProjectId="archived" />);
+  await waitFor(() => expect(screen.getByText("All")).toBeTruthy());
+  expect(screen.queryByText("Archived project")).toBeNull();
+  fireEvent(screen.getByLabelText("Take photo"), "longPress");
+  await waitFor(() => expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy());
+  expect(screen.queryByText("Archived project")).toBeNull();
 });
 
 test("seal failure shows Retry and retry succeeds without retaking", async () => {
