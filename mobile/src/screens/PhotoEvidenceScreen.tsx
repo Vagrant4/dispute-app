@@ -303,6 +303,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
 }
 
 function chooseActivePhotoProject(projects: WorkProject[], ...candidates: Array<string | null | undefined>): string {
+  const remembered = candidates[1];
+  if (remembered && !keepActiveProjectId(projects, remembered)) return "";
   for (const candidate of candidates) {
     const activeId = keepActiveProjectId(projects, candidate);
     if (activeId) return activeId;

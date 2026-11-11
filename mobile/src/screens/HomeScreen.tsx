@@ -144,9 +144,9 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         setSelectedProjectId((current) =>
           activeProjects.some((project) => project.id === current)
             ? current
-            : activeProjects.length === 1 ? activeProjects[0].id : null,
+            : null,
         );
-        const nextProjectId = activeProjects.some((project) => project.id === selectedProjectId) ? selectedProjectId : activeProjects.length === 1 ? activeProjects[0].id : null;
+        const nextProjectId = activeProjects.some((project) => project.id === selectedProjectId) ? selectedProjectId : null;
         setTasks(nextProjectId ? await store.listTasks(userId, nextProjectId) : []);
       }
     } catch (error) {

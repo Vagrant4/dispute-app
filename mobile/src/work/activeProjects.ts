@@ -15,3 +15,7 @@ export async function listActiveProjects(store: ProjectListStore, userId: string
 export function keepActiveProjectId(projects: WorkProject[], projectId?: string | null): string | null {
   return projectId && projects.some((project) => project.id === projectId) ? projectId : null;
 }
+
+export function clearInactiveProjectId(projects: WorkProject[], projectId?: string | null): string | null {
+  return keepActiveProjectId(projects, projectId);
+}
