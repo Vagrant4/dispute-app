@@ -86,9 +86,7 @@ test("photos excludes archived projects from filters and capture defaults", asyn
   await waitFor(() => expect(screen.getByText("All")).toBeTruthy());
   expect(screen.queryByText("Archived project")).toBeNull();
   expect(screen.getByText("Add a project before saving photo evidence.")).toBeTruthy();
-  fireEvent(screen.getByLabelText("Take photo"), "longPress");
-  await waitFor(() => expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy());
-  expect(screen.queryByText("Archived project")).toBeNull();
+  expect(screen.getByLabelText("Take photo").props.accessibilityState.disabled).toBe(true);
 });
 
 test("photos uses name-only single-line chips and an All projects header", async () => {
