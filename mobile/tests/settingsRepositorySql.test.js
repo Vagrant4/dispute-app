@@ -100,6 +100,7 @@ function createFakeDatabase() {
           overtimeMultiplier,
           offDayMultiplier,
           holidayMultiplier,
+          lunchMinutes,
           status,
           lockHash,
           lockedAt,
@@ -118,6 +119,7 @@ function createFakeDatabase() {
             overtimeMultiplier,
             offDayMultiplier,
             holidayMultiplier,
+            lunchMinutes,
             status,
             lockHash,
             lockedAt,
@@ -136,6 +138,7 @@ function createFakeDatabase() {
           overtimeMultiplier,
           offDayMultiplier,
           holidayMultiplier,
+          lunchMinutes,
           id,
           userId,
         ] = params;
@@ -153,6 +156,7 @@ function createFakeDatabase() {
             overtimeMultiplier,
             offDayMultiplier,
             holidayMultiplier,
+            lunchMinutes,
           });
         }
       }
