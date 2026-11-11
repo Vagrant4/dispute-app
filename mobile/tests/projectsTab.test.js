@@ -89,6 +89,17 @@ test("project detail keeps the shared 16dp spacing below its delete action block
   assert.match(styles, /projectDetailActions:\s*\{[^}]*gap:\s*space\.md[^}]*marginBottom:\s*space\.md/);
 });
 
+test("selected and unselected project status chips share the 16sp body typography", () => {
+  const styles = source("src/styles.ts");
+  const detail = source("src/screens/ProjectDetailScreen.tsx");
+  const projects = source("src/screens/ProjectsScreen.tsx");
+  assert.match(styles, /projectStatusChipText:\s*\{[^}]*\.\.\.type\.body/);
+  assert.match(detail, /styles\.projectStatusChipText/);
+  assert.match(projects, /styles\.projectStatusChipText/);
+  assert.doesNotMatch(detail, /projectStatus === status[\s\S]{0,120}styles\.chipText/);
+  assert.doesNotMatch(projects, /statusFilter === value[\s\S]{0,120}styles\.chipText/);
+});
+
 test("needsPayStep only asks when both rate and saved work hours are absent", () => {
   const { needsPayStep, currentWeekStart } = createLoader({ "react-native": { Platform: { OS: "web" } } })("src/work/projectScreenStore.ts");
   assert.equal(needsPayStep({ hourlyRateCents: 0, hasWorkHours: false }), true);

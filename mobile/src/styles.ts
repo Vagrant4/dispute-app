@@ -117,6 +117,9 @@ export const styles = StyleSheet.create({
   projectStatusActive: { backgroundColor: theme.colors.primary },
   projectStatusCompleted: { backgroundColor: theme.colors.textMuted },
   projectStatusText: { color: theme.colors.text, ...type.caption },
+  projectStatusChipText: { ...type.body },
+  projectStatusChipTextSelected: { color: theme.colors.primary },
+  projectStatusChipTextUnselected: { color: theme.colors.textMuted },
   projectGroup: { gap: space.sm, paddingVertical: space.sm },
 
   photoScreenContainer: { paddingHorizontal: space.md, paddingBottom: theme.spacing.md },

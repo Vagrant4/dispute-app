@@ -256,11 +256,12 @@ export function ProjectDetailScreen({
               }
             >
               <Text
-                style={
+                style={[
+                  styles.projectStatusChipText,
                   project?.projectStatus === status
-                    ? styles.selectedSecondaryText
-                    : styles.chipText
-                }
+                    ? styles.projectStatusChipTextSelected
+                    : styles.projectStatusChipTextUnselected,
+                ]}
               >
               {status[0].toUpperCase() + status.slice(1)}
               </Text>

@@ -407,11 +407,12 @@ export function ProjectsScreen({
                 }
               >
                 <Text
-                  style={
+                  style={[
+                    styles.projectStatusChipText,
                     statusFilter === value
-                      ? styles.selectedSecondaryText
-                      : styles.chipText
-                  }
+                      ? styles.projectStatusChipTextSelected
+                      : styles.projectStatusChipTextUnselected,
+                  ]}
                 >
                   {value[0].toUpperCase() + value.slice(1)}
                 </Text>
