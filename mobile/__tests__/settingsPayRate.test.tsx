@@ -3,43 +3,19 @@ import path from "node:path";
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
-const storedProject = {
-  id: "project-1111",
-  userId: "u1",
-  name: "1111.",
-  description: "Existing project",
-  hourlyRateCents: 0,
-};
-const mockListProjects = jest.fn();
-const mockUpdateProject = jest.fn();
-const mockGetProjectScreenStore = jest.fn(async () => ({
-  listProjects: mockListProjects,
-  updateProject: mockUpdateProject,
-}));
 const mockSaveReportPeriod = jest.fn();
 let mockStoredReportPeriod: "week" | "month" = "week";
 const mockLoadReportPeriod = jest.fn(async () => mockStoredReportPeriod);
-
-jest.mock("../src/work/projectScreenStore", () => ({
-  getProjectScreenStore: (...args: unknown[]) => mockGetProjectScreenStore(...args),
-}));
+const mockSaveWorkHours = jest.fn();
+let mockSettings = {
+  currency: "SGD", rateBasis: "hourly" as const, baseRateCents: 0,
+  normalWorkStartTime: "09:00", normalWorkEndTime: "18:00", dailyHours: 8, weeklyHours: 44,
+  overtimeMultiplier: 1.5, offDayMultiplier: 1.5, holidayMultiplier: 2,
+};
 jest.mock("../src/work/workHoursSettings", () => ({
   calculateNormalHours: () => 8,
-  loadWorkHours: async () => ({
-    settings: {
-      currency: "SGD",
-      rateBasis: "hourly",
-      baseRateCents: 0,
-      normalWorkStartTime: "09:00",
-      normalWorkEndTime: "18:00",
-      dailyHours: 8,
-      weeklyHours: 44,
-      overtimeMultiplier: 1.5,
-      offDayMultiplier: 1.5,
-      holidayMultiplier: 2,
-    },
-  }),
-  saveWorkHours: jest.fn(),
+  loadWorkHours: async () => ({ settings: mockSettings }),
+  saveWorkHours: (...args: unknown[]) => { mockSettings = args[1] as typeof mockSettings; mockSaveWorkHours(...args); return Promise.resolve(mockSettings); },
 }));
 jest.mock("../src/reports/reportPeriodSettings", () => ({
   loadReportPeriod: () => mockLoadReportPeriod(),
@@ -76,25 +52,22 @@ jest.mock("../src/subscription/recordAccess", () => ({
 
 import { SettingsScreen } from "../src/screens/SettingsScreen";
 
-test("Settings edits a per-project pay rate and exposes stable Maestro ids", () => {
+test("Settings edits only the user's pay rate and exposes stable ids", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/SettingsScreen.tsx"), "utf8");
-  expect(source).toMatch(/testID="settings-pay-rate-project-picker"/);
-  expect(source).toMatch(/testID="settings-pay-rate-input"/);
-  expect(source).not.toMatch(/settings-pay-rate-save/);
+  expect(source).toMatch(/testID="pay-rate-own-rate"/);
+  expect(source).not.toMatch(/ProjectPickerSheet|rateProjectId|handleSaveProjectRate|Project hourly rate/);
   expect(source).toMatch(/setTimeout\([\s\S]*?, 600\)/);
   expect(source).toMatch(/onBlur=/);
-  expect(source).toMatch(/updateProject/);
+  expect(source).not.toMatch(/updateProject/);
 });
 
-test("PDF uses the selected project's rate and Settings period", () => {
+test("PDF uses the user's rate and Settings period", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProgressClaimReportsScreen.tsx"), "utf8");
-  expect(source).toMatch(/hourlyRateCents: snapshot\.project\.hourlyRateCents/);
+  expect(source).toMatch(/hourlyRateCents: ownRateToHourlyCents\(preferences\.settings\)/);
   expect(source).toMatch(/loadReportPeriod\(userId\)/);
 });
 
-test("pay rate Project field opens a readable project picker sheet", async () => {
-  mockListProjects.mockReset();
-  mockListProjects.mockResolvedValue([storedProject]);
+test("pay rate shows the user's current rate", async () => {
   const screen = render(
     <SettingsScreen
       account={{ id: "u1", email: "shi@example.com" } as never}
@@ -104,27 +77,21 @@ test("pay rate Project field opens a readable project picker sheet", async () =>
     />,
   );
 
-  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
-  fireEvent.press(screen.getByTestId("settings-pay-rate-project-picker"));
-  expect(screen.getByTestId("settings-pay-rate-project-sheet")).toBeTruthy();
-  expect(screen.getByText("Choose project")).toBeTruthy();
+  await waitFor(() => expect(screen.getByTestId("pay-rate-own-rate")).toBeTruthy());
+  expect(screen.queryByTestId("settings-pay-rate-project-picker")).toBeNull();
 });
 
-test("a report period load failure does not hide loaded projects", async () => {
-  mockListProjects.mockReset();
-  mockListProjects.mockResolvedValue([storedProject]);
+test("a report period load failure does not hide the pay rate", async () => {
   mockLoadReportPeriod.mockRejectedValueOnce(new Error("SecureStore unavailable"));
   const screen = render(
     <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
   );
-  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
+  await waitFor(() => expect(screen.getByTestId("pay-rate-own-rate")).toBeTruthy());
   expect(screen.getByText("Couldn't load report period. Try again.")).toBeTruthy();
 });
 
 test("report period saves immediately and persists across a remount", async () => {
   mockStoredReportPeriod = "week";
-  mockListProjects.mockReset();
-  mockListProjects.mockResolvedValue([storedProject]);
   mockSaveReportPeriod.mockReset();
   const screen = render(
     <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
@@ -145,49 +112,18 @@ test("report period saves immediately and persists across a remount", async () =
   await waitFor(() => expect(remounted.getByText("This month")).toBeTruthy());
 });
 
-test("blur save errors are visible", async () => {
-  mockListProjects.mockReset();
-  mockListProjects.mockResolvedValue([storedProject]);
-  mockUpdateProject.mockRejectedValueOnce(new Error("write failed"));
+test("own rate blur saves and persists across a remount", async () => {
+  mockSettings = { ...mockSettings, baseRateCents: 0, rateBasis: "hourly" };
+  mockSaveWorkHours.mockClear();
   const screen = render(
     <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
   );
-  await waitFor(() => expect(screen.getByText("1111.")).toBeTruthy());
-  fireEvent.changeText(screen.getByTestId("settings-pay-rate-input"), "150");
-  fireEvent(screen.getByTestId("settings-pay-rate-input"), "blur");
-  await waitFor(() => expect(screen.getByText("Couldn't save. Try again.")).toBeTruthy());
-});
-
-test("first blur resolves an existing stored project and upserts a missing rate", async () => {
-  mockGetProjectScreenStore.mockClear();
-  mockListProjects.mockReset();
-  mockUpdateProject.mockReset();
-  mockSaveReportPeriod.mockReset();
-  mockListProjects
-    .mockRejectedValueOnce(new Error("transient project load failure"))
-    .mockResolvedValueOnce([storedProject]);
-
-  const screen = render(
-    <SettingsScreen
-      account={{ id: "u1", email: "shi@example.com" } as never}
-      initialPanel="work_hours"
-      onAccountDeleted={jest.fn()}
-      onLogout={jest.fn()}
-    />,
-  );
-
-  await waitFor(() => expect(mockListProjects).toHaveBeenCalledTimes(1));
-  expect(screen.getByText("No projects yet")).toBeTruthy();
-  expect(screen.getByText("Couldn't load projects. Try again.")).toBeTruthy();
-  fireEvent.changeText(screen.getByTestId("settings-pay-rate-input"), "150");
-  fireEvent(screen.getByTestId("settings-pay-rate-input"), "blur");
-
-  await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy());
-  expect(mockUpdateProject).toHaveBeenCalledWith(expect.objectContaining({
-    userId: "u1",
-    projectId: storedProject.id,
-    hourlyRateCents: 15_000,
-  }));
-  expect(screen.queryByText("Couldn't load projects. Try again.")).toBeNull();
+  await waitFor(() => expect(screen.getByTestId("pay-rate-own-rate")).toBeTruthy());
+  fireEvent.changeText(screen.getByTestId("pay-rate-own-rate"), "150");
+  fireEvent(screen.getByTestId("pay-rate-own-rate"), "blur");
+  await waitFor(() => expect(mockSaveWorkHours).toHaveBeenCalledWith("u1", expect.objectContaining({ baseRateCents: 15_000, rateBasis: "hourly" })));
+  screen.unmount();
+  const remounted = render(<SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />);
+  await waitFor(() => expect(remounted.getByTestId("pay-rate-own-rate").props.value).toBe("150"));
 });
 

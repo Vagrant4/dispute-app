@@ -38,10 +38,7 @@ export function buildProgressClaimSnapshot(
     input.pay?.offDayMultiplier ?? DEFAULT_OFF_DAY_MULTIPLIER;
   const holidayMultiplier =
     input.pay?.holidayMultiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
-  const hourlyRateCents =
-    input.pay?.hourlyRateCents ??
-    input.project?.hourlyRateCents ??
-    0;
+  const hourlyRateCents = input.pay?.hourlyRateCents ?? 0;
   const currency =
     input.pay?.currency ??
     input.project?.currency ??

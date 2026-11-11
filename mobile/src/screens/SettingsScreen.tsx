@@ -19,11 +19,7 @@ import {
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import { useDisputeBasicStorePrice } from "../subscription/useDisputeBasicStorePrice";
 import { getDisputePackBillingNote } from "../subscription/recordAccess";
-import { getProjectScreenStore } from "../work/projectScreenStore";
-import type { WorkProject } from "../work/workRepository";
 import { loadReportPeriod, saveReportPeriod, type ReportPeriod } from "../reports/reportPeriodSettings";
-import { ProjectPickerSheet } from "./ProjectPickerSheet";
-import { listActiveProjects } from "../work/activeProjects";
 import { SwipeDownSheet } from "../components/SwipeDownSheet";
 
 type SettingsScreenProps = {
@@ -68,13 +64,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     String(DEFAULT_APP_SETTINGS.holidayMultiplier),
   );
   const [workHoursStatus, setWorkHoursStatus] = useState("");
-  const [projectRateStatus, setProjectRateStatus] = useState("");
-  const [projects, setProjects] = useState<WorkProject[]>([]);
-  const [rateProjectId, setRateProjectId] = useState<string | null>(null);
-  const [rateProjectPickerOpen, setRateProjectPickerOpen] = useState(false);
-  const [projectRate, setProjectRate] = useState("");
-  const rateDirty = useRef(false);
-  const rateValue = useRef("");
+  const paySettingsLoaded = useRef(false);
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
   const [reportPeriodPickerOpen, setReportPeriodPickerOpen] = useState(false);
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
@@ -95,7 +85,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
       if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }
-      if (rateProjectPickerOpen) { setRateProjectPickerOpen(false); return true; }
       if (reportPeriodPickerOpen) { setReportPeriodPickerOpen(false); return true; }
       if (panel !== "main") {
         setPanel(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
@@ -104,7 +93,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       return false;
     });
     return () => subscription.remove();
-  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, rateProjectPickerOpen, reportPeriodPickerOpen]);
+  }, [currencyDropdownOpen, panel, rateBasisDropdownOpen, reportPeriodPickerOpen]);
 
   const mainRows: { id: SettingsPage; label: string; value: string }[] = [
     { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : rateBasis === "hourly" ? "hour" : "day"}` : "Not set" },
@@ -156,9 +145,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }
 
   const loadWorkHours = useCallback(async () => {
-    const [workHoursResult, projectsResult, periodResult] = await Promise.allSettled([
+    const [workHoursResult, periodResult] = await Promise.allSettled([
       loadSavedWorkHours(userId),
-      getProjectScreenStore(userId).then((store) => listActiveProjects(store, userId)),
       loadReportPeriod(userId),
     ]);
     if (workHoursResult.status === "fulfilled") {
@@ -172,56 +160,15 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
     }
-    if (projectsResult.status === "fulfilled") {
-      const projectRows = projectsResult.value;
-      setProjects(projectRows);
-      setRateProjectId((current) => projectRows.some((item) => item.id === current) ? current : projectRows[0]?.id ?? null);
-    }
     if (periodResult.status === "fulfilled") setReportPeriod(periodResult.value);
     const loadError = workHoursResult.status === "rejected"
       ? "Couldn't load pay rate. Try again."
-      : projectsResult.status === "rejected"
-        ? "Couldn't load projects. Try again."
-        : periodResult.status === "rejected"
+      : periodResult.status === "rejected"
           ? "Couldn't load report period. Try again."
           : "";
     setWorkHoursStatus(loadError);
+    paySettingsLoaded.current = workHoursResult.status === "fulfilled";
   }, [userId]);
-
-  useEffect(() => {
-    const selected = projects.find((item) => item.id === rateProjectId);
-    const value = formatRateAmount(selected?.hourlyRateCents ?? 0);
-    rateValue.current = value; rateDirty.current = false; setProjectRate(value);
-  }, [projects, rateProjectId]);
-
-  async function handleSaveProjectRate(projectId = rateProjectId, value = rateValue.current || projectRate) {
-    setProjectRateStatus("");
-    try {
-      const store = await getProjectScreenStore(userId);
-      const selectedProject = projects.find((item) => item.id === projectId);
-      const storedProjects = selectedProject ? projects : await listActiveProjects(store, userId);
-      const project = selectedProject ?? storedProjects[0];
-      if (!project) {
-        setProjectRateStatus("Add a project first.");
-        return;
-      }
-      const hourlyRateCents = parseRateAmountCents(value);
-      await store.updateProject({ userId, projectId: project.id, name: project.name, description: project.description, hourlyRateCents });
-      setProjects(storedProjects.map((item) => item.id === project.id ? { ...item, hourlyRateCents } : item));
-      setRateProjectId(project.id);
-      setProjectRateStatus("Saved");
-      rateDirty.current = false;
-      setWorkHoursStatus("");
-    } catch {
-      setProjectRateStatus("Couldn't save. Try again.");
-    }
-  }
-
-  useEffect(() => {
-    if (!rateDirty.current || !rateProjectId) return;
-    const timer = setTimeout(() => void handleSaveProjectRate(rateProjectId, rateValue.current), 600);
-    return () => clearTimeout(timer);
-  }, [projectRate, rateProjectId]);
 
   useEffect(() => {
     const initialLoad = setTimeout(() => void loadWorkHours(), 0);
@@ -261,6 +208,12 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setWorkHoursStatus(getPayRateSaveErrorMessage(error));
     }
   }
+
+  useEffect(() => {
+    if (!paySettingsLoaded.current) return;
+    const timer = setTimeout(() => void handleSaveWorkHours(), 600);
+    return () => clearTimeout(timer);
+  }, [baseRate, currency, rateBasis]);
 
   return (
     <View style={styles.todayScreen}>
@@ -312,19 +265,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           <Text style={styles.body}>
             Set your normal hours and rates. Overtime, off-day and holiday rates apply automatically.
           </Text>
-          <Text style={styles.inputLabel}>Project</Text>
-          <Pressable testID="settings-pay-rate-project-picker" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setRateProjectPickerOpen(true)}>
-            <Text style={styles.dropdownValue}>{projects.find((item) => item.id === rateProjectId)?.name ?? "No projects yet"}</Text>
-            <Text style={styles.settingsDropdownChevron}>▼</Text>
-          </Pressable>
-          {rateProjectPickerOpen ? <ProjectPickerSheet
-            onClose={() => setRateProjectPickerOpen(false)}
-            onSelect={async (projectId) => { if (rateDirty.current) await handleSaveProjectRate(rateProjectId, rateValue.current); setRateProjectId(projectId); setRateProjectPickerOpen(false); }}
-            projects={projects}
-            testID="settings-pay-rate-project-sheet"
-          /> : null}
-          <Text style={styles.inputLabel}>Project hourly rate ({currency})</Text>
-          <TextInput accessibilityLabel="Project hourly rate" testID="settings-pay-rate-input" placeholderTextColor={theme.colors.placeholder} inputMode="decimal" keyboardType="decimal-pad" onBlur={() => { if (rateDirty.current) void handleSaveProjectRate(rateProjectId, rateValue.current); }} onChangeText={(value) => { rateDirty.current = true; rateValue.current = value; setProjectRate(value); setProjectRateStatus(""); }} style={styles.textInput} value={projectRate} />
           <Text style={styles.inputLabel}>Report period</Text>
           <Pressable testID="settings-report-period" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setReportPeriodPickerOpen(true)}>
             <Text style={styles.dropdownValue}>{reportPeriod === "week" ? "This week" : "This month"}</Text>
@@ -332,11 +272,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           </Pressable>
           {reportPeriodPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setReportPeriodPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-report-period-sheet">
             <Text style={styles.heading}>Report period</Text>
-            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); void saveReportPeriod(userId, period).then(() => setProjectRateStatus("Saved")).catch(() => setProjectRateStatus("Couldn't save. Try again.")); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
+            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); void saveReportPeriod(userId, period).then(() => setWorkHoursStatus("Saved")).catch(() => setWorkHoursStatus("Couldn't save. Try again.")); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
               <Text style={styles.body}>{period === "week" ? "This week" : "This month"}{period === reportPeriod ? " ✓" : ""}</Text>
             </Pressable>)}
           </SwipeDownSheet> : null}
-          <Text style={styles.statusMessage}>{projectRateStatus}</Text>
           <Text style={styles.inputLabel}>Currency</Text>
           <View style={styles.dropdownContainer}>
             <Pressable
@@ -426,9 +365,11 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           </Text>
           <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Base rate amount"
+            testID="pay-rate-own-rate"
             inputMode="decimal"
             keyboardType="decimal-pad"
             onChangeText={setBaseRate}
+            onBlur={() => void handleSaveWorkHours()}
             placeholder={rateBasis === "monthly" ? "3000" : rateBasis === "hourly" ? "15" : "150"}
             style={styles.textInput}
             value={baseRate}
@@ -483,13 +424,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
             style={styles.textInput}
             value={holidayMultiplier}
           />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleSaveWorkHours()}
-            style={styles.actionButton}
-          >
-            <Text style={styles.actionButtonText}>Save</Text>
-          </Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
         </View>
       ) : null}

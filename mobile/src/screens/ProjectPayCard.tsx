@@ -2,9 +2,8 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { AppSettings } from "../db/settingsValidation";
 import { styles, theme } from "../styles";
-export function ProjectPayCard({ name, settings, rateCents, onSave }: { name: string; settings: AppSettings; rateCents: number; onSave: (name: string, rate: string, settings: AppSettings) => Promise<void> }) {
+export function ProjectPayCard({ name, settings, onSave }: { name: string; settings: AppSettings; onSave: (name: string, settings: AppSettings) => Promise<void> }) {
   const [reportName, setReportName] = useState(name);
-  const [rate, setRate] = useState(rateCents > 0 ? (rateCents / 100).toFixed(2) : "");
   const [values, setValues] = useState(settings);
   const [multipliers, setMultipliers] = useState({
     overtimeMultiplier: String(settings.overtimeMultiplier),
@@ -14,7 +13,7 @@ export function ProjectPayCard({ name, settings, rateCents, onSave }: { name: st
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  async function save() { setBusy(true); try { await onSave(reportName, rate, {
+  async function save() { setBusy(true); try { await onSave(reportName, {
       ...values,
       overtimeMultiplier: Number(multipliers.overtimeMultiplier),
       offDayMultiplier: Number(multipliers.offDayMultiplier),
@@ -24,8 +23,6 @@ export function ProjectPayCard({ name, settings, rateCents, onSave }: { name: st
     <Text style={styles.heading}>Pay</Text>
     <Text style={styles.inputLabel}>Your name for the report</Text>
     <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Your name for the report" value={reportName} onChangeText={setReportName} style={styles.textInput} />
-    <Text style={styles.inputLabel}>Hourly rate SGD</Text>
-    <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Hourly rate SGD" keyboardType="decimal-pad" value={rate} onChangeText={setRate} style={styles.textInput} />
     {(["normalWorkStartTime", "normalWorkEndTime"] as const).map((key) => <View key={key}>
       <Text style={styles.inputLabel}>{key === "normalWorkStartTime" ? "Start time" : "End time"}</Text>
       <TextInput value={values[key]} onChangeText={(text) => setValues({ ...values, [key]: text })} placeholder="HH:mm" placeholderTextColor={theme.colors.placeholder} style={styles.textInput} />

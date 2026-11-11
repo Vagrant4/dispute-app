@@ -47,14 +47,17 @@ test("Settings uses lime only for primary actions and the wordmark", () => {
     }
     if (!["SettingsScreen", "PlanBillingPanel"].includes(file)) assert.doesNotMatch(source, /styles.actionButton\b/);
   }
-  assert.equal((settings.match(/style=\{styles.actionButton\}/g) || []).length, 1);
+  assert.equal((settings.match(/style=\{styles.actionButton\}/g) || []).length, 0);
   assert.match(styles, /actionButton: \{[\s\S]*?height: control.height/);
 });
 
-test("Pay retains its fields and save handler with the concise explanation", () => {
+test("Pay retains its fields and autosaves the user's rate with the concise explanation", () => {
   assert.ok(settings.includes("Set your normal hours and rates. Overtime, off-day and holiday rates apply automatically."));
   for (const label of ["Base rate amount", "Normal work start time", "Normal work end time", "Overtime rate multiplier", "Off day rate multiplier", "Holiday rate multiplier", "Currency dropdown", "Rate entry type dropdown"]) assert.ok(settings.includes(`accessibilityLabel="${label}"`));
-  assert.match(settings, /onPress=\{\(\) => void handleSaveWorkHours\(\)\}\s+style=\{styles.actionButton\}[\s\S]*?>Save<\/Text>/);
+  assert.match(settings, /testID="pay-rate-own-rate"/);
+  assert.match(settings, /onBlur=\{\(\) => void handleSaveWorkHours\(\)\}/);
+  assert.match(settings, /setTimeout\(\(\) => void handleSaveWorkHours\(\), 600\)/);
+  assert.doesNotMatch(settings, />Save<\/Text>/);
   assert.match(settings, /await saveWorkHours\(userId/);
   assert.match(settings, /setWorkHoursStatus\("Saved"\)/);
 });

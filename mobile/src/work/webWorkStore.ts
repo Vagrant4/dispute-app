@@ -1,5 +1,6 @@
 import { locationReading, appendLocationHistory, assertRefreshPhase, type LocationParams } from "./locationEvidence";
 import { buildProgressClaimSnapshot } from "../reports/progressClaimSnapshot";
+import { ownRateToHourlyCents } from "./ownRateConversion";
 import type { ProgressClaimSnapshot } from "../reports/progressClaimTypes";
 import type {
   ClockInParams,
@@ -367,8 +368,8 @@ export function buildWebWorkProgressClaimSnapshot(params: {
   if (!selectedProject) {
     throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
   }
-  const hourlyRateCents = normalizeProjectHourlyRateCents(selectedProject.hourlyRateCents);
   const preferences = readWebWorkHours(params.userId ?? DEFAULT_USER_ID);
+  const hourlyRateCents = ownRateToHourlyCents(preferences.settings);
   return buildProgressClaimSnapshot({
     generatedAt: new Date().toISOString(),
     worker: {

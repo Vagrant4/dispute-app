@@ -101,8 +101,8 @@ android {
         applicationId 'sg.claimproof.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 22
-        versionName "0.3.20"
+        versionCode 23
+        versionName "0.3.21"
         manifestPlaceholders.googleMapsApiKey = googleMapsApiKey
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

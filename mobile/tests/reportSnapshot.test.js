@@ -105,6 +105,7 @@ test("buildProgressClaimSnapshot totals days hours overtime and claim amount", (
       },
     ],
     pay: {
+      hourlyRateCents: 5000,
       dailyNormalMinutes: 480,
       normalWorkStartTime: "08:00",
       normalWorkEndTime: "17:00",
@@ -270,7 +271,7 @@ test("buildProgressClaimSnapshot calculates short normal time and overtime from 
   assert.equal(overtimeSnapshot.totals.totalClaimAmountCents, 25625);
 });
 
-test("ProgressClaimSourceRepository builds hours with a zero-rate project", async () => {
+test("ProgressClaimSourceRepository ignores an old project rate and uses the user's daily rate", async () => {
   const { ProgressClaimSourceRepository } = createTsLoader()(
     "src/reports/progressClaimSourceRepository.ts",
   );
@@ -283,7 +284,7 @@ test("ProgressClaimSourceRepository builds hours with a zero-rate project", asyn
     projectId: "project-zero",
     generatedAt: "2026-10-08T12:00:00.000Z",
   });
-  assert.equal(snapshot.rateCalculation.hourlyRateCents, 0);
+  assert.equal(snapshot.rateCalculation.hourlyRateCents, 2500);
   assert.ok(snapshot.totals.totalNormalHours >= 0);
 });
 
@@ -292,7 +293,10 @@ class FakeProgressClaimSourceDatabase {
     if (/FROM app_settings/i.test(sql)) {
       return {
         currency: "SGD",
+        rate_basis: "daily",
+        base_rate_cents: 20000,
         daily_hours: 8,
+        weekly_hours: 40,
         normal_work_start_time: "08:00",
         normal_work_end_time: "16:00",
         overtime_multiplier: 1.5,
@@ -306,7 +310,7 @@ class FakeProgressClaimSourceDatabase {
         id: "project-zero",
         name: "Zero Rate Project",
         description: null,
-        hourly_rate_cents: 0,
+        hourly_rate_cents: 5000,
         currency: "SGD",
         client_id: "client-zero",
       };

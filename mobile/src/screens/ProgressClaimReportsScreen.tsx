@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
-import { ProjectPayCard } from "./ProjectPayCard";
-import { loadWorkHours, saveWorkHours, calculateNormalHours } from "../work/workHoursSettings";
-import { needsPayStep, currentWeekStart } from "../work/projectScreenStore";
-import type { AppSettings } from "../db/settingsValidation";
-import { parseSgdHourlyRateCents } from "../work/projectRates";
+import { loadWorkHours } from "../work/workHoursSettings";
+import { currentWeekStart } from "../work/projectScreenStore";
+import { ownRateToHourlyCents } from "../work/ownRateConversion";
 import { buildProjectPeriodReport } from "../reports/projectWeekReport";
 import { getReportPeriodRange, loadReportPeriod } from "../reports/reportPeriodSettings";
 import { useEffect, useState } from "react";
@@ -67,52 +65,20 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   const [reportPreview, setReportPreview] = useState<ProgressClaimSnapshot | null>(
     null,
   );
-  const [payStep, setPayStep] = useState<{ settings: AppSettings; name: string; action: "share" | "preview" | "save" } | null>(null);
   useEffect(() => {
     if (!paySetupRequest) return;
-    void loadWorkHours(userId).then((preferences) => setPayStep({ settings: preferences.settings, name: (!account.isGuest && account.name) || preferences.reportName, action: "save" })).catch((error) => setStatus(getErrorMessage(error, "load the pay rate")));
+    void loadWorkHours(userId).then((preferences) => {
+      setStatus(ownRateToHourlyCents(preferences.settings) > 0 ? "" : "Set your own rate in Settings > Pay rate.");
+    }).catch((error) => setStatus(getErrorMessage(error, "load the pay rate")));
   }, [paySetupRequest]);
   async function preparePay(action: "share" | "preview") {
     if (!selectedProjectId) return false;
     const preferences = await loadWorkHours(userId);
-    const project = projects.find((item) => item.id === selectedProjectId);
-    if (project && needsPayStep({ hourlyRateCents: project.hourlyRateCents, hasWorkHours: preferences.hasWorkHours })) {
-      setPayStep({ settings: preferences.settings, name: account.isGuest ? "" : account.name || preferences.reportName, action });
+    if (ownRateToHourlyCents(preferences.settings) <= 0) {
+      setStatus("Set your own rate in Settings > Pay rate.");
       return false;
     }
     return true;
-  }
-  async function savePay(name: string, rate: string, settings: AppSettings) {
-    if (!selectedProjectId || !payStep) return;
-    const hourlyRateCents = parseSgdHourlyRateCents(rate);
-    if (hourlyRateCents <= 0) throw new Error("Enter an hourly rate above zero.");
-    const repositories = await getReportRepositories(userId);
-    // Read the current project so saving pay cannot undo a rename in detail.
-    const project = (await repositories.work.listProjects(userId)).find((item) => item.id === selectedProjectId);
-    if (!project) throw new Error("Project not found for this account.");
-    const dailyHours = calculateNormalHours(settings.normalWorkStartTime, settings.normalWorkEndTime);
-    await saveWorkHours(userId, {
-      currency: settings.currency,
-      rateBasis: settings.rateBasis,
-      baseRateCents: settings.baseRateCents,
-      normalWorkStartTime: settings.normalWorkStartTime,
-      normalWorkEndTime: settings.normalWorkEndTime,
-      dailyHours,
-      weeklyHours: Math.max(settings.weeklyHours, dailyHours),
-      overtimeMultiplier: settings.overtimeMultiplier,
-      offDayMultiplier: settings.offDayMultiplier,
-      holidayMultiplier: settings.holidayMultiplier,
-    }, name);
-    await repositories.work.updateProject({
-      userId, projectId: project.id, name: project.name,
-      description: project.description, hourlyRateCents,
-    });
-    const action = payStep.action;
-    setPayStep(null);
-    await refreshArchive();
-    onPaySaved?.();
-    if (action === "share") await handleShareDisputePack();
-    else if (action === "preview") await handlePreview();
   }
   async function reportRepositories() {
     const repositories = await getReportRepositories(userId);
@@ -136,7 +102,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
           pay: {
             ...snapshot.rateCalculation,
             ...preferences.settings,
-            hourlyRateCents: snapshot.project.hourlyRateCents,
+            hourlyRateCents: ownRateToHourlyCents(preferences.settings),
             dailyNormalMinutes: preferences.settings.dailyHours * 60,
           },
         },
@@ -428,7 +394,6 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         ) : null}
         <Text style={styles.muted}>{subscriptionStatus}</Text>
       </View>
-      {payStep ? <ProjectPayCard name={payStep.name} settings={payStep.settings} rateCents={projects.find((project) => project.id === selectedProjectId)?.hourlyRateCents ?? 0} onSave={savePay} /> : null}
 
       <View style={styles.statusCard}>
         <Text style={styles.statusTitle}>Status</Text>

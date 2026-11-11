@@ -63,7 +63,8 @@ test("project navigation, site sheet, Today picker and one primary PDF action", 
   assert.doesNotMatch(detail, /Project complete|Rename project|Reopen|onSeePhotos/);
   const reports = source("src/screens/ProgressClaimReportsScreen.tsx");
   assert.match(reports, /Earlier reports/);
-  assert.match(reports, /payStep \? <ProjectPayCard/);
+  assert.match(reports, /Set your own rate in Settings > Pay rate/);
+  assert.doesNotMatch(reports, /ProjectPayCard|payStep/);
   assert.doesNotMatch(reports, /archived files|export formats|>Create PDF</);
   assert.doesNotMatch(reports, /handleGenerate\("progress_claim_pdf", project\.id\)/);
   assert.match(source("App.tsx"), /<ProjectsScreen/);

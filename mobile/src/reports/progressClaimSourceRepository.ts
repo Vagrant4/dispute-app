@@ -3,8 +3,8 @@ import type { LocalDatabase } from "../db/localDatabase";
 import {
   PAY_REPORT_HOURLY_RATE_ERROR,
   PAY_REPORT_PROJECT_REQUIRED_ERROR,
-  normalizeProjectHourlyRateCents,
 } from "../work/projectRates";
+import { ownRateToHourlyCents } from "../work/ownRateConversion";
 import { buildProgressClaimSnapshot } from "./progressClaimSnapshot";
 import type {
   PhotoEvidenceSnapshotInput,
@@ -17,7 +17,10 @@ import { buildTaskSegments, type BreakInterval, type TaskSwitch } from "../work/
 type SettingsRow = {
   report_name?: string | null;
   currency: string;
+  rate_basis: "daily" | "monthly" | "hourly" | null;
+  base_rate_cents: number | null;
   daily_hours: number;
+  weekly_hours: number;
   normal_work_start_time: string | null;
   normal_work_end_time: string | null;
   overtime_multiplier: number;
@@ -99,7 +102,7 @@ export class ProgressClaimSourceRepository {
     generatedAt?: string;
   }): Promise<ProgressClaimSnapshotInput> {
     const settings = await this.database.getFirstAsync<SettingsRow>(
-      `SELECT report_name, currency, daily_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier
+      `SELECT report_name, currency, rate_basis, base_rate_cents, daily_hours, weekly_hours, normal_work_start_time, normal_work_end_time, overtime_multiplier, off_day_multiplier, holiday_multiplier
       FROM app_settings
       WHERE user_id = ?`,
       [params.userId],
@@ -123,7 +126,12 @@ export class ProgressClaimSourceRepository {
     if (!project) {
       throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
     }
-    const hourlyRateCents = normalizeProjectHourlyRateCents(project.hourly_rate_cents);
+    const hourlyRateCents = ownRateToHourlyCents({
+      rateBasis: settings?.rate_basis ?? "daily",
+      baseRateCents: settings?.base_rate_cents ?? 0,
+      dailyHours: settings?.daily_hours ?? 8,
+      weeklyHours: settings?.weekly_hours ?? 40,
+    });
 
     const [client, timeEntries, photoEvidence, taskRows, evidenceAudit] = await Promise.all([
       this.database.getFirstAsync<ClientRow>(
