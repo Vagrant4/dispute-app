@@ -163,6 +163,15 @@ test("buildProgressClaimHtml includes clean report sections without signature or
   assert.doesNotMatch(html, /Deductions/);
 });
 
+test("former-lead project reports omit retired discovery labels and retain Address", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const html = buildProgressClaimHtml(createSnapshot());
+  assert.match(html, /Address: 10 Anson Road, Singapore 079903/);
+  assert.doesNotMatch(html, /Lead|Group/);
+});
+
 test("buildProgressClaimHtml renders the revised palette, dynamic overview, and print-safe page rules", () => {
   const { buildProgressClaimHtml } = createTsLoader()(
     "src/reports/progressClaimHtml.ts",
