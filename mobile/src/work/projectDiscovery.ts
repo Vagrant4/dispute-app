@@ -1,4 +1,4 @@
-export type ProjectStatus = "lead" | "active" | "completed";
+export type ProjectStatus = "active" | "completed";
 
 export type DiscoverableProject = {
   name: string;
@@ -6,6 +6,10 @@ export type DiscoverableProject = {
   projectStatus: ProjectStatus;
   groupId: string | null;
 };
+
+export function normalizeProjectStatus(status: string | null | undefined): ProjectStatus {
+  return status === "completed" ? "completed" : "active";
+}
 
 export function formatSiteDistance(metres: number | null | undefined): string | null {
   if (metres == null || !Number.isFinite(metres) || metres < 0) return null;
@@ -22,9 +26,8 @@ export function haversineMetres(from: { latitude: number; longitude: number } | 
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function filterProjects<T extends DiscoverableProject>(projects: T[], query: string, status?: ProjectStatus | "all", groupId?: string | "all"): T[] {
+export function filterProjects<T extends DiscoverableProject>(projects: T[], query: string, status?: ProjectStatus | "all"): T[] {
   const needle = query.trim().toLocaleLowerCase();
   return projects.filter((project) => (!needle || `${project.name} ${project.siteAddress ?? ""}`.toLocaleLowerCase().includes(needle))
-    && (!status || status === "all" || project.projectStatus === status)
-    && (!groupId || groupId === "all" || project.groupId === groupId));
+    && (!status || status === "all" || normalizeProjectStatus(project.projectStatus) === status));
 }

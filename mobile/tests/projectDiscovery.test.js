@@ -16,13 +16,14 @@ test("formats site distance in metres and kilometres", () => {
   assert.equal(api.formatSiteDistance(null), null);
 });
 
-test("searches name and address and combines status and group filters", () => {
+test("searches name and address and treats legacy lead projects as active", () => {
   const rows = [
     { name: "Tower", siteAddress: "Raffles Place", projectStatus: "active", groupId: "g1" },
     { name: "Garden", siteAddress: "Jurong", projectStatus: "lead", groupId: "g2" },
   ];
   assert.deepEqual(api.filterProjects(rows, "raffles", "all", "all"), [rows[0]]);
-  assert.deepEqual(api.filterProjects(rows, "", "lead", "g2"), [rows[1]]);
+  assert.equal(api.normalizeProjectStatus("lead"), "active");
+  assert.deepEqual(api.filterProjects(rows, "", "active"), rows);
 });
 
 test("haversine returns a project-to-site distance", () => {

@@ -81,6 +81,7 @@ test("Projects uses bundled back and filter glyphs and title-case statuses", () 
   const detail = source("src/screens/ProjectDetailScreen.tsx");
   assert.match(projects, /name="arrow-back"/);
   assert.match(projects, /name="tune"/);
+  for (const screen of [projects, detail]) assert.doesNotMatch(screen, /Lead|lead/);
   for (const label of ["Active", "Completed"]) assert.ok(detail.includes(label));
 });
 

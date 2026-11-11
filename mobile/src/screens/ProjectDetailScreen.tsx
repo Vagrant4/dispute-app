@@ -137,7 +137,7 @@ export function ProjectDetailScreen({
         <Text style={styles.muted}>{projectAddressLabel(project?.siteAddress)}</Text>
         <View style={styles.projectStatusBadge}>
           <Text style={styles.projectStatusText}>
-            {project?.projectStatus === "lead" ? "Lead" : project?.projectStatus === "completed" ? "Completed" : "Active"}
+            {project?.projectStatus === "completed" ? "Completed" : "Active"}
           </Text>
         </View>
       </View>
@@ -174,7 +174,7 @@ export function ProjectDetailScreen({
           value={siteAddress}
         />
         <View style={styles.chipRow}>
-          {(["lead", "active", "completed"] as const).map((status) => (
+          {(["active", "completed"] as const).map((status) => (
             <Pressable
               key={status}
               onPress={() => void saveDiscovery(status)}

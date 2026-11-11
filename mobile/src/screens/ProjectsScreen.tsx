@@ -259,8 +259,6 @@ export function ProjectsScreen({
                 styles.projectStatusDot,
                 project.status === "archived"
                   ? styles.projectStatusArchived
-                  : project.projectStatus === "lead"
-                  ? styles.projectStatusLead
                   : project.projectStatus === "completed"
                     ? styles.projectStatusCompleted
                     : styles.projectStatusActive,
@@ -369,7 +367,7 @@ export function ProjectsScreen({
         <Text style={styles.heading}>Filter projects</Text>
         <Text style={styles.inputLabel}>Status</Text>
         <View style={styles.chipRow}>
-          {(["all", "lead", "active", "completed", "archived"] as const).map(
+          {(["all", "active", "completed", "archived"] as const).map(
             (value) => (
               <Pressable
                 key={value}

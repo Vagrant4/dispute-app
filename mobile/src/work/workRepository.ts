@@ -5,6 +5,7 @@ import type { LocalDatabase } from "../db/localDatabase";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
 import { normalizeProjectHourlyRateCents } from "./projectRates";
 import { closeOpenBreak, summarizeBreaks, type BreakInterval, type TaskSwitch } from "./shiftTimeline";
+import { normalizeProjectStatus, type ProjectStatus } from "./projectDiscovery";
 
 export type WorkTask = { id: string; projectId: string; name: string };
 
@@ -17,7 +18,7 @@ export type WorkProject = {
   hourlyRateCents: number;
   currency: string;
   status: string;
-  projectStatus: "lead" | "active" | "completed";
+  projectStatus: ProjectStatus;
   groupId: string | null;
   siteAddress: string | null;
   siteLatitude: number | null;
@@ -30,7 +31,7 @@ export type ProjectSummary = {
   id: string; name: string; lastSiteAddress: string | null; lastWorkedAt: string | null;
   lastSiteLatitude: number | null; lastSiteLongitude: number | null; lastSiteAccuracyM: number | null;
   minutesThisWeek: number; photoCount: number; isActive: boolean; status: string;
-  projectStatus: "lead" | "active" | "completed"; groupId: string | null;
+  projectStatus: ProjectStatus; groupId: string | null;
   siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null; latestPhotoUri: string | null;
 };
 
@@ -193,7 +194,7 @@ type ProjectRow = {
   currency: string;
   client_name: string;
   status: string;
-  project_status: "lead" | "active" | "completed";
+  project_status: string | null;
   group_id: string | null;
   site_address: string | null;
   site_latitude: number | null;
@@ -522,7 +523,7 @@ SELECT p.id, p.name, p.status, p.project_status AS projectStatus, p.group_id AS 
  (SELECT COUNT(*) FROM photo_evidence f WHERE f.user_id = p.user_id AND f.project_id = p.id) AS photoCount,
  EXISTS(SELECT 1 FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id AND e.status = 'draft' AND e.end_time IS NULL) AS isActive
 FROM projects p WHERE p.user_id = ? ORDER BY lastWorkedAt DESC, p.name`, [weekStart, weekEnd.toISOString().slice(0, 10), userId]);
-    return rows.map((row) => ({ ...row, isActive: Boolean(row.isActive) }));
+    return rows.map((row) => ({ ...row, projectStatus: normalizeProjectStatus(row.projectStatus), isActive: Boolean(row.isActive) }));
   }
 
   async listProjectEntries(userId: string, projectId: string): Promise<WorkEntry[]> {
@@ -578,7 +579,7 @@ ORDER BY projects.updated_at DESC, projects.name ASC
     await this.database.runAsync("UPDATE projects SET group_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [groupId, projectId, userId]);
   }
 
-  async updateProjectDiscovery(userId: string, projectId: string, fields: { status: "lead" | "active" | "completed"; siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null }): Promise<void> {
+  async updateProjectDiscovery(userId: string, projectId: string, fields: { status: ProjectStatus; siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null }): Promise<void> {
     await this.database.runAsync("UPDATE projects SET project_status = ?, site_address = ?, site_latitude = ?, site_longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [fields.status, fields.siteAddress, fields.siteLatitude, fields.siteLongitude, projectId, userId]);
   }
 
@@ -882,7 +883,7 @@ function mapProjectRow(row: ProjectRow): WorkProject {
     hourlyRateCents: row.hourly_rate_cents ?? 0,
     currency: row.currency,
     status: row.status,
-    projectStatus: row.project_status ?? "active",
+    projectStatus: normalizeProjectStatus(row.project_status),
     groupId: row.group_id ?? null,
     siteAddress: row.site_address ?? null,
     siteLatitude: row.site_latitude ?? null,

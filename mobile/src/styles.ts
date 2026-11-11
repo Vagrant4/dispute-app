@@ -118,7 +118,6 @@ export const styles = StyleSheet.create({
   projectDistance: { alignSelf: "flex-start", color: theme.colors.textMuted, ...type.caption },
   projectStatusBadge: { alignItems: "center", alignSelf: "flex-start", backgroundColor: theme.colors.surfaceMuted, borderRadius: radius.pill, flexDirection: "row", gap: space.sm, paddingHorizontal: space.sm, paddingVertical: space.xs },
   projectStatusDot: { borderRadius: radius.pill, height: 9, width: 9 },
-  projectStatusLead: { backgroundColor: theme.colors.warningBorder },
   projectStatusActive: { backgroundColor: theme.colors.primary },
   projectStatusCompleted: { backgroundColor: theme.colors.textMuted },
   projectStatusArchived: { backgroundColor: theme.colors.textMuted },

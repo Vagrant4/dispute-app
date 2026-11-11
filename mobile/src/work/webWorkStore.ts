@@ -26,6 +26,7 @@ import {
 } from "./projectRates";
 
 import { readWebWorkHours } from "./webWorkHours";
+import { normalizeProjectStatus } from "./projectDiscovery";
 
 const STORAGE_KEY = "claimproof-sg-web-work-state";
 
@@ -93,7 +94,7 @@ export const webWorkStore = {
       const stopFix = last?.clockOutGpsLatitude != null && last?.clockOutGpsLongitude != null;
       const startFix = last?.clockInGpsLatitude != null && last?.clockInGpsLongitude != null;
       return { id: project.id, name: project.name, status: project.status,
-        projectStatus: project.projectStatus ?? "active", groupId: project.groupId ?? null,
+        projectStatus: normalizeProjectStatus(project.projectStatus), groupId: project.groupId ?? null,
         siteAddress: project.siteAddress ?? null, siteLatitude: project.siteLatitude ?? null, siteLongitude: project.siteLongitude ?? null,
         latestPhotoUri: photos.find((photo) => photo.project_id === project.id)?.local_uri ?? null,
         lastSiteAddress: stopFix ? last.clockOutLocationText ?? null : startFix ? last.locationText : null,
@@ -510,7 +511,7 @@ function normalizeState(state: WebWorkState): WebWorkState {
   const projects = Array.isArray(state.projects)
     ? state.projects.filter(
         (project) => project.id !== "project:steel-bracket-installation",
-      )
+      ).map((project) => ({ ...project, projectStatus: normalizeProjectStatus(project.projectStatus) }))
     : [];
   const project =
     state.project?.id && state.project.id !== "project:steel-bracket-installation"
