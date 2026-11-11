@@ -93,6 +93,7 @@ test("restoring from Archived refreshes the active projects immediately", async 
   fireEvent.press(screen.getByLabelText("Filter projects"));
   fireEvent.press(screen.getByText("Archived"));
   expect(await screen.findByText("Old warehouse")).toBeTruthy();
+  expect(screen.getAllByText("Archived").length).toBeGreaterThan(1);
 
   fireEvent.press(screen.getByText("Restore"));
   await waitFor(() => expect(mockSetProjectStatus).toHaveBeenCalledWith("u1", "archived-1", "active"));

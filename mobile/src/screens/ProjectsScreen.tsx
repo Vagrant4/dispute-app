@@ -283,8 +283,9 @@ export function ProjectsScreen({
               ]}
             />
             <Text style={styles.projectStatusText}>
-              {project.projectStatus[0].toUpperCase() +
-                project.projectStatus.slice(1)}
+              {project.status === "archived"
+                ? "Archived"
+                : project.projectStatus[0].toUpperCase() + project.projectStatus.slice(1)}
             </Text>
           </View>
         </View>
