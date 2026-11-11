@@ -265,7 +265,7 @@ function buildGpsAppendix(snapshot: ProgressClaimSnapshot): string {
       });
     }) ?? day.locations;
     return fixes.filter((fix) => fix.latitude != null && fix.longitude != null)
-      .map((fix) => `<div class="gps-appendix">${escapeHtml(`${day.workDate} · ${fix.phase ?? "start/stop"} · ${formatCoordinates(fix.latitude ?? null, fix.longitude ?? null)} · ${fix.accuracy == null ? "accuracy unknown" : `±${Math.round(fix.accuracy)} m`} · ${fix.source ?? "legacy"}${fix.locatedAt ? ` · ${formatLocalDateTime(fix.locatedAt)}` : ""}`)}</div>`);
+      .map((fix) => `<div class="gps-appendix">${escapeHtml(`${formatDate(day.workDate)} · ${fix.phase ?? "start/stop"} · ${formatCoordinates(fix.latitude ?? null, fix.longitude ?? null)} · ${fix.accuracy == null ? "accuracy unknown" : `±${Math.round(fix.accuracy)} m`} · ${fix.source ?? "legacy"}${fix.locatedAt ? ` · ${formatLocalDateTime(fix.locatedAt)}` : ""}`)}</div>`);
   }).join("");
 }
 

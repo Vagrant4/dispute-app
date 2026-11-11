@@ -314,9 +314,10 @@ test("work sites group addresses by distinct day; GPS appendix retains both phas
   const workLog = html.split("<h2>Daily Work Log</h2>")[1].split("<h2>Work sites</h2>")[0];
   assert.doesNotMatch(workLog, /1\.20000|103\.40000|T01:00/);
   assert.match(workLog, /GPS ±5 m/);
-  assert.match(html, /2026-10-26 · start · 1\.20000, 103\.40000 · ±5 m · gps/);
-  assert.match(html, /2026-10-26 · stop · 1\.20000, 103\.40000 · ±6 m · gps/);
-  assert.match(html, /2026-10-26 · start · 1\.30000, 103\.50000 · ±4 m · gps/);
+  assert.match(html, /26 Oct 2026 · start · 1\.20000, 103\.40000 · ±5 m · gps/);
+  assert.match(html, /26 Oct 2026 · stop · 1\.20000, 103\.40000 · ±6 m · gps/);
+  assert.match(html, /26 Oct 2026 · start · 1\.30000, 103\.50000 · ±4 m · gps/);
+  assert.doesNotMatch(html, /\d{4}-\d{2}-\d{2}/);
   const csv = buildProgressClaimCsv(snapshot);
   assert.match(csv, /location_note,start_lat,start_lng,stop_lat,stop_lng/);
   assert.match(csv, /,1\.2,103\.4,1\.2,103\.4/);
