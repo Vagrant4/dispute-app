@@ -10,7 +10,7 @@ const mockSaveWorkHours = jest.fn();
 const defaultMockSettings = {
   currency: "SGD", rateBasis: "hourly" as const, baseRateCents: 0,
   normalWorkStartTime: "09:00", normalWorkEndTime: "18:00", dailyHours: 8, weeklyHours: 44,
-  overtimeMultiplier: 1.5, offDayMultiplier: 1.5, holidayMultiplier: 2,
+  overtimeMultiplier: 1.5, offDayMultiplier: 1.5, holidayMultiplier: 2, lunchMinutes: 0,
 };
 let mockSettings = { ...defaultMockSettings };
 let mockLoadWorkHours: () => Promise<{ settings: typeof mockSettings }> = async () => ({ settings: mockSettings });
@@ -70,8 +70,9 @@ test("Settings edits only the user's pay rate and exposes stable ids", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/SettingsScreen.tsx"), "utf8");
   expect(source).toMatch(/testID="pay-rate-own-rate"/);
   expect(source).not.toMatch(/ProjectPickerSheet|rateProjectId|handleSaveProjectRate|Project hourly rate/);
-  expect(source).toMatch(/setTimeout\([\s\S]*?, 600\)/);
-  expect(source).toMatch(/onBlur=/);
+  expect(source).not.toMatch(/setTimeout\(\(\) => void handleSaveWorkHours\(\), 600\)/);
+  expect(source).not.toMatch(/onBlur=\{\(\) => void handleSaveWorkHours\(\)\}/);
+  expect(source).toMatch(/testID="settings-pay-rate-save"/);
   expect(source).not.toMatch(/updateProject/);
 });
 
@@ -121,7 +122,7 @@ test("a report period load failure does not hide the pay rate", async () => {
   await waitFor(() => expect(screen.getByText("Couldn't load report period. Try again.")).toBeTruthy());
 });
 
-test("report period saves immediately and persists across a remount", async () => {
+test("report period saves only when Save is pressed and persists across a remount", async () => {
   const screen = render(
     <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
   );
@@ -132,6 +133,9 @@ test("report period saves immediately and persists across a remount", async () =
   expect(screen.getByText("This month")).toBeTruthy();
   fireEvent.press(screen.getByTestId("settings-report-period-month"));
   expect(screen.queryByTestId("settings-report-period-sheet")).toBeNull();
+  expect(mockSaveReportPeriod).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Save" }).props.accessibilityState.disabled).toBe(false);
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
   await waitFor(() => expect(mockSaveReportPeriod).toHaveBeenCalledWith("u1", "month"));
   await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy());
   screen.unmount();
@@ -142,17 +146,44 @@ test("report period saves immediately and persists across a remount", async () =
   await waitFor(() => expect(remounted.getByText("This month")).toBeTruthy());
 });
 
-test("own rate blur saves and persists across a remount", async () => {
+test("own rate saves only when Save is pressed and persists across a remount", async () => {
   const screen = render(
     <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
   );
   await waitFor(() => expect(screen.getByLabelText("Normal work start time").props.value).toBe("09:00"));
   fireEvent.changeText(screen.getByTestId("pay-rate-own-rate"), "150");
   fireEvent(screen.getByTestId("pay-rate-own-rate"), "blur");
+  expect(mockSaveWorkHours).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Save" }).props.accessibilityState.disabled).toBe(false);
+  fireEvent.press(screen.getByTestId("settings-pay-rate-save"));
   await waitFor(() => expect(mockSaveWorkHours).toHaveBeenCalledWith("u1", expect.objectContaining({ baseRateCents: 15_000, rateBasis: "hourly" })));
+  await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy());
   screen.unmount();
   const remounted = render(<SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />);
   await waitFor(() => expect(remounted.getByTestId("pay-rate-own-rate").props.value).toBe("150"));
+});
+
+test("dirty leave offers Discard or Save before returning to Settings", async () => {
+  const screen = render(
+    <SettingsScreen account={{ id: "u1", email: "shi@example.com" } as never} initialPanel="work_hours" onAccountDeleted={jest.fn()} onLogout={jest.fn()} />,
+  );
+  await waitFor(() => expect(screen.getByLabelText("Normal work start time").props.value).toBe("09:00"));
+
+  fireEvent.changeText(screen.getByTestId("pay-rate-own-rate"), "150");
+  fireEvent.press(screen.getByText("‹ Settings"));
+  expect(screen.getByTestId("settings-pay-rate-leave-sheet")).toBeTruthy();
+  fireEvent.press(screen.getByText("Discard"));
+  await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
+  expect(mockSaveWorkHours).not.toHaveBeenCalled();
+
+  fireEvent.press(screen.getByText("Pay rate"));
+  await waitFor(() => expect(screen.getByTestId("pay-rate-own-rate")).toBeTruthy());
+  fireEvent.changeText(screen.getByTestId("pay-rate-own-rate"), "175");
+  fireEvent.press(screen.getByText("‹ Settings"));
+  expect(screen.getByTestId("settings-pay-rate-leave-sheet")).toBeTruthy();
+  fireEvent.press(screen.getAllByText("Save").at(-1)!);
+  await waitFor(() => expect(mockSaveWorkHours).toHaveBeenCalledWith("u1", expect.objectContaining({ baseRateCents: 17_500 })));
+  await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
 });
 
 test("blur before load does not overwrite stored settings", async () => {
