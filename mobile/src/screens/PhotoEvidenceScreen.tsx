@@ -219,7 +219,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
   }
 
   const groups = groupPhotos(rows.filter((row) => !filterProjectId || row.project_id === filterProjectId));
-  const headerProject = projects.find((project) => project.id === (filterProjectId || projectId));
+  const headerProject = projects.find((project) => project.id === filterProjectId);
   const canCapture = !!projectId && access.canCreateRecords;
   function confirmDelete(row: PhotoEvidenceRow) {
     if (Platform.OS === "web") {
@@ -231,10 +231,10 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
   }
   return (
     <View style={[styles.photosPage, projectScoped && styles.projectPhotos]}>
-      {!projectScoped ? <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "Photos"}</Text>{headerProject?.siteAddress ? <Text style={styles.muted}>{headerProject.siteAddress}</Text> : null}<Text style={styles.photoProofLabel}>Sealed on this phone</Text></View> : null}
+      {!projectScoped ? <View style={styles.photoProjectHeader}><Text style={styles.todayTitle}>{headerProject?.name ?? "All projects"}</Text><Text style={styles.photoProofLabel}>Sealed on this phone</Text></View> : null}
       {!access.canCreateRecords ? <Text style={styles.muted}>{access.message}</Text> : null}
       {!projectScoped ? <ScrollView horizontal style={styles.photoFilterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoFilters}>
-        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={filterProjectId === project.id ? styles.chipSelected : styles.chip}><Text style={filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText}>{project.name}</Text></Pressable>)}
+        {[{ id: "", name: "All" }, ...projects].map((project) => <Pressable accessibilityRole="button" accessibilityState={{ selected: filterProjectId === project.id }} key={project.id} onPress={() => setFilterProjectId(project.id)} style={[filterProjectId === project.id ? styles.chipSelected : styles.chip, styles.photoProjectChip]}><Text ellipsizeMode="tail" numberOfLines={1} style={[filterProjectId === project.id ? styles.selectedSecondaryText : styles.chipText, styles.photoProjectChipText]}>{project.name}</Text></Pressable>)}
       </ScrollView> : null}
       {rows.length === 0 ? <ScrollView contentContainerStyle={styles.photoEmpty}>
         <Text style={styles.photoEmptyIcon}>▧</Text>
@@ -263,7 +263,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
           {pendingUri ? <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} /> : null}
           <Text style={styles.muted}>{pendingUri ? photoTimeLabel({ captured_at: pendingCapturedAt, capture_source: captureSource, capture_time_source: captureTimeSource }) : "Choose a photo to save."}</Text>
           <Text style={styles.inputLabel}>Project</Text>
-          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={[project.id === projectId ? styles.chipSelected : styles.chip, (saving) && styles.disabledButton]}><Text style={[project.id === projectId ? styles.selectedSecondaryText : styles.chipText, (saving) && styles.disabledButtonText]}>{project.name}</Text></Pressable>)}</View>
+          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={[project.id === projectId ? styles.chipSelected : styles.chip, styles.photoProjectChip, (saving) && styles.disabledButton]}><Text ellipsizeMode="tail" numberOfLines={1} style={[project.id === projectId ? styles.selectedSecondaryText : styles.chipText, styles.photoProjectChipText, (saving) && styles.disabledButtonText]}>{project.name}</Text></Pressable>)}</View>
           <View style={styles.chipRow}>{SIMPLE_EVIDENCE_TYPES.map((type) => <Pressable disabled={saving} key={type} onPress={() => setEvidenceType(type)} style={[type === evidenceType ? styles.chipSelected : styles.chip, (saving) && styles.disabledButton]}><Text style={[type === evidenceType ? styles.selectedSecondaryText : styles.chipText, (saving) && styles.disabledButtonText]}>{formatEvidenceType(type)}</Text></Pressable>)}</View>
           {captureSheetOpen ? <TextInput accessibilityLabel="Photo evidence caption" editable={!saving} multiline onChangeText={setCaption} placeholder="Optional note" placeholderTextColor={theme.colors.placeholder} style={[styles.textInput, styles.textArea]} value={caption} /> : null}
           <Pressable disabled={saving || !pendingUri || !canCapture} onPress={() => void handleSave()} style={[styles.actionButtonSecondary, (saving || !pendingUri || !canCapture) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, ((saving || !pendingUri || !canCapture)) && styles.disabledButtonText]}>{saving ? "Saving…" : "Save"}</Text></Pressable>

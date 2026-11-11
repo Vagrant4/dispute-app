@@ -90,6 +90,18 @@ test("photos excludes archived projects from filters and capture defaults", asyn
   expect(screen.queryByText("Archived project")).toBeNull();
 });
 
+test("photos uses name-only single-line chips and an All projects header", async () => {
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => expect(screen.getByText("All projects")).toBeTruthy());
+  expect(screen.queryByText("531377")).toBeNull();
+  const chip = screen.getByText("1111.");
+  expect(chip.props.numberOfLines).toBe(1);
+  expect(chip.props.ellipsizeMode).toBe("tail");
+  fireEvent.press(chip);
+  await waitFor(() => expect(screen.getAllByText("1111.").length).toBe(2));
+  expect(screen.queryByText(/1111\.\s*·/)).toBeNull();
+});
+
 test("seal failure shows Retry and retry succeeds without retaking", async () => {
   mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
   mockSeal.mockRejectedValueOnce(new Error("seal failed")).mockResolvedValueOnce({ lockHash: "hash", lockedAt: "now" });

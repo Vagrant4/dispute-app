@@ -133,6 +133,8 @@ export const styles = StyleSheet.create({
   photoList: { flex: 1 },
   photoFilterScroll: { flexGrow: 0, flexShrink: 0 },
   photoFilters: { gap: space.sm, paddingVertical: space.xs },
+  photoProjectChip: { maxWidth: 180 },
+  photoProjectChipText: { flexShrink: 1 },
   photoProjectHeader: { alignItems: "center", gap: space.xs, paddingVertical: space.md },
   photoProofLabel: { backgroundColor: theme.colors.primaryHalo, borderRadius: radius.pill, color: theme.colors.primary, overflow: "hidden", paddingHorizontal: space.sm, paddingVertical: space.xs, ...type.caption },
   photoGridRow: { flexDirection: "row", gap: space.sm, marginBottom: space.sm },
