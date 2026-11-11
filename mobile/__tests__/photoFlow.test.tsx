@@ -81,6 +81,28 @@ test("project-scoped gallery excludes global headers and other project filters",
   expect(screen.queryByText("1111.")).toBeNull();
 });
 
+test("project-scoped camera capture saves to its locked project without showing another project", async () => {
+  mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} initialProjectId="project-1" projectScoped />);
+  await waitFor(() => expect(screen.getByLabelText("Take photo")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Take photo"));
+  await waitFor(() => expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy());
+  expect(screen.queryByText("Other project")).toBeNull();
+  expect(screen.queryByText("Project")).toBeNull();
+  fireEvent.press(screen.getByText("Save"));
+  await waitFor(() => expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-1" })));
+});
+
+test("unscoped camera capture keeps the project picker", async () => {
+  mockCamera.mockResolvedValue({ canceled: false, assets: [{ uri: "file:///cache/camera.jpg" }] });
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => expect(screen.getByLabelText("Take photo")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Take photo"));
+  await waitFor(() => expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy());
+  expect(screen.getByText("Project")).toBeTruthy();
+  expect(screen.getAllByText("Other project").length).toBeGreaterThan(1);
+});
+
 test("photos excludes archived projects from filters and capture defaults", async () => {
   const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} initialProjectId="archived" />);
   await waitFor(() => expect(screen.getByText("All")).toBeTruthy());

@@ -39,6 +39,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
   const insets = useSafeAreaInsets();
   const access = useSubscriptionAccess(account);
   const userId = account.id ?? account.email.trim().toLowerCase();
+  const lockedProjectId = projectScoped ? initialProjectId : undefined;
   const [status, setStatus] = useState("");
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [projectId, setProjectId] = useState(initialProjectId ?? "");
@@ -68,7 +69,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
       const nextProjects = await listActiveProjects(webWorkStore, userId);
       setProjects(nextProjects);
       const home = await webWorkStore.getHomeState(userId);
-      setProjectId((current) => chooseActivePhotoProject(nextProjects, home.activeEntry?.projectId, current, readWebPhotoEvidenceRows(userId)[0]?.project_id, home.recentEntries[0]?.projectId));
+      setProjectId((current) => lockedProjectId ?? chooseActivePhotoProject(nextProjects, home.activeEntry?.projectId, current, readWebPhotoEvidenceRows(userId)[0]?.project_id, home.recentEntries[0]?.projectId));
       setFilterProjectId((current) => keepActiveProjectId(nextProjects, current) ?? "");
       setRows(readWebPhotoEvidenceRows(userId));
       return;
@@ -81,7 +82,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
       ]);
       setProjects(nextProjects);
       const home = await repositories.work.getHomeState(userId);
-      setProjectId((current) => chooseActivePhotoProject(nextProjects, home.activeEntry?.projectId, current, nextRows[0]?.project_id, home.recentEntries[0]?.projectId));
+      setProjectId((current) => lockedProjectId ?? chooseActivePhotoProject(nextProjects, home.activeEntry?.projectId, current, nextRows[0]?.project_id, home.recentEntries[0]?.projectId));
       setFilterProjectId((current) => keepActiveProjectId(nextProjects, current) ?? "");
       setRows(nextRows);
     } catch (error) {
@@ -262,8 +263,8 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
           <Text style={styles.heading}>Photo proof</Text>
           {pendingUri ? <Image accessibilityLabel="Selected evidence preview" source={{ uri: pendingUri }} style={styles.evidencePreviewImage} /> : null}
           <Text style={styles.muted}>{pendingUri ? photoTimeLabel({ captured_at: pendingCapturedAt, capture_source: captureSource, capture_time_source: captureTimeSource }) : "Choose a photo to save."}</Text>
-          <Text style={styles.inputLabel}>Project</Text>
-          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={[project.id === projectId ? styles.chipSelected : styles.chip, styles.photoProjectChip, (saving) && styles.disabledButton]}><Text ellipsizeMode="tail" numberOfLines={1} style={[project.id === projectId ? styles.selectedSecondaryText : styles.chipText, styles.photoProjectChipText, (saving) && styles.disabledButtonText]}>{project.name}</Text></Pressable>)}</View>
+          {!lockedProjectId ? <><Text style={styles.inputLabel}>Project</Text>
+          <View style={styles.chipRow}>{projects.map((project) => <Pressable disabled={saving} key={project.id} onPress={() => setProjectId(project.id)} style={[project.id === projectId ? styles.chipSelected : styles.chip, styles.photoProjectChip, (saving) && styles.disabledButton]}><Text ellipsizeMode="tail" numberOfLines={1} style={[project.id === projectId ? styles.selectedSecondaryText : styles.chipText, styles.photoProjectChipText, (saving) && styles.disabledButtonText]}>{project.name}</Text></Pressable>)}</View></> : null}
           <View style={styles.chipRow}>{SIMPLE_EVIDENCE_TYPES.map((type) => <Pressable disabled={saving} key={type} onPress={() => setEvidenceType(type)} style={[type === evidenceType ? styles.chipSelected : styles.chip, (saving) && styles.disabledButton]}><Text style={[type === evidenceType ? styles.selectedSecondaryText : styles.chipText, (saving) && styles.disabledButtonText]}>{formatEvidenceType(type)}</Text></Pressable>)}</View>
           {captureSheetOpen ? <TextInput accessibilityLabel="Photo evidence caption" editable={!saving} multiline onChangeText={setCaption} placeholder="Optional note" placeholderTextColor={theme.colors.placeholder} style={[styles.textInput, styles.textArea]} value={caption} /> : null}
           <Pressable disabled={saving || !pendingUri || !canCapture} onPress={() => void handleSave()} style={[styles.actionButtonSecondary, (saving || !pendingUri || !canCapture) && styles.disabledButton]}><Text style={[styles.actionButtonSecondaryText, ((saving || !pendingUri || !canCapture)) && styles.disabledButtonText]}>{saving ? "Saving…" : "Save"}</Text></Pressable>

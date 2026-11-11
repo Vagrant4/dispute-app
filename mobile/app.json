@@ -2,7 +2,7 @@
   "expo": {
     "name": "dispute",
     "slug": "claimproof-sg",
-    "version": "0.3.22",
+    "version": "0.3.23",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "sg.claimproof.mobile",
-      "versionCode": 24,
+      "versionCode": 25,
       "allowBackup": false,
       "permissions": [
         "android.permission.CAMERA",
