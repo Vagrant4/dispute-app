@@ -44,6 +44,11 @@ export function ProjectDetailScreen({
   const [tasksOpen, setTasksOpen] = useState(false);
   const [entries, setEntries] = useState<WorkEntry[]>([]);
   const [siteAddress, setSiteAddress] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<"active" | "completed">("active");
+  const [savedSite, setSavedSite] = useState<{
+    address: string;
+    status: "active" | "completed";
+  }>({ address: "", status: "active" });
   const [actionError, setActionError] = useState("");
   const [siteNotice, setSiteNotice] = useState(initialSiteNotice ?? "");
   const [saveConfirmation, setSaveConfirmation] = useState("");
@@ -66,7 +71,11 @@ export function ProjectDetailScreen({
         setProjects(items.filter((item) => item.status !== "archived"));
         const selected = items.find((item) => item.id === projectId) ?? null;
         setProject(selected);
-        setSiteAddress(selected?.siteAddress ?? "");
+        const status = selected?.projectStatus === "completed" ? "completed" : "active";
+        const address = selected?.siteAddress ?? "";
+        setSiteAddress(address);
+        setSelectedStatus(status);
+        setSavedSite({ address: address.trim(), status });
       });
   }, [projectId, userId]);
   useEffect(() => {
@@ -75,7 +84,9 @@ export function ProjectDetailScreen({
   useEffect(() => {
     void refreshEntries();
   }, [projectId, userId]);
-  async function saveDiscovery(status = project?.projectStatus ?? "active") {
+  const isSiteDirty = siteAddress.trim() !== savedSite.address || selectedStatus !== savedSite.status;
+
+  async function saveDiscovery() {
     try {
       const store = await getProjectScreenStore(userId);
       if (
@@ -88,7 +99,7 @@ export function ProjectDetailScreen({
         ? (await Location.geocodeAsync(address).catch(() => []))[0]
         : undefined;
       await store.updateProjectDiscovery(userId, projectId, {
-        status,
+        status: selectedStatus,
         siteAddress: address || null,
         siteLatitude: result?.latitude ?? null,
         siteLongitude: result?.longitude ?? null,
@@ -97,7 +108,7 @@ export function ProjectDetailScreen({
         current
           ? {
               ...current,
-              projectStatus: status,
+              projectStatus: selectedStatus,
               siteAddress: address || null,
               siteLatitude: result?.latitude ?? null,
               siteLongitude: result?.longitude ?? null,
@@ -105,6 +116,8 @@ export function ProjectDetailScreen({
           : current,
       );
       setActionError("");
+      setSiteAddress(address);
+      setSavedSite({ address, status: selectedStatus });
       setSiteNotice(
         address && !result
           ? "Address saved. Couldn't locate it on the map, so distance isn't shown."
@@ -177,9 +190,9 @@ export function ProjectDetailScreen({
           {(["active", "completed"] as const).map((status) => (
             <Pressable
               key={status}
-              onPress={() => void saveDiscovery(status)}
+                onPress={() => setSelectedStatus(status)}
               style={
-                project?.projectStatus === status
+                selectedStatus === status
                   ? styles.chipSelected
                   : styles.chip
               }
@@ -187,7 +200,7 @@ export function ProjectDetailScreen({
               <Text
                 style={[
                   styles.projectStatusChipText,
-                  project?.projectStatus === status
+                  selectedStatus === status
                     ? styles.projectStatusChipTextSelected
                     : styles.projectStatusChipTextUnselected,
                 ]}
@@ -198,10 +211,15 @@ export function ProjectDetailScreen({
           ))}
         </View>
         <Pressable
+          accessibilityLabel="Save"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !isSiteDirty }}
+          disabled={!isSiteDirty}
           onPress={() => void saveDiscovery()}
-          style={styles.actionButtonSecondary}
+          style={[styles.actionButtonSecondary, !isSiteDirty && styles.disabledButton]}
+          testID="project-detail-save"
         >
-          <Text style={styles.actionButtonSecondaryText}>Save site</Text>
+          <Text style={[styles.actionButtonSecondaryText, !isSiteDirty && styles.disabledButtonText]}>Save</Text>
         </Pressable>
         {saveConfirmation ? (
           <Text testID="save-site-confirmation" style={styles.muted}>

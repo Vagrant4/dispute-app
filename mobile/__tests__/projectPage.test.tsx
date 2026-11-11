@@ -109,21 +109,41 @@ test("archive failure stays on detail and shows a visible error", async () => {
   expect(onSelectProject).not.toHaveBeenCalled();
 });
 
-test("saving a site confirms the saved address", async () => {
+test("Save starts disabled, becomes enabled for address edits, and disables when reverted", async () => {
   const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
-  await screen.findByText("Save site");
+  const save = await screen.findByTestId("project-detail-save");
+  expect(save).toHaveProp("accessibilityLabel", "Save");
+  expect(save).toHaveProp("accessibilityState", { disabled: true });
   fireEvent.changeText(screen.getByLabelText("Site address"), "10 Bayfront Avenue");
-  fireEvent.press(screen.getByText("Save site"));
+  expect(save).toHaveProp("accessibilityState", { disabled: false });
+  fireEvent.changeText(screen.getByLabelText("Site address"), " 531377 ");
+  expect(save).toHaveProp("accessibilityState", { disabled: true });
+});
+
+test("status changes are unsaved form edits", async () => {
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  const save = await screen.findByTestId("project-detail-save");
+  fireEvent.press(screen.getByText("Completed"));
+  expect(save).toHaveProp("accessibilityState", { disabled: false });
+  expect(mockUpdateProjectDiscovery).not.toHaveBeenCalled();
+});
+
+test("saving a site confirms the saved address and resets its dirty state", async () => {
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  await screen.findByTestId("project-detail-save");
+  fireEvent.changeText(screen.getByLabelText("Site address"), "10 Bayfront Avenue");
+  fireEvent.press(screen.getByTestId("project-detail-save"));
   await waitFor(() => expect(mockUpdateProjectDiscovery).toHaveBeenCalledWith("u1", "project-1111", expect.objectContaining({ siteAddress: "10 Bayfront Avenue", siteLatitude: 1.31, siteLongitude: 103.86 })));
+  expect(screen.getByTestId("project-detail-save")).toHaveProp("accessibilityState", { disabled: true });
   expect(screen.getByTestId("save-site-confirmation")).toHaveTextContent("Saved ✓");
 });
 
 test("a geocode failure saves an address without stale coordinates and explains the missing distance", async () => {
   mockGeocodeAsync.mockResolvedValueOnce([]);
   const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
-  await screen.findByText("Save site");
+  await screen.findByTestId("project-detail-save");
   fireEvent.changeText(screen.getByLabelText("Site address"), "Unknown place");
-  fireEvent.press(screen.getByText("Save site"));
+  fireEvent.press(screen.getByTestId("project-detail-save"));
   await waitFor(() => expect(mockUpdateProjectDiscovery).toHaveBeenCalledWith("u1", "project-1111", expect.objectContaining({ siteAddress: "Unknown place", siteLatitude: null, siteLongitude: null })));
   expect(screen.getByText("Address saved. Couldn't locate it on the map, so distance isn't shown.")).toBeTruthy();
 });
@@ -131,9 +151,17 @@ test("a geocode failure saves an address without stale coordinates and explains 
 test("a site store failure is visible", async () => {
   mockUpdateProjectDiscovery.mockRejectedValueOnce(new Error("database unavailable"));
   const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
-  await screen.findByText("Save site");
-  fireEvent.press(screen.getByText("Save site"));
+  await screen.findByTestId("project-detail-save");
+  fireEvent.changeText(screen.getByLabelText("Site address"), "failing address");
+  fireEvent.press(screen.getByTestId("project-detail-save"));
   expect(await screen.findByText("Could not save the project site. Try again.")).toBeTruthy();
+});
+
+test("project detail calls the action Save, never Save site", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProjectDetailScreen.tsx"), "utf8");
+  expect(source).toContain('testID="project-detail-save"');
+  expect(source).toContain('accessibilityLabel="Save"');
+  expect(source).not.toContain("Save site");
 });
 
 test("PDF builder reads the Settings report period", () => {

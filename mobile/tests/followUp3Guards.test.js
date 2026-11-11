@@ -6,19 +6,19 @@ const test = require("node:test");
 const mobile = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(mobile, name), "utf8");
 
-test("0.3.19 Google Maps identity and versionCode 21 are shared by JS and native Android", () => {
+test("0.3.20 Google Maps identity and versionCode 22 are shared by JS and native Android", () => {
   const app = JSON.parse(read("app.json"));
   const pkg = JSON.parse(read("package.json"));
   const tileConfig = read("src/maps/tileConfig.ts");
   const gradle = read("android/app/build.gradle");
   const manifest = read("android/app/src/main/AndroidManifest.xml");
   const appConfig = read("app.config.js");
-  assert.equal(app.expo.version, "0.3.19");
-  assert.equal(app.expo.android.versionCode, 21);
-  assert.equal(pkg.version, "0.3.19");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.19"/);
-  assert.match(gradle, /versionCode 21/);
-  assert.match(gradle, /versionName "0\.3\.19"/);
+  assert.equal(app.expo.version, "0.3.20");
+  assert.equal(app.expo.android.versionCode, 22);
+  assert.equal(pkg.version, "0.3.20");
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.20"/);
+  assert.match(gradle, /versionCode 22/);
+  assert.match(gradle, /versionName "0\.3\.20"/);
   assert.match(gradle, /versionNameSuffix "-test"/);
   assert.match(gradle, /manifestPlaceholders\.googleMapsApiKey/);
   assert.match(manifest, /android:name="com\.google\.android\.geo\.API_KEY"/);
