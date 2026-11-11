@@ -90,6 +90,7 @@ export function ProjectsScreen({
     longitude: number;
   } | null>(null);
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
+  const [newProjectSiteNotice, setNewProjectSiteNotice] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -199,6 +200,11 @@ export function ProjectsScreen({
       siteLongitude: geocoded?.longitude,
     });
     await refresh();
+    setNewProjectSiteNotice(
+      address && !geocoded
+        ? "Address saved. Couldn't locate it on the map, so distance isn't shown."
+        : "",
+    );
     setOpenProjectId(project.id);
   }
   async function addGroup() {
@@ -232,8 +238,10 @@ export function ProjectsScreen({
         projectId={openProjectId}
         onCreateAccount={onCreateAccount}
         onOpenPlanBilling={onOpenPlanBilling}
+        initialSiteNotice={newProjectSiteNotice}
         onSelectProject={(nextProjectId) => {
           setOpenProjectId(nextProjectId || null);
+          setNewProjectSiteNotice("");
           if (!nextProjectId) void refresh();
         }}
       />

@@ -10,6 +10,8 @@ const mockListProjectSummaries = jest.fn(async () => summaries);
 const mockSetProjectStatus = jest.fn(async (_userId: string, projectId: string, status: string) => {
   summaries = summaries.map((project) => project.id === projectId ? { ...project, status } : project);
 });
+const mockGeocodeAsync = jest.fn(async () => [{ latitude: 1.3, longitude: 103.85 }]);
+const mockCreateProject = jest.fn(async () => ({ id: "new-project" }));
 let resolvePosition: (value: unknown) => void;
 const mockLastKnownPosition = jest.fn();
 
@@ -22,6 +24,7 @@ jest.mock("expo-location", () => ({
   requestForegroundPermissionsAsync: jest.fn(async () => ({ granted: true })),
   getLastKnownPositionAsync: (...args: unknown[]) => mockLastKnownPosition(...args),
   getCurrentPositionAsync: jest.fn(() => new Promise((resolve) => { resolvePosition = resolve; })),
+  geocodeAsync: (...args: unknown[]) => mockGeocodeAsync(...args),
 }));
 jest.mock("../src/subscription/useSubscriptionAccess", () => ({
   useSubscriptionAccess: () => ({ canCreateRecords: true, message: "" }),
@@ -31,11 +34,21 @@ jest.mock("../src/work/projectScreenStore", () => ({
   getProjectScreenStore: jest.fn(async () => ({
     listProjectSummaries: mockListProjectSummaries,
     listProjectGroups: jest.fn(async () => []),
+    listClients: jest.fn(async () => [{ id: "client-1" }]),
+    createProject: (...args: unknown[]) => mockCreateProject(...args),
     setProjectStatus: mockSetProjectStatus,
   })),
 }));
-jest.mock("../src/screens/ProjectDetailScreen", () => ({ ProjectDetailScreen: () => null }));
-jest.mock("../src/screens/ProjectNameSheet", () => ({ ProjectNameSheet: () => null }));
+jest.mock("../src/screens/ProjectDetailScreen", () => ({ ProjectDetailScreen: ({ initialSiteNotice }: { initialSiteNotice?: string }) => {
+  const React = require("react");
+  const { Text } = require("react-native");
+  return React.createElement(Text, null, initialSiteNotice);
+} }));
+jest.mock("../src/screens/ProjectNameSheet", () => ({ ProjectNameSheet: ({ onSave }: { onSave: (name: string, address: string) => Promise<void> }) => {
+  const React = require("react");
+  const { Pressable, Text } = require("react-native");
+  return React.createElement(Pressable, { testID: "save-new-project", onPress: () => void onSave("New job", "Unknown place") }, React.createElement(Text, null, "Save new project"));
+} }));
 jest.mock("../src/components/SwipeDownSheet", () => {
   const React = require("react");
   const { View } = require("react-native");
@@ -53,6 +66,7 @@ beforeEach(() => {
   ];
   jest.clearAllMocks();
   mockLastKnownPosition.mockResolvedValue(null);
+  mockGeocodeAsync.mockResolvedValue([{ latitude: 1.3, longitude: 103.85 }]);
 });
 
 test("project card shows distance from the last known location without a fresh fix", async () => {
@@ -100,4 +114,13 @@ test("restoring from Archived refreshes the active projects immediately", async 
   await waitFor(() => expect(screen.queryByText("Old warehouse")).toBeNull());
   fireEvent.press(screen.getAllByText("All")[0]);
   expect(await screen.findByText("Old warehouse")).toBeTruthy();
+});
+
+test("a new project with a failed geocode opens with a calm distance notice", async () => {
+  mockGeocodeAsync.mockResolvedValueOnce([]);
+  const screen = renderProjects();
+  fireEvent.press(await screen.findByText("+ Add project"));
+  fireEvent.press(screen.getByTestId("save-new-project"));
+  expect(await screen.findByText("Address saved. Couldn't locate it on the map, so distance isn't shown.")).toBeTruthy();
+  expect(mockCreateProject).toHaveBeenCalledWith(expect.objectContaining({ siteAddress: "Unknown place", siteLatitude: undefined, siteLongitude: undefined }));
 });

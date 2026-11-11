@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as Location from "expo-location";
 import {
   Modal,
   Pressable,
@@ -27,12 +28,14 @@ export function ProjectDetailScreen({
   onCreateAccount,
   onOpenPlanBilling,
   onSelectProject,
+  initialSiteNotice,
 }: {
   account: LocalAccount;
   projectId: string;
   onCreateAccount: () => void;
   onOpenPlanBilling?: () => void;
   onSelectProject: (projectId: string) => void;
+  initialSiteNotice?: string;
 }) {
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [project, setProject] = useState<WorkProject | null>(null);
@@ -44,6 +47,8 @@ export function ProjectDetailScreen({
   const [groups, setGroups] = useState<ProjectGroup[]>([]);
   const [siteAddress, setSiteAddress] = useState("");
   const [actionError, setActionError] = useState("");
+  const [siteNotice, setSiteNotice] = useState(initialSiteNotice ?? "");
+  const [saveConfirmation, setSaveConfirmation] = useState("");
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const archiveExplanation = "The project is archived (hidden from lists and pickers), all shifts, photos and reports are kept, and it can be restored from the Archived filter.";
   async function refreshTasks() {
@@ -110,15 +115,14 @@ export function ProjectDetailScreen({
       )
         throw new Error("Project discovery is unavailable.");
       const address = siteAddress.trim();
-      const location = await import("expo-location");
       const result = address
-        ? (await location.geocodeAsync(address).catch(() => []))[0]
+        ? (await Location.geocodeAsync(address).catch(() => []))[0]
         : undefined;
       await store.updateProjectDiscovery(userId, projectId, {
         status,
         siteAddress: address || null,
-        siteLatitude: result?.latitude ?? project?.siteLatitude ?? null,
-        siteLongitude: result?.longitude ?? project?.siteLongitude ?? null,
+        siteLatitude: result?.latitude ?? null,
+        siteLongitude: result?.longitude ?? null,
       });
       setProject((current) =>
         current
@@ -126,12 +130,19 @@ export function ProjectDetailScreen({
               ...current,
               projectStatus: status,
               siteAddress: address || null,
-              siteLatitude: result?.latitude ?? current.siteLatitude,
-              siteLongitude: result?.longitude ?? current.siteLongitude,
+              siteLatitude: result?.latitude ?? null,
+              siteLongitude: result?.longitude ?? null,
             }
           : current,
       );
       setActionError("");
+      setSiteNotice(
+        address && !result
+          ? "Address saved. Couldn't locate it on the map, so distance isn't shown."
+          : "",
+      );
+      setSaveConfirmation("Saved ✓");
+      setTimeout(() => setSaveConfirmation(""), 2_000);
     } catch {
       setActionError("Could not save the project site. Try again.");
     }
@@ -261,6 +272,12 @@ export function ProjectDetailScreen({
         >
           <Text style={styles.actionButtonSecondaryText}>Save site</Text>
         </Pressable>
+        {saveConfirmation ? (
+          <Text testID="save-site-confirmation" style={styles.muted}>
+            {saveConfirmation}
+          </Text>
+        ) : null}
+        {siteNotice ? <Text style={styles.muted}>{siteNotice}</Text> : null}
         <Pressable
           accessibilityRole="button"
           onPress={() => setTasksOpen(true)}

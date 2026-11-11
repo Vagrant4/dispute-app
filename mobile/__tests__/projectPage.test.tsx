@@ -9,9 +9,16 @@ const mockListProjects = jest.fn(async () => [
   { id: "project-2222", userId: "u1", name: "2222.", description: "", hourlyRateCents: 0 },
 ]);
 const mockSetProjectStatus = jest.fn(async () => undefined);
+const mockUpdateProjectDiscovery = jest.fn(async () => undefined);
+const mockGeocodeAsync = jest.fn(async () => [{ latitude: 1.31, longitude: 103.86 }]);
+
+jest.mock("expo-location", () => ({
+  __esModule: true,
+  geocodeAsync: (...args: unknown[]) => mockGeocodeAsync(...args),
+}));
 
 jest.mock("../src/work/projectScreenStore", () => ({
-  getProjectScreenStore: async () => ({ listProjects: mockListProjects, setProjectStatus: mockSetProjectStatus }),
+  getProjectScreenStore: async () => ({ listProjects: mockListProjects, setProjectStatus: mockSetProjectStatus, updateProjectDiscovery: mockUpdateProjectDiscovery }),
 }));
 jest.mock("../src/screens/ProgressClaimReportsScreen", () => ({
   ProgressClaimReportsScreen: () => null,
@@ -100,6 +107,33 @@ test("archive failure stays on detail and shows a visible error", async () => {
   fireEvent.press(screen.getByTestId("archive-confirm-archive"));
   await waitFor(() => expect(screen.getByText("Could not archive this project. Try again.")).toBeTruthy());
   expect(onSelectProject).not.toHaveBeenCalled();
+});
+
+test("saving a site confirms the saved address", async () => {
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  await screen.findByText("Save site");
+  fireEvent.changeText(screen.getByLabelText("Site address"), "10 Bayfront Avenue");
+  fireEvent.press(screen.getByText("Save site"));
+  await waitFor(() => expect(mockUpdateProjectDiscovery).toHaveBeenCalledWith("u1", "project-1111", expect.objectContaining({ siteAddress: "10 Bayfront Avenue", siteLatitude: 1.31, siteLongitude: 103.86 })));
+  expect(screen.getByTestId("save-site-confirmation")).toHaveTextContent("Saved ✓");
+});
+
+test("a geocode failure saves an address without stale coordinates and explains the missing distance", async () => {
+  mockGeocodeAsync.mockResolvedValueOnce([]);
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  await screen.findByText("Save site");
+  fireEvent.changeText(screen.getByLabelText("Site address"), "Unknown place");
+  fireEvent.press(screen.getByText("Save site"));
+  await waitFor(() => expect(mockUpdateProjectDiscovery).toHaveBeenCalledWith("u1", "project-1111", expect.objectContaining({ siteAddress: "Unknown place", siteLatitude: null, siteLongitude: null })));
+  expect(screen.getByText("Address saved. Couldn't locate it on the map, so distance isn't shown.")).toBeTruthy();
+});
+
+test("a site store failure is visible", async () => {
+  mockUpdateProjectDiscovery.mockRejectedValueOnce(new Error("database unavailable"));
+  const screen = render(<ProjectDetailScreen account={{ id: "u1", email: "shi@example.com" } as never} onCreateAccount={jest.fn()} onSelectProject={jest.fn()} projectId="project-1111" />);
+  await screen.findByText("Save site");
+  fireEvent.press(screen.getByText("Save site"));
+  expect(await screen.findByText("Could not save the project site. Try again.")).toBeTruthy();
 });
 
 test("PDF builder reads the Settings report period", () => {
