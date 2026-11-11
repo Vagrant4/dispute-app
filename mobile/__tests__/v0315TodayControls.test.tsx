@@ -1,4 +1,6 @@
 import React from "react";
+import fs from "node:fs";
+import path from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 
 jest.mock("../src/work/workLocation", () => ({ getWorkLocationWithTimeout: jest.fn().mockResolvedValue({ reason: "unavailable" }) }));
@@ -35,5 +37,13 @@ describe("0.3.15 Today break and task controls", () => {
     fireEvent.press(screen.getByText("Switch task"));
     fireEvent.press(await screen.findByText("Framing"));
     expect(onSwitchTask).toHaveBeenCalledWith("t1");
+  });
+
+  it("keeps the Today task row and picker with add-task support", () => {
+    const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/HomeScreen.tsx"), "utf8");
+    expect(source).toContain('<Text style={styles.todayProjectLabel}>Task</Text>');
+    expect(source).toContain('accessibilityLabel="Choose task"');
+    expect(source).toContain('<TaskPickerSheet tasks={tasks} selectedId={selectedTaskId}');
+    expect(source).toContain('onAdd={handleAddTask}');
   });
 });

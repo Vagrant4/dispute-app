@@ -11,14 +11,12 @@ import type { LocalAccount } from "../auth/localAuth";
 import type {
   WorkEntry,
   WorkProject,
-  WorkTask,
 } from "../work/workRepository";
 import { getProjectScreenStore } from "../work/projectScreenStore";
 import { styles, theme } from "../styles";
 import { projectAddressLabel } from "../work/projectAddress";
 import { ProgressClaimReportsScreen } from "./ProgressClaimReportsScreen";
 import { ProjectPickerSheet } from "./ProjectPickerSheet";
-import { TaskPickerSheet } from "./TaskPickerSheet";
 import { PhotoEvidenceScreen } from "./PhotoEvidenceScreen";
 
 export function ProjectDetailScreen({
@@ -40,8 +38,6 @@ export function ProjectDetailScreen({
   const [project, setProject] = useState<WorkProject | null>(null);
   const [projects, setProjects] = useState<WorkProject[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [tasks, setTasks] = useState<WorkTask[]>([]);
-  const [tasksOpen, setTasksOpen] = useState(false);
   const [entries, setEntries] = useState<WorkEntry[]>([]);
   const [siteAddress, setSiteAddress] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<"active" | "completed">("active");
@@ -54,11 +50,6 @@ export function ProjectDetailScreen({
   const [saveConfirmation, setSaveConfirmation] = useState("");
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const archiveExplanation = "The project is archived (hidden from lists and pickers), all shifts, photos and reports are kept, and it can be restored from the Archived filter.";
-  async function refreshTasks() {
-    const store = await getProjectScreenStore(userId);
-    if ("listTasks" in store)
-      setTasks(await store.listTasks(userId, projectId));
-  }
   async function refreshEntries() {
     const store = await getProjectScreenStore(userId);
     if ("listProjectEntries" in store)
@@ -77,9 +68,6 @@ export function ProjectDetailScreen({
         setSelectedStatus(status);
         setSavedSite({ address: address.trim(), status });
       });
-  }, [projectId, userId]);
-  useEffect(() => {
-    void refreshTasks();
   }, [projectId, userId]);
   useEffect(() => {
     void refreshEntries();
@@ -211,16 +199,6 @@ export function ProjectDetailScreen({
           ))}
         </View>
         <Pressable
-          accessibilityRole="button"
-          onPress={() => setTasksOpen(true)}
-          style={styles.actionButtonSecondary}
-          testID="project-detail-tasks"
-        >
-          <Text style={styles.actionButtonSecondaryText}>
-            Tasks ({tasks.length})
-          </Text>
-        </Pressable>
-        <Pressable
           accessibilityLabel="Save"
           accessibilityRole="button"
           accessibilityState={{ disabled: !isSiteDirty }}
@@ -286,23 +264,6 @@ export function ProjectDetailScreen({
           </View>
         </View>
       </Modal>
-      {tasksOpen ? (
-        <TaskPickerSheet
-          manage
-          tasks={tasks}
-          onClose={() => setTasksOpen(false)}
-          onAdd={async (name) => {
-            const store = await getProjectScreenStore(userId);
-            await store.addTask({ userId, projectId, name });
-            await refreshTasks();
-          }}
-          onRename={async (taskId, name) => {
-            const store = await getProjectScreenStore(userId);
-            await store.renameTask({ userId, taskId, name });
-            await refreshTasks();
-          }}
-        />
-      ) : null}
       <View style={styles.projectShiftList}>
         {entries.map((entry) => (
           <View key={entry.id} style={styles.projectShiftRow}>
