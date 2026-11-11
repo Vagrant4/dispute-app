@@ -24,11 +24,11 @@ export function ProjectNameSheet({ name = "", address = "", onSave, onClose }: {
         <TextInput accessibilityLabel="Project name" placeholder="Client or site name" placeholderTextColor={theme.colors.placeholder} value={value} onChangeText={setValue} style={styles.textInput} autoFocus />
         <TextInput accessibilityLabel="Site address" placeholder="Optional site address" placeholderTextColor={theme.colors.placeholder} value={siteAddress} onChangeText={setSiteAddress} style={styles.textInput} />
         {error ? <Text style={styles.body}>{error}</Text> : null}
-        <Pressable disabled={busy || !value.trim()} onPress={() => void save()} style={[styles.actionButtonSecondary, (busy || !value.trim()) && styles.disabledButton]}>
-          <Text style={[styles.actionButtonSecondaryText, ((busy || !value.trim())) && styles.disabledButtonText]}>Save</Text>
+        <Pressable disabled={busy || !value.trim()} onPress={() => void save()} style={[styles.actionButton, (busy || !value.trim()) && styles.disabledButton]}>
+          <Text style={[styles.actionButtonText, ((busy || !value.trim())) && styles.disabledButtonText]}>Save</Text>
         </Pressable>
-        <Pressable onPress={onClose}>
-          <Text style={styles.muted}>Cancel</Text>
+        <Pressable onPress={onClose} style={styles.actionButtonSecondary}>
+          <Text style={styles.actionButtonSecondaryText}>Cancel</Text>
         </Pressable>
       </KeyboardAwareScroll>
   </SwipeDownSheet>;

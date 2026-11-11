@@ -153,11 +153,8 @@ function buildPhotoEvidenceCards(snapshot: ProgressClaimSnapshot): string {
 
   return snapshot.photoEvidence
     .map((photo) => {
-      const imageUri = photo.printUri || photo.localUri;
-      const canEmbedImage =
-        imageUri.startsWith("file:") ||
-        imageUri.startsWith("content:") ||
-        imageUri.startsWith("data:image/");
+      const imageUri = photo.printUri ?? "";
+      const canEmbedImage = imageUri.startsWith("data:image/");
       const imageMarkup = canEmbedImage
         ? `<img class="photo-thumb" src="${escapeHtml(imageUri)}" alt="Photo evidence ${escapeHtml(photo.id)}" />`
         : `<div class="photo-placeholder">Photo file reference only</div>`;

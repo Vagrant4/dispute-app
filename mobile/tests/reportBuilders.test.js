@@ -219,6 +219,20 @@ test("buildProgressClaimHtml embeds printable photos and keeps unsupported refer
   assert.match(html, /\.photo-card \{[^}]*page-break-inside: avoid/s);
 });
 
+test("buildProgressClaimHtml never sends raw local photo URIs to the print WebView", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const snapshot = createSnapshot();
+  snapshot.photoEvidence[0].printUri = undefined;
+
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.doesNotMatch(html, /src="file:\/\//);
+  assert.doesNotMatch(html, /src="content:\/\//);
+  assert.match(html, /Photo file reference only/);
+});
+
 test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   const { buildProgressClaimCsv } = createTsLoader()(
     "src/reports/progressClaimCsv.ts",

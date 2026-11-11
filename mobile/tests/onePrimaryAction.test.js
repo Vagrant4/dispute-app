@@ -23,7 +23,7 @@ test("Projects use data-backed cards and secondary add actions", () => {
   assert.match(row, /projectStatus/);
   assert.match(row, /siteAddress/);
   assert.match(projects, /styles.actionButtonSecondary[\s\S]*>\+ Add project<\/Text>/);
-  assert.equal(primary(source("src/screens/ProjectNameSheet.tsx")).length, 0);
+  assert.equal(primary(source("src/screens/ProjectNameSheet.tsx")).length, 1);
 });
 
 test("Project detail reserves filled lime for its gated PDF action", () => {

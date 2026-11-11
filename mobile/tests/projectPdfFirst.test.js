@@ -15,6 +15,16 @@ test("compact project report returns before lock and archive UI", () => {
   assert.doesNotMatch(detail, /lockDetailsExpanded|Subscribe to share PDFs/);
 });
 
+test("compact project report keeps export progress and errors visible", () => {
+  const compactStart = reports.indexOf("if (renderActions) {");
+  const compactEnd = reports.indexOf("return (", compactStart);
+  const compact = reports.slice(compactStart, compactEnd);
+  assert.match(compact, /Creating PDF/);
+  assert.match(compact, /accessibilityRole="alert"/);
+  assert.match(reports, /setStatus\("Creating PDF…"\)/);
+  assert.match(reports, /setStatus\(shareResult\.message \|\| "Report ready\."\)/);
+});
+
 test("PDF press retains the guarded share path before generation or sharing", () => {
   const start = reports.indexOf("async function handleShareDisputePack()");
   const end = reports.indexOf("async function handleViewReport", start);

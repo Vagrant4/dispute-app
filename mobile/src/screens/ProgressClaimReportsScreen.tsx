@@ -5,7 +5,7 @@ import { ownRateToHourlyCents } from "../work/ownRateConversion";
 import { buildProjectPeriodReport } from "../reports/projectWeekReport";
 import { getReportPeriodRange, loadReportPeriod } from "../reports/reportPeriodSettings";
 import { useEffect, useState } from "react";
-import { Image, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, Text, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
 import type {
@@ -65,6 +65,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   const [reportPreview, setReportPreview] = useState<ProgressClaimSnapshot | null>(
     null,
   );
+  const [isExporting, setIsExporting] = useState(false);
   useEffect(() => {
     if (!paySetupRequest) return;
     void loadWorkHours(userId).then((preferences) => {
@@ -72,7 +73,10 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
     }).catch((error) => setStatus(getErrorMessage(error, "load the pay rate")));
   }, [paySetupRequest]);
   async function preparePay(action: "share" | "preview") {
-    if (!selectedProjectId) return false;
+    if (!selectedProjectId) {
+      setStatus(`Create or choose a project before ${action === "share" ? "sharing" : "previewing"} a report.`);
+      return false;
+    }
     const preferences = await loadWorkHours(userId);
     if (ownRateToHourlyCents(preferences.settings) <= 0) {
       setStatus("Set your own rate in Settings > Pay rate.");
@@ -178,6 +182,7 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       setStatus(
         `Creating ${formatLabel}${selectedProject?.name ? ` for ${selectedProject.name}` : ""}...`,
       );
+      setIsExporting(true);
       const result = await generateAndArchiveProgressClaim({
         type,
         userId,
@@ -195,6 +200,8 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
       await refreshArchive();
     } catch (error) {
       setStatus(getErrorMessage(error, "create the PDF"));
+    } finally {
+      setIsExporting(false);
     }
   }
 
@@ -221,9 +228,15 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   }
 
   async function handleShareDisputePack() {
-    if (!(await ensureCanExport()) || !selectedProjectId) return;
+    if (!(await ensureCanExport())) return;
+    if (!selectedProjectId) {
+      setStatus("Create or choose a project before sharing a report.");
+      return;
+    }
     try {
       if (!(await preparePay("share"))) return;
+      setStatus("Creating PDF…");
+      setIsExporting(true);
       const repositories = await reportRepositories();
       const result = await generateAndArchiveProgressClaim({
         type: "progress_claim_pdf", userId, projectId: selectedProjectId, repositories,
@@ -234,9 +247,10 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
         setStatus("Report ready.");
         return;
       }
-      await shareGeneratedDocument({ filePath: result.filePath, mimeType: "application/pdf", sharing: expoSharingAdapter });
-      setStatus("Report ready.");
+      const shareResult = await shareGeneratedDocument({ filePath: result.filePath, mimeType: "application/pdf", sharing: expoSharingAdapter });
+      setStatus(shareResult.message || "Report ready.");
     } catch (error) { setStatus(getErrorMessage(error, "share the PDF")); }
+    finally { setIsExporting(false); }
   }
 
   async function handleViewReport(params: {
@@ -361,7 +375,11 @@ export function ProgressClaimReportsScreen({ account, onCreateAccount, onOpenPla
   }
 
   if (renderActions) {
-    return <View style={styles.card}>{renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked })}</View>;
+    return <View style={styles.card}>
+      {renderActions({ share: () => void handleShareDisputePack(), preview: () => void handlePreview(), csv: () => void handleGenerate("progress_claim_csv"), locked: exportLocked })}
+      {isExporting ? <View style={styles.row}><ActivityIndicator color={styles.actionButton.backgroundColor} /><Text style={styles.statusMessage}>Creating PDF…</Text></View> : null}
+      {status ? <Text accessibilityRole="alert" style={styles.statusMessage}>{status}</Text> : null}
+    </View>;
   }
 
   return (
