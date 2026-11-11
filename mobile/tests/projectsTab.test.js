@@ -84,6 +84,11 @@ test("Projects uses bundled back and filter glyphs and title-case statuses", () 
   for (const label of ["Lead", "Active", "Completed"]) assert.ok(detail.includes(label));
 });
 
+test("project detail keeps the shared 16dp spacing below its delete action block", () => {
+  const styles = source("src/styles.ts");
+  assert.match(styles, /projectDetailActions:\s*\{[^}]*gap:\s*space\.md[^}]*marginBottom:\s*space\.md/);
+});
+
 test("needsPayStep only asks when both rate and saved work hours are absent", () => {
   const { needsPayStep, currentWeekStart } = createLoader({ "react-native": { Platform: { OS: "web" } } })("src/work/projectScreenStore.ts");
   assert.equal(needsPayStep({ hourlyRateCents: 0, hasWorkHours: false }), true);

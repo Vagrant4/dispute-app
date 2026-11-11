@@ -29,7 +29,7 @@ export const theme = {
 
 export const styles = StyleSheet.create({
   projectTitleRow: { alignItems: "center", flexDirection: "row", gap: space.sm },
-  projectDetailActions: { gap: space.md },
+  projectDetailActions: { gap: space.md, marginBottom: space.md },
   projectsIconButton: { alignItems: "center", height: 48, justifyContent: "center", width: 48 },
   projectActionError: { color: theme.colors.danger, ...type.body },
   projectShiftList: { gap: space.sm },
