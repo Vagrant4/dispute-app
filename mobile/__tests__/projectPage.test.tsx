@@ -164,6 +164,19 @@ test("project detail calls the action Save, never Save site", () => {
   expect(source).not.toContain("Save site");
 });
 
+test("project detail orders Tasks, Save, and Delete project, with centred action labels", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProjectDetailScreen.tsx"), "utf8");
+  const tasks = source.indexOf('testID="project-detail-tasks"');
+  const save = source.indexOf('testID="project-detail-save"');
+  const remove = source.indexOf('testID="project-detail-delete"');
+
+  expect(tasks).toBeGreaterThan(-1);
+  expect(save).toBeGreaterThan(tasks);
+  expect(remove).toBeGreaterThan(save);
+  expect(source).toMatch(/style=\{\[styles\.actionButtonSecondary, \{ alignItems: "center" \}[\s\S]*?testID="project-detail-save"[\s\S]*?\{ textAlign: "center" \}/);
+  expect(source).toMatch(/style=\{\[styles\.dangerButtonSecondary, \{ alignItems: "center" \}[\s\S]*?testID="project-detail-delete"[\s\S]*?\{ textAlign: "center" \}/);
+});
+
 test("PDF builder reads the Settings report period", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../src/screens/ProgressClaimReportsScreen.tsx"), "utf8");
   expect(source).toMatch(/loadReportPeriod\(userId\)/);

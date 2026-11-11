@@ -211,15 +211,25 @@ export function ProjectDetailScreen({
           ))}
         </View>
         <Pressable
+          accessibilityRole="button"
+          onPress={() => setTasksOpen(true)}
+          style={styles.actionButtonSecondary}
+          testID="project-detail-tasks"
+        >
+          <Text style={styles.actionButtonSecondaryText}>
+            Tasks ({tasks.length})
+          </Text>
+        </Pressable>
+        <Pressable
           accessibilityLabel="Save"
           accessibilityRole="button"
           accessibilityState={{ disabled: !isSiteDirty }}
           disabled={!isSiteDirty}
           onPress={() => void saveDiscovery()}
-          style={[styles.actionButtonSecondary, !isSiteDirty && styles.disabledButton]}
+          style={[styles.actionButtonSecondary, { alignItems: "center" }, !isSiteDirty && styles.disabledButton]}
           testID="project-detail-save"
         >
-          <Text style={[styles.actionButtonSecondaryText, !isSiteDirty && styles.disabledButtonText]}>Save</Text>
+          <Text style={[styles.actionButtonSecondaryText, { textAlign: "center" }, !isSiteDirty && styles.disabledButtonText]}>Save</Text>
         </Pressable>
         {saveConfirmation ? (
           <Text testID="save-site-confirmation" style={styles.muted}>
@@ -229,19 +239,11 @@ export function ProjectDetailScreen({
         {siteNotice ? <Text style={styles.muted}>{siteNotice}</Text> : null}
         <Pressable
           accessibilityRole="button"
-          onPress={() => setTasksOpen(true)}
-          style={styles.actionButtonSecondary}
-        >
-          <Text style={styles.actionButtonSecondaryText}>
-            Tasks ({tasks.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
           onPress={() => setArchiveConfirmOpen(true)}
-          style={styles.dangerButtonSecondary}
+          style={[styles.dangerButtonSecondary, { alignItems: "center" }]}
+          testID="project-detail-delete"
         >
-          <Text style={styles.dangerButtonSecondaryText}>Delete project</Text>
+          <Text style={[styles.dangerButtonSecondaryText, { textAlign: "center" }]}>Delete project</Text>
         </Pressable>
         {actionError ? (
           <Text accessibilityRole="alert" style={styles.projectActionError}>
