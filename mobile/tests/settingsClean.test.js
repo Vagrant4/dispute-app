@@ -61,3 +61,15 @@ test("Pay retains its fields and autosaves the user's rate with the concise expl
   assert.match(settings, /await saveWorkHours\(userId/);
   assert.match(settings, /setWorkHoursStatus\("Saved"\)/);
 });
+
+test("Paid by options remain complete without between-option dividers", () => {
+  for (const styleName of ["dropdownOption", "settingsDropdownOptionSelected", "dropdownOptionActive"]) {
+    const definition = styles.match(new RegExp(`^  ${styleName}: \\{([\\s\\S]*?)^  \\w+:`, "m"));
+    assert.ok(definition, `${styleName} style is defined`);
+    assert.doesNotMatch(definition[1], /border(?:Top|Bottom)(?:Width|Color)|hairlineWidth/);
+  }
+  for (const option of ["Daily", "Monthly", "Hourly"]) {
+    assert.match(settings, new RegExp(`\\{ id: "${option.toLowerCase()}", label: "${option}" \\}`));
+    assert.match(settings, /RATE_BASIS_OPTIONS\.map\([\s\S]*?accessibilityLabel=\{`Rate entry \$\{option\.label\}`\}/);
+  }
+});

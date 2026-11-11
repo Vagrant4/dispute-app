@@ -91,7 +91,7 @@ export const styles = StyleSheet.create({
   settingsBackText: { color: theme.colors.textMuted, ...type.label },
   settingsValueRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md, borderBottomWidth: 1, borderColor: theme.colors.border },
   settingsDropdownChevron: { color: theme.colors.textMuted, ...type.caption, marginLeft: space.sm },
-  settingsDropdownOptionSelected: { backgroundColor: theme.colors.surfaceMuted, borderBottomColor: theme.colors.border, borderBottomWidth: 1, paddingHorizontal: space.md, paddingVertical: space.md },
+  settingsDropdownOptionSelected: { backgroundColor: theme.colors.surfaceMuted, paddingHorizontal: space.md, paddingVertical: space.md },
   projectSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.photoScrim },
   projectSheet: { backgroundColor: theme.colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.md },
   projectSheetContent: { gap: space.md },
@@ -963,8 +963,6 @@ export const styles = StyleSheet.create({
     overflow: "hidden",
   },
   dropdownOption: {
-    borderBottomColor: theme.colors.border,
-    borderBottomWidth: 1,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },
@@ -974,8 +972,6 @@ export const styles = StyleSheet.create({
   },
   dropdownOptionActive: {
     backgroundColor: theme.colors.primary,
-    borderBottomColor: theme.colors.primary,
-    borderBottomWidth: 1,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },

@@ -95,6 +95,23 @@ test("pay rate shows the user's current rate", async () => {
   expect(screen.queryByTestId("settings-pay-rate-project-picker")).toBeNull();
 });
 
+test("Paid by opens Daily, Monthly and Hourly options", async () => {
+  const screen = render(
+    <SettingsScreen
+      account={{ id: "u1", email: "shi@example.com" } as never}
+      initialPanel="work_hours"
+      onAccountDeleted={jest.fn()}
+      onLogout={jest.fn()}
+    />,
+  );
+
+  await waitFor(() => expect(screen.getByLabelText("Rate entry type dropdown")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Rate entry type dropdown"));
+  for (const option of ["Daily", "Monthly", "Hourly"]) {
+    expect(screen.getByLabelText(`Rate entry ${option}`)).toBeTruthy();
+  }
+});
+
 test("a report period load failure does not hide the pay rate", async () => {
   mockLoadReportPeriod.mockRejectedValueOnce(new Error("SecureStore unavailable"));
   const screen = render(
