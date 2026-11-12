@@ -43,10 +43,13 @@ test("release Gradle configuration has no debug signing and enables R8 plus reso
   const releaseBlock = buildGradle.match(/release\s*\{([\s\S]*?)\n\s{8}\}/)?.[1] ?? "";
 
   assert.doesNotMatch(releaseBlock, /signingConfig\s+signingConfigs\.debug/);
+  assert.match(buildGradle, /debug\s*\{[\s\S]*signingConfig\s+signingConfigs\.debug/);
   assert.match(buildGradle, /internal\s*\{[\s\S]*signingConfig\s+signingConfigs\.debug/);
-  assert.match(buildGradle, /applicationIdSuffix "\.test"/);
+  assert.match(buildGradle, /applicationIdSuffix "\.test2"/);
   assert.match(buildGradle, /versionNameSuffix "-test"/);
-  assert.match(buildGradle, /resValue "string", "app_name", "DISPUTE Test"/);
+  assert.match(buildGradle, /resValue "string", "app_name", "DISPUTE Test 2"/);
+  assert.match(buildGradle, /debug-9f10-2026-11-12\.keystore/);
+  assert.match(buildGradle, /verifyInternalSigning/);
   assert.match(buildGradle, /minifyEnabled true/);
   assert.match(buildGradle, /shrinkResources true/);
   assert.match(buildGradle, /proguard-android-optimize\.txt/);

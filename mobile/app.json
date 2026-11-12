@@ -54,6 +54,7 @@
       }
     },
     "plugins": [
+      "./plugins/withDisputeTest2Android",
       [
         "expo-splash-screen",
         {
