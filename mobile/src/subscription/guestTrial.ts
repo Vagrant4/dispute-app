@@ -69,4 +69,5 @@ export async function rewriteGuestTrial(firstUseAt: number, nowMs = Date.now()):
   return state;
 }
 
-export const isTrialDebugOverrideEnabled = () => process.env.EXPO_PUBLIC_TRIAL_DEBUG_OVERRIDE === "1";
+export const isTrialDebugOverrideEnabled = () =>
+  typeof __DEV__ !== "undefined" && __DEV__ && process.env.EXPO_PUBLIC_TRIAL_DEBUG_OVERRIDE === "1";

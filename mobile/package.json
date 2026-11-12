@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "private": true,
-  "version": "0.3.28",
+  "version": "0.3.29",
   "main": "expo/AppEntry",
   "scripts": {
     "prestart": "npm run build --workspace @claimproof/shared",
