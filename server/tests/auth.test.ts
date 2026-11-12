@@ -546,7 +546,13 @@ describe('auth API', () => {
     const page = await deletion.text();
     expect(page).toContain('Delete your DISPUTE account');
     expect(page).toContain('name="password"');
-    expect(page).toContain('Google Play subscriptions');
+    expect(page).toContain('Use this page to delete your DISPUTE account');
+    expect(page).toContain('Records on your phone.');
+    expect(page).toContain('What we keep.');
+    expect(page).toContain('Type DELETE to confirm');
+    expect(page).toContain('<button style="background:#D93F44;color:#fff" type="submit">Delete my account</button>');
+    expect(page).not.toContain('Permanent action.');
+    expect(page).not.toContain('login tokens');
   });
 
   it('deletes the matching RevenueCat customer with a server-only secret', async () => {
@@ -591,10 +597,37 @@ describe('auth API', () => {
       body: form.toString()
     });
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain('Account deleted');
+    const page = await response.text();
+    expect(page).toContain('Account deleted');
+    expect(page).toContain('has been deleted');
+    expect(page).toContain('Request number: 33333333-3333-4333-8333-333333333333');
     expect(await prisma.user.findUnique({
       where: { email: 'web-delete@example.com' }
     })).toBeNull();
+  });
+
+  it('shows plain result messages when the web deletion form is unconfirmed or credentials are wrong', async () => {
+    const unconfirmed = await fetch(`${baseUrl}/account-deletion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ confirmation: 'NOPE' }).toString()
+    });
+    expect(unconfirmed.status).toBe(400);
+    const unconfirmedPage = await unconfirmed.text();
+    expect(unconfirmedPage).toContain('Not deleted yet');
+    expect(unconfirmedPage).toContain('Type DELETE exactly as shown to confirm.');
+
+    const wrongLogin = await fetch(`${baseUrl}/account-deletion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        email: 'missing@example.com',
+        password: 'Password123!',
+        confirmation: 'DELETE'
+      }).toString()
+    });
+    expect(wrongLogin.status).toBe(401);
+    expect(await wrongLogin.text()).toContain('The email or password is wrong. Nothing was deleted.');
   });
 
   it('rejects protected requests without auth', async () => {
