@@ -329,7 +329,7 @@ test("early-time HTML explains the report-only unpaid rule and daily figures sum
     pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5, offDayMultiplier: 2, lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00" },
   });
   const html = buildProgressClaimHtml(snapshot);
-  assert.match(html, /Time before normal start \(08:00\) is not paid on normal days/);
+  assert.match(html, /Rate Calculation<\/th><td>Time before normal start \(08:00\) is not paid on normal days/);
   assert.match(html, /Before start \(unpaid\): 5 min/);
   for (const field of ["basicPayCents", "overtimePayCents", "offDayPayCents", "holidayPayCents", "grossPayCents"]) assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day[field], 0), snapshot.totals[field]);
 });

@@ -85,7 +85,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Entered rate", formatEnteredRate(snapshot)],
     ["Normal working time", `${snapshot.rateCalculation.normalWorkStartTime} - ${snapshot.rateCalculation.normalWorkEndTime}`],
     ["Normal hours from range", formatHoursAndMinutes(snapshot.rateCalculation.dailyNormalMinutes)],
-    ["Normal-day start rule", `Time before normal start (${snapshot.rateCalculation.normalWorkStartTime}) is not paid on normal days.`],
+    ["Rate Calculation", `Time before normal start (${snapshot.rateCalculation.normalWorkStartTime}) is not paid on normal days.`],
     ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${formatLunch(snapshot.rateCalculation.lunchMinutes)}, window ${lunchWindow(snapshot.rateCalculation.normalWorkStartTime, snapshot.rateCalculation.normalWorkEndTime, snapshot.rateCalculation.lunchMinutes)}; deducted when the clocked time covers the window or the day is longer than lunch + 4 h` : "None"],
     ["Dinner break", snapshot.rateCalculation.dinnerMinutes ? `${formatLunch(snapshot.rateCalculation.dinnerMinutes)}, window ${snapshot.rateCalculation.dinnerStartTime}–${addMinutesToClock(snapshot.rateCalculation.dinnerStartTime, snapshot.rateCalculation.dinnerMinutes)}; deducted from OT only when clocked OT covers the whole window. Off-day and holiday payable minutes are deducted before their multiplier.` : "None"],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
