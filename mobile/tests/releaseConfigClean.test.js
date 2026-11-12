@@ -14,8 +14,10 @@ test("release configuration permits development-only overrides but never enables
 
   assert.match(guestTrial, /isTrialDebugOverrideEnabled\s*=\s*\(\)\s*=>\s*typeof __DEV__ !== "undefined"\s*&&\s*__DEV__\s*&&\s*process\.env\.EXPO_PUBLIC_TRIAL_DEBUG_OVERRIDE\s*===\s*"1"/);
   assert.match(remoteAuth, /configuredApiBaseUrl\.startsWith\("https:\/\/"\)\s*\|\|\s*isDevelopmentRuntime/);
+  assert.doesNotMatch(remoteAuth, /(?:localhost|10\.0\.2\.2|https?:\/\/(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.))/i);
   assert.equal(eas.build.production.env.EXPO_PUBLIC_API_BASE_URL, "https://dispute-api-live.onrender.com");
   assert.doesNotMatch(JSON.stringify(eas.build.production), /(?:TESTONLY|DEBUG|MOCK)/i);
+  assert.doesNotMatch(read("app.json") + read("app.config.js") + read("eas.json"), /(?:localhost|10\.0\.2\.2|https?:\/\/(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.))/i);
   const releaseBlock = gradle.slice(gradle.indexOf("release {"), gradle.indexOf("internal {"));
   assert.doesNotMatch(releaseBlock, /signingConfig\s+signingConfigs\.debug/);
 });
