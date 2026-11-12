@@ -320,29 +320,31 @@ test("daily rate uses paid normal minutes and deducts a fully-covered dinner onl
   assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day.grossPayCents, 0), snapshot.totals.grossPayCents);
 });
 
-test("dinner deducts only a continuously covered OT window and never changes normal-day pay", () => {
+test("normal-day dinner is a fixed OT-duration deduction regardless of saved dinner start time", () => {
   const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
-  const pay = { currency: "SGD", rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00", overtimeMultiplier: 1.5 };
-  const make = (entries, overrides = {}) => buildProgressClaimSnapshot({ timeEntries: entries, pay: { ...pay, ...overrides } });
-  const entry = (id, start, end) => ({ id, workDate: "2026-11-12", startTime: `2026-11-12T${start}:00`, endTime: `2026-11-12T${end}:00`, durationMinutes: (Number(end.slice(0, 2)) * 60 + Number(end.slice(3))) - (Number(start.slice(0, 2)) * 60 + Number(start.slice(3))), activity: id });
+  const entry = { id: "long-ot", workDate: "2026-11-12", startTime: "2026-11-12T08:00:00", endTime: "2026-11-12T20:30:00", durationMinutes: 750, activity: "Long OT" };
+  const pay = { currency: "SGD", rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "23:00", overtimeMultiplier: 1.5 };
+  const day = buildProgressClaimSnapshot({ timeEntries: [entry], pay }).dailyWorkLog[0];
+  assert.deepEqual([day.dinnerDeductedMinutes, day.overtimeMinutes], [60, 150]);
+  assert.equal(buildProgressClaimSnapshot({ timeEntries: [entry], pay: { ...pay, dinnerStartTime: "00:01" } }).dailyWorkLog[0].overtimeMinutes, 150);
+});
 
-  for (const entries of [[entry("single", "08:00", "20:00")], [entry("normal", "08:00", "17:00"), entry("ot", "17:00", "20:00")]]) {
-    const day = make(entries).dailyWorkLog[0];
-    assert.deepEqual([day.dinnerDeductedMinutes, day.overtimeMinutes], [60, 120]);
-  }
-  assert.deepEqual(make([entry("short", "08:00", "17:45")]).dailyWorkLog[0].overtimeMinutes, 45);
-  assert.equal(make([entry("short", "08:00", "17:45")]).dailyWorkLog[0].dinnerDeductedMinutes, 0);
-  for (const entries of [[entry("partial", "17:00", "18:30")], [entry("before", "17:00", "18:20"), entry("after", "18:40", "20:00")]]) {
-    const day = make(entries).dailyWorkLog[0];
-    assert.equal(day.dinnerDeductedMinutes, 0);
-    assert.equal(day.overtimeMinutes, entries.length === 1 ? 90 : 160);
-  }
-  const normalOnly = make([entry("normal-only", "08:00", "17:00")]).dailyWorkLog[0];
-  assert.deepEqual([normalOnly.normalMinutes, normalOnly.basicPayCents, normalOnly.dinnerDeductedMinutes], [480, 15000, 0]);
-  const withDinner = make([entry("with", "08:00", "20:00")]).dailyWorkLog[0];
-  const withoutDinner = make([entry("without", "08:00", "20:00")], { dinnerMinutes: 0, dinnerStartTime: null }).dailyWorkLog[0];
-  assert.equal(withDinner.normalMinutes, withoutDinner.normalMinutes);
-  assert.equal(make([entry("none", "17:00", "20:00")], { dinnerMinutes: 0, dinnerStartTime: null }).dailyWorkLog[0].dinnerDeductedMinutes, 0);
+test("normal day without OT has no dinner deduction and the report explains OT-only dinner", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const snapshot = buildProgressClaimSnapshot({ timeEntries: [{ id: "normal", workDate: "2026-11-12", startTime: "2026-11-12T07:55:00", endTime: "2026-11-12T17:00:00", durationMinutes: 545, activity: "Normal" }], pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, dinnerMinutes: 60 } });
+  assert.deepEqual([snapshot.dailyWorkLog[0].dinnerDeductedMinutes, snapshot.dailyWorkLog[0].basicPayCents, snapshot.dailyWorkLog[0].unpaidBeforeNormalStartMinutes], [0, 15000, 5]);
+  assert.match(snapshot.dailyWorkLog[0].locationEntries[0].startTime, /T07:55:00$/);
+  const html = buildProgressClaimHtml(snapshot);
+  assert.doesNotMatch(html, /Dinner deducted:/);
+  assert.match(html, /Dinner break[\s\S]*deducted from OT only; a normal day with no OT has no dinner deduction/);
+});
+
+test("normal-day dinner deduction is capped at actual overtime", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const day = buildProgressClaimSnapshot({ timeEntries: [{ id: "short-ot", workDate: "2026-11-12", startTime: "2026-11-12T08:00:00", endTime: "2026-11-12T17:45:00", durationMinutes: 585, activity: "Short OT" }], pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, dinnerMinutes: 60 } }).dailyWorkLog[0];
+  assert.deepEqual([day.dinnerDeductedMinutes, day.overtimeMinutes], [45, 0]);
 });
 
 test("dinner is deducted before special-day multipliers and daily cents reconcile", () => {
@@ -353,7 +355,17 @@ test("dinner is deducted before special-day multipliers and daily cents reconcil
   for (const category of ["basicPayCents", "overtimePayCents", "offDayPayCents", "holidayPayCents", "grossPayCents"]) assert.equal(snapshot.dailyWorkLog.reduce((total, day) => total + day[category], 0), snapshot.totals[category]);
 });
 
-test("dinner report HTML states daily paid hours, its OT-only window, and the daily deduction", () => {
+test("off-day dinner is deducted before the multiplier and none leaves the full off-day pay", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const entry = { id: "off", workDate: "2026-11-12", startTime: "2026-11-12T17:00:00", endTime: "2026-11-12T20:00:00", durationMinutes: 180, activity: "Off", dayType: "off_day" };
+  const pay = { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "23:00", offDayMultiplier: 2 };
+  const withDinner = buildProgressClaimSnapshot({ timeEntries: [entry], pay }).dailyWorkLog[0];
+  const withoutDinner = buildProgressClaimSnapshot({ timeEntries: [entry], pay: { ...pay, dinnerMinutes: 0 } }).dailyWorkLog[0];
+  assert.deepEqual([withDinner.dinnerDeductedMinutes, withDinner.offDayMinutes, withDinner.offDayPayCents], [60, 120, 7500]);
+  assert.deepEqual([withoutDinner.dinnerDeductedMinutes, withoutDinner.offDayMinutes, withoutDinner.offDayPayCents], [0, 180, 11250]);
+});
+
+test("dinner report HTML states its duration-only OT rule and the daily deduction", () => {
   const load = createTsLoader();
   const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
   const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
@@ -361,7 +373,7 @@ test("dinner report HTML states daily paid hours, its OT-only window, and the da
   assert.match(buildProgressClaimHtml(buildProgressClaimSnapshot(input)), /SGD 150\.00 per day → SGD 18\.75\/h \(8 paid h\)/);
   assert.match(buildProgressClaimHtml(buildProgressClaimSnapshot({ ...input, pay: { ...input.pay, lunchMinutes: 0 } })), /SGD 150\.00 per day → SGD 16\.67\/h \(9 paid h\)/);
   const html = buildProgressClaimHtml(buildProgressClaimSnapshot(input));
-  assert.match(html, /Dinner break[\s\S]*window 18:00–19:00; deducted from OT only/);
+  assert.match(html, /Dinner break[\s\S]*deducted from OT only; a normal day with no OT has no dinner deduction/);
   assert.match(html, /Dinner deducted: 1 h/);
 });
 

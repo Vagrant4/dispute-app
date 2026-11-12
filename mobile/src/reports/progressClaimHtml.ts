@@ -87,7 +87,7 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string 
     ["Normal hours from range", formatHoursAndMinutes(snapshot.rateCalculation.dailyNormalMinutes)],
     ["Rate Calculation", `Time before normal start (${snapshot.rateCalculation.normalWorkStartTime}) is not paid on normal days.`],
     ["Lunch deduction", snapshot.rateCalculation.lunchMinutes ? `${formatLunch(snapshot.rateCalculation.lunchMinutes)}, window ${lunchWindow(snapshot.rateCalculation.normalWorkStartTime, snapshot.rateCalculation.normalWorkEndTime, snapshot.rateCalculation.lunchMinutes)}; deducted when the clocked time covers the window or the day is longer than lunch + 4 h` : "None"],
-    ["Dinner break", snapshot.rateCalculation.dinnerMinutes ? `${formatLunch(snapshot.rateCalculation.dinnerMinutes)}, window ${snapshot.rateCalculation.dinnerStartTime}–${addMinutesToClock(snapshot.rateCalculation.dinnerStartTime, snapshot.rateCalculation.dinnerMinutes)}; deducted from OT only when clocked OT covers the whole window. Off-day and holiday payable minutes are deducted before their multiplier.` : "None"],
+    ["Dinner break", snapshot.rateCalculation.dinnerMinutes ? `${formatLunch(snapshot.rateCalculation.dinnerMinutes)} fixed duration; deducted from OT only; a normal day with no OT has no dinner deduction. Off-day and holiday payable minutes are deducted before their multiplier.` : "None"],
     ["Overtime multiplier", String(snapshot.rateCalculation.overtimeMultiplier)],
     ["Off day multiplier", String(snapshot.rateCalculation.offDayMultiplier)],
     ["Holiday multiplier", String(snapshot.rateCalculation.holidayMultiplier)],
@@ -217,7 +217,6 @@ function dailyTotalsCard(snapshot: ProgressClaimSnapshot): string { const totals
 function formatHoursAndMinutes(minutes: number): string { const safeMinutes = Math.max(0, Math.round(minutes)); const hours = Math.floor(safeMinutes / 60); const remainder = safeMinutes % 60; return hours ? `${hours} h${remainder ? ` ${remainder} min` : ""}` : `${remainder} min`; }
 function formatEvidenceType(value: string | null | undefined): string { const words = (value ?? "").split("_").filter(Boolean).map((word) => word.toLowerCase()); return words.map((word, index) => index === 0 ? word[0].toUpperCase() + word.slice(1) : word).join(" "); }
 function formatLunch(minutes: number): string { return minutes === 60 ? "1 h" : minutes === 90 ? "1.5 h" : minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`; }
-function addMinutesToClock(clockTime: string, minutes: number): string { const [hour, minute] = clockTime.split(":").map(Number); const total = (hour * 60 + minute + minutes) % 1440; return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; }
 function lunchWindow(start: string, end: string, minutes: number): string { const parse = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; }; const print = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`; const middle = Math.floor((parse(start) + parse(end)) / 2); return `${print(middle - Math.floor(minutes / 2))}–${print(middle + Math.ceil(minutes / 2))}`; }
 
 function formatMoney(cents: number, currency: string): string {

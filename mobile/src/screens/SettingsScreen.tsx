@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHandler, Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
-import { DEFAULT_APP_SETTINGS, isValidClockTime, type AppSettings } from "../db/settingsValidation";
+import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
 import { saveWorkHours, loadWorkHours as loadSavedWorkHours, calculateNormalHours } from "../work/workHoursSettings";
 import { styles, theme } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
@@ -68,7 +68,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   const [lunchPickerOpen, setLunchPickerOpen] = useState(false);
   const [dinnerMinutes, setDinnerMinutes] = useState(String(DEFAULT_APP_SETTINGS.dinnerMinutes));
   const [dinnerChoice, setDinnerChoice] = useState<LunchChoice>("none");
-  const [dinnerStart, setDinnerStart] = useState(plusOneHour(DEFAULT_APP_SETTINGS.normalWorkEndTime));
   const [dinnerPickerOpen, setDinnerPickerOpen] = useState(false);
   const savedPayForm = useRef("");
   const [workHoursStatus, setWorkHoursStatus] = useState("");
@@ -175,7 +174,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setLunchChoice(lunchChoiceForMinutes(settings.lunchMinutes));
       setDinnerMinutes(String(settings.dinnerMinutes ?? 0));
       setDinnerChoice(lunchChoiceForMinutes(settings.dinnerMinutes ?? 0));
-      setDinnerStart(settings.dinnerStartTime ?? plusOneHour(settings.normalWorkEndTime));
       savedPayForm.current = payFormKey(settings, periodResult.status === "fulfilled" ? periodResult.value : reportPeriod);
     }
     if (periodResult.status === "fulfilled") setReportPeriod(periodResult.value);
@@ -202,7 +200,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       return false;
     }
     if (dinnerChoice === "custom" && (parsedDinnerMinutes < 1 || parsedDinnerMinutes > 240)) { setWorkHoursStatus("Custom dinner break must be 1–240 minutes."); return false; }
-    if (parsedDinnerMinutes && !isValidClockTime(dinnerStart)) { setWorkHoursStatus("Dinner start time must be HH:MM."); return false; }
     try {
       const multiplier = Number.parseFloat(overtimeMultiplier);
       const offDayRate = Number.parseFloat(offDayMultiplier);
@@ -223,7 +220,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
         holidayMultiplier: holidayRate,
         lunchMinutes: parsedLunchMinutes,
         dinnerMinutes: parsedDinnerMinutes,
-        dinnerStartTime: parsedDinnerMinutes ? dinnerStart : null,
       });
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
@@ -237,7 +233,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
       setLunchChoice(lunchChoiceForMinutes(settings.lunchMinutes));
       setDinnerMinutes(String(settings.dinnerMinutes ?? 0));
       setDinnerChoice(lunchChoiceForMinutes(settings.dinnerMinutes ?? 0));
-      setDinnerStart(settings.dinnerStartTime ?? plusOneHour(settings.normalWorkEndTime));
       await saveReportPeriod(userId, reportPeriod);
       savedPayForm.current = payFormKey(settings, reportPeriod);
       setWorkHoursStatus("Saved");
@@ -248,7 +243,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
     }
   }
 
-  const isPayRateDirty = () => paySettingsLoaded.current && savedPayForm.current !== payFormKey({ currency, rateBasis, baseRateCents: parseRateAmountCents(baseRate), normalWorkStartTime: normalStart, normalWorkEndTime: normalEnd, overtimeMultiplier: Number(overtimeMultiplier), offDayMultiplier: Number(offDayMultiplier), holidayMultiplier: Number(holidayMultiplier), lunchMinutes: Number(lunchMinutes) || 0, dinnerMinutes: Number(dinnerMinutes) || 0, dinnerStartTime: Number(dinnerMinutes) ? dinnerStart : null }, reportPeriod);
+  const isPayRateDirty = () => paySettingsLoaded.current && savedPayForm.current !== payFormKey({ currency, rateBasis, baseRateCents: parseRateAmountCents(baseRate), normalWorkStartTime: normalStart, normalWorkEndTime: normalEnd, overtimeMultiplier: Number(overtimeMultiplier), offDayMultiplier: Number(offDayMultiplier), holidayMultiplier: Number(holidayMultiplier), lunchMinutes: Number(lunchMinutes) || 0, dinnerMinutes: Number(dinnerMinutes) || 0 }, reportPeriod);
 
   function requestPayRateLeave(target: SettingsPage) {
     if (panel === "pay_rate" && isPayRateDirty()) {
@@ -496,7 +491,6 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
           <Pressable testID="settings-dinner-break" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setDinnerPickerOpen(true)}><Text style={styles.dropdownValue}>{lunchChoiceLabel(dinnerChoice, dinnerMinutes)}</Text><Text style={styles.settingsDropdownChevron}>▼</Text></Pressable>
           {dinnerPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setDinnerPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-dinner-break-sheet"><Text style={styles.heading}>Dinner break</Text>{LUNCH_CHOICES.map((choice) => <Pressable accessibilityRole="button" key={choice.id} onPress={() => { setDinnerChoice(choice.id); if (choice.minutes !== null) setDinnerMinutes(String(choice.minutes)); setDinnerPickerOpen(false); }} style={choice.id === dinnerChoice ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-dinner-${choice.id}`}><Text style={styles.body}>{choice.label}{choice.id === dinnerChoice ? " ✓" : ""}</Text></Pressable>)}</SwipeDownSheet> : null}
           {dinnerChoice === "custom" ? <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Custom dinner break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setDinnerMinutes} placeholder="1–240" style={styles.textInput} value={dinnerMinutes} /> : null}
-          {Number(dinnerMinutes) > 0 ? <><Text style={styles.inputLabel}>Dinner starts</Text><TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Dinner start time" inputMode="numeric" keyboardType="numbers-and-punctuation" onChangeText={setDinnerStart} placeholder="18:00" style={styles.textInput} value={dinnerStart} /></> : null}
           <Pressable testID="settings-pay-rate-save" accessibilityRole="button" accessibilityState={{ disabled: !isPayRateDirty() }} disabled={!isPayRateDirty()} onPress={() => void handleSaveWorkHours()} style={[styles.actionButton, !isPayRateDirty() ? styles.disabledButton : null]}><Text style={[styles.actionButtonText, !isPayRateDirty() ? styles.disabledButtonText : null]}>Save</Text></Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
           {leavePromptOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setLeavePromptOpen(false)} sheetStyle={styles.projectSheet} testID="settings-pay-rate-leave-sheet">
@@ -609,11 +603,9 @@ function formatRateAmount(cents: number): string {
   return (cents / 100).toFixed(2).replace(/\.00$/, "");
 }
 
-function payFormKey(settings: Pick<AppSettings, "currency" | "rateBasis" | "baseRateCents" | "normalWorkStartTime" | "normalWorkEndTime" | "overtimeMultiplier" | "offDayMultiplier" | "holidayMultiplier" | "lunchMinutes" | "dinnerMinutes" | "dinnerStartTime">, period: ReportPeriod): string {
-  return JSON.stringify({ ...settings, dinnerMinutes: settings.dinnerMinutes ?? 0, dinnerStartTime: settings.dinnerStartTime ?? null, period });
+function payFormKey(settings: Pick<AppSettings, "currency" | "rateBasis" | "baseRateCents" | "normalWorkStartTime" | "normalWorkEndTime" | "overtimeMultiplier" | "offDayMultiplier" | "holidayMultiplier" | "lunchMinutes" | "dinnerMinutes">, period: ReportPeriod): string {
+  return JSON.stringify({ ...settings, dinnerMinutes: settings.dinnerMinutes ?? 0, period });
 }
-
-function plusOneHour(clockTime: string): string { const [hour, minute] = clockTime.split(":").map(Number); const total = ((hour * 60 + minute + 60) % 1440 + 1440) % 1440; return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; }
 
 function getPayRateSaveErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";

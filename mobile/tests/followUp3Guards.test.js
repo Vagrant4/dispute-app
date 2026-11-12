@@ -6,19 +6,19 @@ const test = require("node:test");
 const mobile = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(mobile, name), "utf8");
 
-test("0.3.29 Google Maps identity and versionCode 31 are shared by JS and native Android", () => {
+test("0.3.30 Google Maps identity and versionCode 32 are shared by JS and native Android", () => {
   const app = JSON.parse(read("app.json"));
   const pkg = JSON.parse(read("package.json"));
   const tileConfig = read("src/maps/tileConfig.ts");
   const gradle = read("android/app/build.gradle");
   const manifest = read("android/app/src/main/AndroidManifest.xml");
   const appConfig = read("app.config.js");
-  assert.equal(app.expo.version, "0.3.29");
-  assert.equal(app.expo.android.versionCode, 31);
-  assert.equal(pkg.version, "0.3.29");
-  assert.match(tileConfig, /APP_VERSION = "0\.3\.29"/);
-  assert.match(gradle, /versionCode 31/);
-  assert.match(gradle, /versionName "0\.3\.29"/);
+  assert.equal(app.expo.version, "0.3.30");
+  assert.equal(app.expo.android.versionCode, 32);
+  assert.equal(pkg.version, "0.3.30");
+  assert.match(tileConfig, /APP_VERSION = "0\.3\.30"/);
+  assert.match(gradle, /versionCode 32/);
+  assert.match(gradle, /versionName "0\.3\.30"/);
   assert.match(gradle, /versionNameSuffix "-test"/);
   assert.match(gradle, /manifestPlaceholders\.googleMapsApiKey/);
   assert.match(manifest, /android:name="com\.google\.android\.geo\.API_KEY"/);
@@ -88,4 +88,11 @@ test("all React Native Modal declarations provide onRequestClose", () => {
 test("modal sheets consume safe area bottom inset", () => {
   assert.match(read("src/screens/ProjectNameSheet.tsx"), /useSafeAreaInsets/);
   assert.match(read("src/screens/PhotoEvidenceScreen.tsx"), /useSafeAreaInsets/);
+});
+
+test("pay settings exposes dinner duration without a dinner start-time field", () => {
+  const settings = read("src/screens/SettingsScreen.tsx");
+  assert.match(settings, /testID="settings-dinner-break"/);
+  assert.doesNotMatch(settings, /accessibilityLabel="Dinner start time"/);
+  assert.doesNotMatch(settings, /Dinner starts/);
 });

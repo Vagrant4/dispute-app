@@ -30,7 +30,8 @@ export function buildProgressClaimSnapshot(
   const lunchMinutes = Math.max(0, input.pay?.lunchMinutes ?? 0);
   const dailyNormalMinutes = Math.max(0, (input.pay?.dailyNormalMinutes ?? normalRangeMinutes) - lunchMinutes);
   const dinnerMinutes = Math.max(0, input.pay?.dinnerMinutes ?? 0);
-  const dinnerStartTime = input.pay?.dinnerStartTime ?? addMinutesToClock(normalWorkEndTime, 60);
+  // Kept for historical report data only; dinner pay is duration-based, never window-based.
+  const dinnerStartTime = input.pay?.dinnerStartTime ?? "";
   const overtimeMultiplier =
     input.pay?.overtimeMultiplier ?? DEFAULT_OVERTIME_MULTIPLIER;
   const offDayMultiplier =
@@ -53,7 +54,7 @@ export function buildProgressClaimSnapshot(
     photoEvidence,
     dailyNormalMinutes,
     normalWorkStartTime,
-    normalWorkEndTime, lunchMinutes, dinnerMinutes, dinnerStartTime,
+    normalWorkEndTime, lunchMinutes, dinnerMinutes,
   );
   const paidDailyWorkLog = dailyWorkLog.map((day) => addDailyPay(day, {
     rateBasis, baseRateCents, hourlyRateCents, paidNormalMinutes: dailyNormalMinutes,
@@ -156,7 +157,6 @@ function buildDailyWorkLog(
   normalWorkEndTime: string,
   lunchMinutes: number,
   dinnerMinutes: number,
-  dinnerStartTime: string,
 ): DailyWorkLogItem[] {
   const entriesByDate = new Map<string, TimeEntrySnapshotInput[]>();
 
@@ -184,19 +184,28 @@ function buildDailyWorkLog(
         dailyNormalMinutes,
         normalWorkStartTime,
         normalWorkEndTime,
+        true,
       );
       const dayTypes = [...new Set(entries.map((entry) => getDayType(entry)))];
       const normalDay = dayTypes.every((dayType) => dayType === "normal");
       // Shi's report-only early-start rule applies only to normal days; off-day and holiday minutes remain payable from recorded time.
       // Lunch duration rule (b) uses payable, clipped minutes on normal days; early time is unpaid.
       const deduction = shouldDeductLunch(entries, lunchMinutes, workDate, normalWorkStartTime, normalWorkEndTime, normalDay) ? lunchMinutes : 0;
-      // Report-only dinner rule: deduct from OT only when clocked OT covers the whole dinner window.
-      const dinnerDeduction = shouldDeductDinner(entries, dinnerMinutes, workDate, dinnerStartTime, normalWorkStartTime, normalWorkEndTime, dayTypesForEntries(entries));
       // Report-only lunch deduction: normal minutes first, then OT, before special-day multipliers.
       const normalMinutes = Math.max(0, split.normalMinutes - deduction);
-      const overtimeMinutes = Math.max(0, split.overtimeMinutes - Math.max(0, deduction - split.normalMinutes) - dinnerDeduction.normal);
-      const offDayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "off_day") - deduction - dinnerDeduction.offDay);
-      const holidayMinutes = Math.max(0, sumDurationMinutesByDayType(entries, "holiday") - deduction - dinnerDeduction.holiday);
+      const overtimeBeforeDinner = Math.max(0, split.overtimeMinutes - Math.max(0, deduction - split.normalMinutes));
+      const offDayBeforeDinner = Math.max(0, sumDurationMinutesByDayType(entries, "off_day") - deduction);
+      const holidayBeforeDinner = Math.max(0, sumDurationMinutesByDayType(entries, "holiday") - deduction);
+      // Dinner is a fixed report-time duration: normal days deduct only from actual OT;
+      // special days deduct before their multiplier, each capped at recorded payable time.
+      const dinnerDeduction = dayTypes.includes("off_day")
+        ? { normal: 0, offDay: Math.min(dinnerMinutes, offDayBeforeDinner), holiday: 0 }
+        : dayTypes.includes("holiday")
+          ? { normal: 0, offDay: 0, holiday: Math.min(dinnerMinutes, holidayBeforeDinner) }
+          : { normal: Math.min(dinnerMinutes, overtimeBeforeDinner), offDay: 0, holiday: 0 };
+      const overtimeMinutes = overtimeBeforeDinner - dinnerDeduction.normal;
+      const offDayMinutes = offDayBeforeDinner - dinnerDeduction.offDay;
+      const holidayMinutes = holidayBeforeDinner - dinnerDeduction.holiday;
       const locations = buildLocations(entries);
       const entryIds = new Set(entries.map((entry) => entry.id));
       const photoEvidenceIds = photoEvidence
@@ -229,27 +238,6 @@ function buildDailyWorkLog(
         unpaidBeforeNormalStartMinutes: normalDay ? split.unpaidBeforeNormalStartMinutes : 0,
       };
     });
-}
-
-function dayTypesForEntries(entries: TimeEntrySnapshotInput[]): Set<string> { return new Set(entries.map((entry) => getDayType(entry))); }
-
-function shouldDeductDinner(entries: TimeEntrySnapshotInput[], dinnerMinutes: number, workDate: string, dinnerStartTime: string, normalStartTime: string, normalEndTime: string, dayTypes: Set<string>): { normal: number; offDay: number; holiday: number } {
-  if (!dinnerMinutes || !coversClockWindow(entries, workDate, dinnerStartTime, dinnerMinutes)) return { normal: 0, offDay: 0, holiday: 0 };
-  if (dayTypes.has("off_day")) return { normal: 0, offDay: dinnerMinutes, holiday: 0 };
-  if (dayTypes.has("holiday")) return { normal: 0, offDay: 0, holiday: dinnerMinutes };
-  const dinnerStart = buildClockDate(workDate, dinnerStartTime).getTime();
-  const normalEnd = buildClockDate(workDate, normalEndTime).getTime();
-  const normalStart = buildClockDate(workDate, normalStartTime).getTime();
-  // Normal-day dinner is payable OT only when its entire window is outside normal hours.
-  return dinnerStart >= normalEnd || dinnerStart + dinnerMinutes * 60000 <= normalStart ? { normal: dinnerMinutes, offDay: 0, holiday: 0 } : { normal: 0, offDay: 0, holiday: 0 };
-}
-
-function coversClockWindow(entries: TimeEntrySnapshotInput[], workDate: string, startTime: string, minutes: number): boolean {
-  const windowStart = buildClockDate(workDate, startTime).getTime(); const windowEnd = windowStart + minutes * 60000;
-  const intervals = entries.flatMap((entry) => entry.startTime && entry.endTime ? [[new Date(entry.startTime).getTime(), new Date(entry.endTime).getTime()] as [number, number]] : []).filter(([start, end]) => Number.isFinite(start) && end > start).sort((first, second) => first[0] - second[0]);
-  const merged: Array<[number, number]> = [];
-  for (const interval of intervals) { const previous = merged.at(-1); if (previous && interval[0] <= previous[1]) previous[1] = Math.max(previous[1], interval[1]); else merged.push([...interval]); }
-  return merged.some(([start, end]) => start <= windowStart && end >= windowEnd);
 }
 
 function shouldDeductLunch(entries: TimeEntrySnapshotInput[], lunchMinutes: number, workDate: string, startTime: string, endTime: string, clipBeforeNormalStart: boolean): boolean {
@@ -307,11 +295,6 @@ function addDailyPay(
   };
 }
 
-function addMinutesToClock(clockTime: string, minutes: number): string {
-  const total = (minutesOfDay(clockTime) + minutes) % (24 * 60);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-}
-
 function buildLocations(entries: TimeEntrySnapshotInput[]): WorkLocationSnapshot[] {
   const seen = new Set<string>();
   const locations: WorkLocationSnapshot[] = [];
@@ -366,6 +349,7 @@ function splitNormalAndOvertimeMinutes(
   dailyNormalMinutes: number,
   normalWorkStartTime: string,
   normalWorkEndTime: string,
+  capBeforeNormalStart: boolean,
 ): { normalMinutes: number; overtimeMinutes: number; unpaidBeforeNormalStartMinutes: number } {
   const entriesWithTimes = entries.filter((entry) => entry.startTime && entry.endTime);
   if (entriesWithTimes.length === 0) {
@@ -386,7 +370,7 @@ function splitNormalAndOvertimeMinutes(
     const end = new Date(entry.endTime ?? "");
     const normalEnd = buildClockDate(entry.workDate, normalWorkEndTime);
     const normalStart = buildClockDate(entry.workDate, normalWorkStartTime);
-    if (end <= normalStart) {
+    if (capBeforeNormalStart && end <= normalStart) {
       unpaidBeforeNormalStartMinutes += durationMinutes;
       continue;
     }
@@ -398,7 +382,9 @@ function splitNormalAndOvertimeMinutes(
       normalStart.setDate(normalStart.getDate() - 1);
     }
     const start = new Date(entry.startTime ?? "");
-    const entryUnpaidMinutes = Math.max(0, Math.floor((Math.min(end.getTime(), normalStart.getTime()) - start.getTime()) / 60000));
+    const entryUnpaidMinutes = capBeforeNormalStart
+      ? Math.max(0, Math.floor((Math.min(end.getTime(), normalStart.getTime()) - start.getTime()) / 60000))
+      : 0;
     const afterNormalEndMinutes = Math.max(
       0,
       Math.floor((end.getTime() - normalEnd.getTime()) / 60000),
