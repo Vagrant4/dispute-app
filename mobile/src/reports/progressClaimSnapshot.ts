@@ -187,6 +187,7 @@ function buildDailyWorkLog(
       );
       const dayTypes = [...new Set(entries.map((entry) => getDayType(entry)))];
       const normalDay = dayTypes.every((dayType) => dayType === "normal");
+      // Shi's report-only early-start rule applies only to normal days; off-day and holiday minutes remain payable from recorded time.
       // Lunch duration rule (b) uses payable, clipped minutes on normal days; early time is unpaid.
       const deduction = shouldDeductLunch(entries, lunchMinutes, workDate, normalWorkStartTime, normalWorkEndTime, normalDay) ? lunchMinutes : 0;
       // Report-only dinner rule: deduct from OT only when clocked OT covers the whole dinner window.
