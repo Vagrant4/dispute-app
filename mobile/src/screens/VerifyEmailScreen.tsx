@@ -8,7 +8,7 @@ import {
   resendRemoteVerificationCode,
   verifyRemoteEmail,
 } from "../auth/remoteAuth";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 
 type VerifyEmailScreenProps = {
   pending: PendingEmailVerification;
@@ -94,7 +94,7 @@ export function VerifyEmailScreen({
           maxLength={6}
           onChangeText={(value) => setCode(value.replace(/\D/g, ""))}
           placeholder="123456"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={[styles.textInput, styles.verificationCodeInput]}
           value={code}
         />
@@ -105,7 +105,7 @@ export function VerifyEmailScreen({
           onPress={handleVerify}
           style={[styles.actionButton, isSubmitting && styles.disabledButton]}
         >
-          <Text style={styles.actionButtonText}>
+          <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
             {isSubmitting ? "Verifying..." : "Verify code"}
           </Text>
         </Pressable>
@@ -116,9 +116,9 @@ export function VerifyEmailScreen({
           accessibilityRole="button"
           disabled={isSubmitting || isResending}
           onPress={handleResendCode}
-          style={styles.authLinkButton}
+          style={[styles.authLinkButton, (isSubmitting || isResending) && styles.disabledButton]}
         >
-          <Text style={styles.authLinkText}>
+          <Text style={[styles.authLinkText, (isSubmitting || isResending) && styles.disabledButtonText]}>
             {isResending ? "Sending new code..." : "Resend code"}
           </Text>
         </Pressable>

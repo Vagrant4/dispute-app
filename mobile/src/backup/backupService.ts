@@ -51,11 +51,11 @@ export function parseBackupJson(json: string): BackupEnvelope {
   try {
     parsed = JSON.parse(json);
   } catch {
-    throw new Error("Backup JSON is malformed. Check the file contents and try again.");
+    throw new Error("This file isn't a DISPUTE copy.", { cause: "Backup JSON is malformed. Check the file contents and try again." });
   }
 
   if (!isRecord(parsed)) {
-    throw new Error("Backup JSON must contain a backup object.");
+    throw new Error("This file isn't a DISPUTE copy.", { cause: "Backup JSON must contain a backup object." });
   }
 
   if (
@@ -64,11 +64,11 @@ export function parseBackupJson(json: string): BackupEnvelope {
       parsed.app as (typeof LEGACY_BACKUP_APP_MARKERS)[number],
     )
   ) {
-    throw new Error("This is not a dispute mobile backup.");
+    throw new Error("This file isn't a DISPUTE copy.", { cause: "This is not a dispute mobile backup." });
   }
 
   if (parsed.version !== BACKUP_SCHEMA_VERSION) {
-    throw new Error(`Unsupported backup version: ${String(parsed.version)}.`);
+    throw new Error("This file isn't a DISPUTE copy.", { cause: `Unsupported backup version: ${String(parsed.version)}.` });
   }
 
   if (
@@ -76,15 +76,15 @@ export function parseBackupJson(json: string): BackupEnvelope {
     parsed.schema < 1 ||
     parsed.schema > CURRENT_SCHEMA_VERSION
   ) {
-    throw new Error(`Unsupported local schema version: ${String(parsed.schema)}.`);
+    throw new Error("This file isn't a DISPUTE copy.", { cause: `Unsupported local schema version: ${String(parsed.schema)}.` });
   }
 
   if (!isRecord(parsed.tables)) {
-    throw new Error("Backup JSON must contain a tables object.");
+    throw new Error("This file isn't a DISPUTE copy.", { cause: "Backup JSON must contain a tables object." });
   }
 
   if (parsed.tables.schema_migrations !== undefined) {
-    throw new Error("schema_migrations cannot be restored from backup.");
+    throw new Error("This file isn't a DISPUTE copy.", { cause: "schema_migrations cannot be restored from backup." });
   }
 
   const tables: BackupTables = {};
@@ -92,14 +92,14 @@ export function parseBackupJson(json: string): BackupEnvelope {
   for (const tableName of BACKUP_TABLES) {
     const tableRows = parsed.tables[tableName];
     if (tableRows === undefined) {
-      throw new Error(`Backup is missing required table ${tableName}.`);
+      throw new Error("This file isn't a DISPUTE copy.", { cause: `Backup is missing required table ${tableName}.` });
     }
     if (!Array.isArray(tableRows)) {
-      throw new Error(`Backup table ${tableName} must be an array.`);
+      throw new Error("This file isn't a DISPUTE copy.", { cause: `Backup table ${tableName} must be an array.` });
     }
     tables[tableName] = tableRows.map((row, index) => {
       if (!isRecord(row)) {
-        throw new Error(`Backup table ${tableName} row ${index + 1} must be an object.`);
+        throw new Error("This file isn't a DISPUTE copy.", { cause: `Backup table ${tableName} row ${index + 1} must be an object.` });
       }
       return { ...row };
     });

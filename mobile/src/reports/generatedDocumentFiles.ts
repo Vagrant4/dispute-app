@@ -35,7 +35,7 @@ export function getDurableReportBaseDirectory(
 ): string {
   if (!baseDirectory || baseDirectory.trim().length === 0) {
     throw new DurableReportStorageError(
-      "dispute app-owned local report storage is unavailable in this runtime, so the report was not archived.",
+      "Couldn't save the report. Please try again.",
     );
   }
 
@@ -97,7 +97,7 @@ export async function deleteGeneratedDocumentFile(
     if (!FileSystem.deleteAsync) {
       return {
         deleted: false,
-        message: "Generated document file delete is unavailable in this runtime.",
+        message: "Couldn't delete the file.",
       };
     }
 
@@ -107,9 +107,7 @@ export async function deleteGeneratedDocumentFile(
     return {
       deleted: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Generated document file delete failed.",
+        "Couldn't delete the file.",
     };
   }
 }
@@ -125,7 +123,7 @@ function getDurableWriteFileSystem(action: string): {
     !FileSystem.writeAsStringAsync
   ) {
     throw new DurableReportStorageError(
-      `Durable report storage is unavailable in this runtime, so dispute cannot ${action} or archive the report.`,
+      "Couldn't save the report. Please try again.",
     );
   }
 
@@ -147,7 +145,7 @@ function getDurableCopyFileSystem(action: string): {
     !FileSystem.copyAsync
   ) {
     throw new DurableReportStorageError(
-      `Durable report storage is unavailable in this runtime, so dispute cannot ${action} or archive the report.`,
+      "Couldn't save the report. Please try again.",
     );
   }
 
@@ -166,7 +164,7 @@ async function assertDurableFileExists(
 
   if (!info.exists) {
     throw new DurableReportStorageError(
-      "Durable report storage verification failed. The generated file was not found in app-owned report storage, so it was not archived.",
+      "Couldn't save the report. Please try again.",
     );
   }
 }

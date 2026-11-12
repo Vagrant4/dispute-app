@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.3.29",
   "main": "expo/AppEntry",
   "scripts": {
     "prestart": "npm run build --workspace @claimproof/shared",
@@ -16,7 +16,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "expo lint",
     "pretest": "npm run build --workspace @claimproof/shared",
-    "test": "node --test tests/*.test.js",
+    "test": "npm run test:node && npm run test:components",
+    "test:node": "node --test tests/*.test.js",
+    "test:components": "jest --runInBand",
     "eas-build-post-install": "npm run build --workspace @claimproof/shared"
   },
   "expo": {
@@ -28,29 +30,38 @@
   },
   "dependencies": {
     "@claimproof/shared": "file:../packages/shared",
+    "@expo/vector-icons": "^15.1.1",
     "expo": "~56.0.19",
     "expo-crypto": "^56.0.4",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
+    "expo-font": "^56.0.7",
     "expo-image-picker": "~56.0.23",
     "expo-location": "~56.0.23",
     "expo-print": "~56.0.4",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.24",
+    "expo-speech-recognition": "56.0.4",
     "expo-splash-screen": "~56.0.14",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.85.3",
+    "react-native-maps": "1.27.2",
     "react-native-purchases": "^10.4.4",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.14",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~56.0.4",
+    "jest": "^30.5.2",
+    "jest-expo": "~56.0.0",
+    "react-test-renderer": "^19.2.3",
     "typescript": "~6.0.3"
   }
 }

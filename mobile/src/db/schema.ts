@@ -1,12 +1,14 @@
 export const LOCAL_DATABASE_NAME = "claimproof-sg-local.db";
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 export const MOBILE_TABLES = [
   "schema_migrations",
   "app_settings",
   "clients",
   "projects",
+  "project_groups",
+  "project_tasks",
   "time_entries",
   "photo_evidence",
   "generated_documents",
@@ -188,18 +190,42 @@ ALTER TABLE app_settings ADD COLUMN rate_basis TEXT NOT NULL DEFAULT 'daily';
 ALTER TABLE app_settings ADD COLUMN base_rate_cents INTEGER NOT NULL DEFAULT 0;
 `;
 
+export const LOCATION_EVIDENCE_MIGRATION_SQL = `
+ALTER TABLE time_entries ADD COLUMN clock_out_location_text TEXT;
+ALTER TABLE time_entries ADD COLUMN clock_in_location_source TEXT NOT NULL DEFAULT 'legacy';
+ALTER TABLE time_entries ADD COLUMN clock_out_location_source TEXT NOT NULL DEFAULT 'legacy';
+ALTER TABLE time_entries ADD COLUMN clock_in_gps_accuracy_m REAL;
+ALTER TABLE time_entries ADD COLUMN clock_out_gps_accuracy_m REAL;
+ALTER TABLE time_entries ADD COLUMN clock_in_located_at TEXT;
+ALTER TABLE time_entries ADD COLUMN clock_out_located_at TEXT;
+ALTER TABLE time_entries ADD COLUMN location_note TEXT;
+ALTER TABLE time_entries ADD COLUMN location_history_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE photo_evidence ADD COLUMN gps_accuracy_m REAL;
+`;
+
+export const PHOTO_SEAL_MIGRATION_SQL = `
+ALTER TABLE photo_evidence ADD COLUMN capture_source TEXT;
+ALTER TABLE photo_evidence ADD COLUMN capture_time_source TEXT;
+`;
+
 export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
   "  end_time TEXT,\n  duration_minutes INTEGER NOT NULL,",
-  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  duration_minutes INTEGER NOT NULL,",
+  "  end_time TEXT,\n  break_minutes INTEGER NOT NULL DEFAULT 0,\n  location_text TEXT,\n  clock_in_gps_latitude REAL,\n  clock_in_gps_longitude REAL,\n  clock_out_gps_latitude REAL,\n  clock_out_gps_longitude REAL,\n  clock_out_location_text TEXT,\n  clock_in_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_out_location_source TEXT NOT NULL DEFAULT 'legacy',\n  clock_in_gps_accuracy_m REAL,\n  clock_out_gps_accuracy_m REAL,\n  clock_in_located_at TEXT,\n  clock_out_located_at TEXT,\n  location_note TEXT,\n  location_history_json TEXT NOT NULL DEFAULT '[]',\n  break_intervals_json TEXT NOT NULL DEFAULT '[]',\n  task_switches_json TEXT NOT NULL DEFAULT '[]',\n  current_task_id TEXT,\n  duration_minutes INTEGER NOT NULL,",
 ).replace(
   "  activity TEXT NOT NULL,\n  status TEXT NOT NULL DEFAULT 'draft',",
   "  activity TEXT NOT NULL,\n  day_type TEXT NOT NULL DEFAULT 'normal',\n  status TEXT NOT NULL DEFAULT 'draft',",
 ).replace(
   "  overtime_multiplier REAL NOT NULL,\n  status TEXT NOT NULL DEFAULT 'active',",
-  "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  status TEXT NOT NULL DEFAULT 'active',",
+  "  overtime_multiplier REAL NOT NULL,\n  rate_basis TEXT NOT NULL DEFAULT 'daily',\n  base_rate_cents INTEGER NOT NULL DEFAULT 0,\n  normal_work_start_time TEXT NOT NULL DEFAULT '08:00',\n  normal_work_end_time TEXT NOT NULL DEFAULT '17:00',\n  off_day_multiplier REAL NOT NULL DEFAULT 2,\n  holiday_multiplier REAL NOT NULL DEFAULT 2,\n  lunch_minutes INTEGER NOT NULL DEFAULT 0,\n  dinner_minutes INTEGER NOT NULL DEFAULT 0,\n  dinner_start_time TEXT,\n  status TEXT NOT NULL DEFAULT 'active',",
+).replace(
+  "  overtime_multiplier REAL NOT NULL,\n  rate_basis",
+  "  work_hours_saved INTEGER NOT NULL DEFAULT 0,\n  report_name TEXT,\n  overtime_multiplier REAL NOT NULL,\n  rate_basis",
+).replace(
+  "  description TEXT,\n  hourly_rate_cents INTEGER,",
+  "  description TEXT,\n  group_id TEXT,\n  site_address TEXT,\n  site_latitude REAL,\n  site_longitude REAL,\n  project_status TEXT NOT NULL DEFAULT 'active',\n  hourly_rate_cents INTEGER,",
 ).replace(
   "  caption TEXT,\n  captured_at TEXT,",
-  "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,",
+  "  caption TEXT,\n  evidence_type TEXT NOT NULL DEFAULT 'OTHER',\n  captured_at TEXT,\n  gps_latitude REAL,\n  gps_longitude REAL,\n  gps_message TEXT,\n  gps_accuracy_m REAL,\n  capture_source TEXT,\n  capture_time_source TEXT,",
 ).replace(
   "  local_uri TEXT,\n  period_start TEXT,",
   "  local_uri TEXT,\n  file_hash TEXT,\n  metadata_json TEXT,\n  snapshot_json TEXT,\n  period_start TEXT,",
@@ -209,12 +235,94 @@ export const MOBILE_SCHEMA_SQL = PHASE_2_MOBILE_SCHEMA_SQL.replace(
 ).replace(
   "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);",
   "CREATE INDEX IF NOT EXISTS idx_generated_documents_user_id ON generated_documents(user_id);\nCREATE INDEX IF NOT EXISTS idx_generated_documents_project_id ON generated_documents(project_id);",
+) + `
+CREATE TABLE IF NOT EXISTS project_tasks (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
 );
+CREATE INDEX IF NOT EXISTS idx_project_tasks_owner ON project_tasks(user_id, project_id);
+CREATE TABLE IF NOT EXISTS project_groups (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_groups_owner ON project_groups(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_group_owner ON projects(user_id, group_id);
+CREATE TABLE IF NOT EXISTS evidence_audit (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, project_id TEXT NOT NULL, time_entry_id TEXT, photo_id TEXT NOT NULL, event_type TEXT NOT NULL, event_at TEXT NOT NULL, captured_at TEXT, message TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_evidence_audit_owner_project ON evidence_audit(user_id, project_id, event_at);
+`;
+
+export const REPORT_PAY_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN work_hours_saved INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE app_settings ADD COLUMN report_name TEXT;
+UPDATE app_settings SET work_hours_saved = 1
+WHERE updated_at <> created_at OR base_rate_cents > 0
+   OR normal_work_start_time <> '08:00' OR normal_work_end_time <> '17:00'
+   OR overtime_multiplier <> 1.5 OR off_day_multiplier <> 2 OR holiday_multiplier <> 2;
+`;
+
+export const SHIFT_TASKS_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS project_tasks (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id),
+  FOREIGN KEY (project_id, user_id) REFERENCES projects(id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_tasks_owner ON project_tasks(user_id, project_id);
+ALTER TABLE time_entries ADD COLUMN break_intervals_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE time_entries ADD COLUMN task_switches_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE time_entries ADD COLUMN current_task_id TEXT;
+`;
+
+export const PROJECT_DISCOVERY_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS project_groups (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_groups_owner ON project_groups(user_id);
+ALTER TABLE projects ADD COLUMN group_id TEXT;
+ALTER TABLE projects ADD COLUMN site_address TEXT;
+ALTER TABLE projects ADD COLUMN site_latitude REAL;
+ALTER TABLE projects ADD COLUMN site_longitude REAL;
+ALTER TABLE projects ADD COLUMN project_status TEXT NOT NULL DEFAULT 'active';
+CREATE INDEX IF NOT EXISTS idx_projects_group_owner ON projects(user_id, group_id);
+`;
 
 export const REPOSITORY_HEALTH_SQL = {
   settingsCount: "SELECT COUNT(*) AS count FROM app_settings",
   generatedDocumentsCount: "SELECT COUNT(*) AS count FROM generated_documents",
 } as const;
+
+export const EVIDENCE_AUDIT_MIGRATION_SQL = `
+CREATE TABLE IF NOT EXISTS evidence_audit (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, project_id TEXT NOT NULL, time_entry_id TEXT, photo_id TEXT NOT NULL, event_type TEXT NOT NULL, event_at TEXT NOT NULL, captured_at TEXT, message TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_evidence_audit_owner_project ON evidence_audit(user_id, project_id, event_at);
+`;
+
+export const REPORT_LUNCH_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN lunch_minutes INTEGER NOT NULL DEFAULT 0;
+`;
+
+export const REPORT_DINNER_MIGRATION_SQL = `
+ALTER TABLE app_settings ADD COLUMN dinner_minutes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE app_settings ADD COLUMN dinner_start_time TEXT;
+`;
 
 export const LOCAL_MIGRATIONS = [
   {
@@ -252,4 +360,12 @@ export const LOCAL_MIGRATIONS = [
     name: "phase_10_rate_entry_settings",
     sql: RATE_ENTRY_SETTINGS_PHASE_10_MIGRATION_SQL,
   },
+  { version: 8, name: "location_evidence", sql: LOCATION_EVIDENCE_MIGRATION_SQL },
+  { version: 9, name: "photo_capture_seal", sql: PHOTO_SEAL_MIGRATION_SQL },
+  { version: 10, name: "report_pay_preferences", sql: REPORT_PAY_MIGRATION_SQL },
+  { version: 11, name: "shift_breaks_and_tasks", sql: SHIFT_TASKS_MIGRATION_SQL },
+  { version: 12, name: "project_groups_sites_and_status", sql: PROJECT_DISCOVERY_MIGRATION_SQL },
+  { version: 13, name: "evidence_deletion_audit", sql: EVIDENCE_AUDIT_MIGRATION_SQL },
+  { version: 14, name: "report_lunch", sql: REPORT_LUNCH_MIGRATION_SQL },
+  { version: 15, name: "report_dinner_break", sql: REPORT_DINNER_MIGRATION_SQL },
 ] as const;

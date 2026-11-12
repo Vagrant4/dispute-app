@@ -6,7 +6,17 @@ import {
   createTrialSubscriptionForUser,
   syncSubscriptionFromRevenueCat,
   validateRevenueCatStoreContext
+  ,trialAnchor
 } from '../src/modules/subscription/subscription.service.js';
+
+describe('guest trial anchor', () => {
+  it('uses first app use when it predates verification', () => {
+    const firstUse = new Date('2026-10-17T00:00:00.000Z');
+    const verified = new Date('2026-10-27T00:00:00.000Z');
+    expect(trialAnchor(firstUse, verified)).toEqual(firstUse);
+    expect(trialAnchor(null, verified)).toEqual(verified);
+  });
+});
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
@@ -119,6 +129,48 @@ describe('subscription API', () => {
     expect(trialEnd - Date.now()).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
     expect(trialEnd - Date.now()).toBeLessThanOrEqual(30 * 24 * 60 * 60 * 1000 + 60_000);
     expect(body.subscription.message).toMatch(/Trial active/i);
+  });
+
+  it('anchors the server trial to the guest first-use time sent at registration', async () => {
+    const firstUse = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const user = await registerUserWith('guest-ten-days@example.com', { firstUseAt: firstUse.toISOString() });
+    const response = await fetch(`${baseUrl}/subscription/status`, { headers: { Cookie: user.cookie } });
+    const body = await jsonBody<SubscriptionStatusResponse>(response);
+    expect(body.subscription.status).toBe('TRIALING');
+    const trialEnd = Date.parse(body.subscription.trialEndsAt!);
+    expect(Math.abs(trialEnd - (firstUse.getTime() + 30 * 24 * 60 * 60 * 1000))).toBeLessThan(5_000);
+  });
+
+  it('expires the trial at verification when guest use started more than 30 days earlier (day 31 gate)', async () => {
+    const firstUse = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    const user = await registerUserWith('guest-day-31@example.com', { firstUseAt: firstUse.toISOString() });
+    const response = await fetch(`${baseUrl}/subscription/status`, { headers: { Cookie: user.cookie } });
+    const body = await jsonBody<SubscriptionStatusResponse>(response);
+    expect(body.subscription.status).toBe('EXPIRED');
+    expect(body.subscription.canCreateRecords).toBe(false);
+    expect(body.subscription.canExportReports).toBe(false);
+  });
+
+  it('does not re-extend a guest-anchored trial to verification + 30 days on later status reads', async () => {
+    const firstUse = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+    const user = await registerUserWith('guest-no-stack@example.com', { firstUseAt: firstUse.toISOString() });
+    for (let i = 0; i < 2; i += 1) {
+      const body = await jsonBody<SubscriptionStatusResponse>(
+        await fetch(`${baseUrl}/subscription/status`, { headers: { Cookie: user.cookie } })
+      );
+      const trialEnd = Date.parse(body.subscription.trialEndsAt!);
+      expect(trialEnd - Date.now()).toBeLessThan(11 * 24 * 60 * 60 * 1000);
+    }
+  });
+
+  it('clamps a future first-use time and keeps the default verification anchor without one', async () => {
+    const future = await registerUserWith('guest-future@example.com', {
+      firstUseAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+    });
+    const futureBody = await jsonBody<SubscriptionStatusResponse>(
+      await fetch(`${baseUrl}/subscription/status`, { headers: { Cookie: future.cookie } })
+    );
+    expect(Date.parse(futureBody.subscription.trialEndsAt!) - Date.now()).toBeLessThanOrEqual(30 * 24 * 60 * 60 * 1000 + 60_000);
   });
 
   it('rejects sandbox and non-platform store webhooks at the production boundary', () => {
@@ -1013,6 +1065,18 @@ describe('subscription API', () => {
       id: body.user.id,
       cookie: await verifiedCookie(email, body.devVerificationCode)
     };
+  }
+  async function registerUserWith(email: string, extra: Record<string, unknown>): Promise<{ id: string; cookie: string }> {
+    const response = await postJson('/auth/register', {
+      email,
+      password: 'Password123!',
+      fullName: 'Guest Worker',
+      phone: '+65 9000 0000',
+      ...extra
+    });
+    expect(response.status).toBe(201);
+    const body = await jsonBody<AuthUserResponse>(response);
+    return { id: body.user.id, cookie: await verifiedCookie(email, body.devVerificationCode) };
   }
   async function verifiedCookie(email: string, code: string): Promise<string> {
     expect(code).toMatch(/^\d{6}$/);

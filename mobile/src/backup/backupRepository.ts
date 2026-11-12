@@ -101,7 +101,9 @@ export class BackupRepository {
     );
 
     if (violations.length > 0) {
-      throw new Error("Backup restore failed foreign key validation.");
+      throw new Error("This file isn't a DISPUTE copy.", {
+        cause: "Backup restore failed foreign key validation.",
+      });
     }
   }
 }
@@ -119,6 +121,8 @@ function sanitizeRestoredRow(
     const id = typeof row.id === "string" ? row.id : "restored-photo";
     return {
       ...ownedRow,
+      capture_source: row.capture_source ?? null,
+      capture_time_source: row.capture_time_source ?? null,
       local_uri: `backup-metadata-only://${encodeURIComponent(id)}`,
     };
   }
@@ -145,6 +149,7 @@ function toBackupSqlValue(
   }
 
   throw new Error(
-    `Backup value for ${tableName}.${columnName} must be a SQLite-compatible primitive.`,
+    "This file isn't a DISPUTE copy.",
+    { cause: `Backup value for ${tableName}.${columnName} must be a SQLite-compatible primitive.` },
   );
 }

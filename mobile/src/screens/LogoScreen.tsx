@@ -22,7 +22,7 @@ export function LogoScreen({
       />
 
       <View style={styles.logoHero}>
-        <Text style={styles.logoName}>DISPUTE</Text>
+        <Text style={styles.logoName}>Dispute</Text>
         <Text style={styles.logoTagline}>
           Time records, site photos, and claim reports in one clean field app.
         </Text>
@@ -44,6 +44,7 @@ export function LogoScreen({
         >
           <Text style={styles.actionButtonSecondaryText}>Create account</Text>
         </Pressable>
+        <Text style={styles.muted}>Create a free account to start your 30-day free trial.</Text>
       </View>
     </View>
   );

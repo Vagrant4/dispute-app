@@ -1,0 +1,3 @@
+# Web photo capture bug
+
+On web, `expo-image-picker` returns the captured image as a browser-owned `blob:` URI. The photo flow passed that URI to `importEvidencePhotoFile`, which always called `expo-file-system/legacy.makeDirectoryAsync` and `copyAsync` with a native `file:` destination; Expo's web file-system implementation cannot copy a browser blob into that native document path, so the promise rejected and the screen's catch handler displayed “Something went wrong.” The importer now recognizes browser `blob:` and `data:` sources and keeps their directly renderable URI instead of invoking native file-system operations, while native camera/gallery files continue to be copied into evidence storage as before.

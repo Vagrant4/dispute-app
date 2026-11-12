@@ -1,0 +1,258 @@
+# UI Text Box and Map Fix Report
+
+## Summary
+
+Implemented the requested mobile UI fixes on branch `fix/ui-textbox-map-20261109` without pushing, deploying, publishing, uploading to a store, or changing billing/accounts.
+
+## Root causes
+
+- **Location map:** `locationMapFrame` forced all map content into a 360 px-high container with `overflow: "hidden"`. The component itself required a minimum 240 px map canvas plus padding, gaps, three text rows, and a 48 px action, so **Open in Maps** was clipped. The canvas was also only a stylized ring and dot, not a street basemap.
+- **Settings trial subtitle:** the Settings list applied `numberOfLines={1}` to every subtitle, truncating “Trial ended. Existing records remain viewable.”
+- **Subscribe CTA:** price and store disclaimer copy were nested inside a fixed-height button, giving the control too much text for its available height.
+- **Other reviewed text containers:** Today location/project titles and the project PDF lock note also forced single-line rendering.
+
+## Changes
+
+- `mobile/src/screens/LocationMap.native.tsx`
+  - Added a real no-key OpenStreetMap raster basemap using standard slippy-map tiles.
+  - Added visible, linked “© OpenStreetMap contributors” attribution.
+  - Kept the GPS pin fixed and non-interactive.
+  - Kept the accuracy ring, now scaled in metres using Web Mercator resolution.
+  - Preserved the external **Open in Maps** action and error handling.
+- `mobile/src/styles.ts`
+  - Removed the fixed 360 px height and clipping from the overall map frame.
+  - Constrained clipping to the 260 px tile canvas only.
+  - Added map tile, attribution, details, empty-state, and subscription price-note styles.
+  - No font size was reduced.
+- `mobile/src/screens/SettingsScreen.tsx`
+  - Removed the one-line subtitle limit so trial/status copy wraps fully.
+- `mobile/src/screens/PlanBillingPanel.tsx`
+  - Kept the concise CTA **Subscribe** inside the button.
+  - Moved the store price below the button.
+  - Kept the fallback exactly: “S$6.99 a month (final price shown in Google Play)”.
+  - For localized prices, kept “Final price shown in Google Play.” below the price.
+- `mobile/src/screens/HomeScreen.tsx`
+  - Allowed location and project titles to wrap.
+- `mobile/src/screens/ProjectDetailScreen.tsx`
+  - Allowed the PDF subscription note to wrap.
+- `mobile/tests/textBoxMapLayout.test.js`
+  - Added five regression tests covering OSM attribution/basemap, fixed pin/accuracy ring, unclipped map layout, wrapped Settings and other explanatory text, and externalized subscription price copy.
+
+Auth, account-required trial behavior, `recordAccess.ts` gates, and GPS persistence were not changed.
+
+## Tests and verification
+
+### Passed
+
+`node --test tests/textBoxMapLayout.test.js` (from `mobile`)
+
+- 5 tests passed
+- 0 failed
+
+The debug Android configuration was also inspected and already declares:
+
+- Base application ID: `sg.claimproof.mobile`
+- Debug suffix: `.test`
+- Resulting debug package: `sg.claimproof.mobile.test`
+- Debug signing only
+
+### Blocked by environment
+
+The isolated copy had no installed TypeScript/Expo toolchain. Two `npm ci` attempts (including a repo-local npm cache) could not restore dependencies because outbound registry requests were denied with `EACCES`.
+
+Therefore:
+
+- `npm run typecheck --workspace mobile` — blocked at the shared prebuild because `tsc` is unavailable.
+- `npm test` — blocked at the same missing `tsc` prebuild.
+- `mobile/android/gradlew.bat :app:assembleDebug` with a repo-local `GRADLE_USER_HOME` — blocked because the Gradle 9.3.1 distribution download was denied with `java.net.SocketException: Permission denied: getsockopt`.
+
+No APK could be produced in this environment, so there is no APK path or SHA-256 to report.
+
+The requested local commit was also attempted with message **fix(mobile): repair map and text layouts**, but this sandbox mounts **.git** read-only. Git failed to create **.git/index.lock** with **Permission denied**. The changes remain in the working tree and were not pushed.
+
+## Installed skills
+
+The requested skills `test-driven-development`, `systematic-debugging`, `verification-before-completion`, and `react-best-practices` were not installed in this session. No Expo/React Native-specific skill was available. Their practices were followed directly: regression tests were written first, the clipping root cause was confirmed before changing layout, changes were kept component-focused, and verification commands were attempted and recorded honestly.
+
+## Remaining verification when network/toolchain access is available
+
+1. Run `npm ci`.
+2. Run `npm run typecheck --workspace mobile`.
+3. Run `npm test`.
+4. From `mobile/android`, run `gradlew.bat :app:assembleDebug`.
+5. Hash `mobile/android/app/build/outputs/apk/debug/app-debug.apk` with SHA-256.
+
+## Follow-up
+
+- **Cause:** `LocationMap.web.tsx` still referenced `styles.locationMapFallback` after the native map style refactor removed that key.
+- **Fix:** Restored a dark, lime-bordered web fallback with the native map's 260 px minimum height and existing readable type styles. The map attribution now uses the shared caption token, and stale single-line test expectations were aligned with the intentional wrapping behavior.
+- **Results (from `mobile`):** `npx tsc -p tsconfig.json --noEmit` passed; `node --test tests/*.test.js` passed all 302 tests with 0 failures.
+
+## Follow-up 2: tile User-Agent
+
+- **Cause:** Android's React Native image loader sent OpenStreetMap tile requests with the generic `okhttp/4.9.2` User-Agent, which OpenStreetMap blocked.
+- **Fix:** Added the exported `getTileRequestSource(url)` helper and a single app-identifying User-Agent, `DISPUTE/0.3.2 (sg.claimproof.mobile; Android)`, then routed every raster tile image source through the helper. Tile URLs, map math, zoom, fixed pin, accuracy ring, attribution, action, and layout remain unchanged.
+- **Regression coverage:** Extended `mobile/tests/textBoxMapLayout.test.js` to require HTTPS `tile.openstreetmap.org` sources with a non-okhttp User-Agent containing `DISPUTE`.
+- **Verification:** Shared passed 32 tests, server passed 171 tests, client passed 24 tests, mobile passed 302 tests, and the mobile TypeScript check passed. All suites reported 0 failures.
+- **Implementation commit:** `bb23d0fc9779d1723bd757ef690a80ef6350dd8a` (`fix(mobile): identify OpenStreetMap tile requests`).
+## Follow-up 3: tile fix 0.3.3 + Today map + back + safe-area
+
+### Root cause
+
+The 5b76eb4 implementation supplied a User-Agent only through the React Native `<Image source={{ uri, headers }}>` path. On the real phone, OSM answers okhttp/empty-UA tile requests with HTTP 200 and a valid 6,725-byte "Access blocked" PNG. Fresco caches that successful PNG by URI despite the response's `no-cache`, and an app upgrade preserves Fresco storage. That explains both why the bad tile survived the b371a23-to-5b76eb4 upgrade and why a normal HTTP-error fallback could never detect it. Fabric header delivery also had not been proven on-device.
+
+The fix installs `OkHttpClientProvider.setOkHttpClientFactory` before `loadReactNative`. It starts with `createClientBuilder(applicationContext)` so the default cookie jar/cache/timeouts and existing behavior are retained, and a network interceptor replaces User-Agent only when the request host is `tile.openstreetmap.org`; API requests are untouched. JS headers remain as defense in depth. Tile URLs now carry `#osm-v2`: HTTP never sends a URL fragment, while Fresco includes the complete URI in its cache key, so every stale 0.3.2 block image is bypassed without clearing unrelated image caches. This deterministic key bump is more targeted and reliable than trying to race a process-wide Fresco clear after initialization.
+
+### Changes by commit
+
+- `a100708` - native host-scoped tile User-Agent, shared 0.3.3 JS identity, `osm-v2` Fresco cache key, OSM attribution, versionCode 5/versionName 0.3.3, and initial failing guards.
+- `5d87086` - embedded fixed-pin Today map, 48dp "Show my location" control, removed separate map/deep-link UI and all on-screen accuracy numbers while retaining stored/report accuracy evidence.
+- `b60b6d9` - Android back ordering and safe bottom insets for New project and Photo proof/detail sheets.
+- `a152857` - removed the mobile referral screen, Settings/Create account entry/copy, navigation types, module, and obsolete referral tests; server referral code and schema were not changed.
+- `da31582` - Jest/RNTL, Maestro flows, and the two device screenshot audit scripts.
+
+### Back and popup audit
+
+- `ProjectNameSheet` (New/Rename project): React Native `Modal.onRequestClose`; parent custom picker/sheet state is also consumed by `BackHandler` before app navigation.
+- Photo proof capture sheet: `Modal.onRequestClose` closes unless a save is in flight; swipe-down/Cancel paths remain.
+- Photo detail modal: `Modal.onRequestClose` clears the selected detail.
+- Projects detail: screen `BackHandler` invokes the same pop-to-project-list state transition as its visible back control.
+- Settings sub-pages and currency/rate dropdown overlays: screen `BackHandler` closes the open dropdown first, then pops delete -> Privacy, More children -> More, and other pages -> Settings.
+- App root: after child handlers, a non-home tab returns to Today; Today shows "Press back again to exit" and only the second press inside two seconds exits.
+
+### Safe-area fixes
+
+- New project sheet applies `max(bottomInset, 24)` below Save/Cancel.
+- Photo proof and photo detail scroll content apply `max(bottomInset, 24)` below Save, Import, Cancel, and detail actions.
+- The existing bottom tab bar remains a bottom-edged `SafeAreaView`, so sheet content and tabs independently account for gesture and 3-button navigation.
+
+### Test results
+
+- Mobile strict typecheck: passed.
+- Mobile Node suite: 302/302 passed.
+- Jest/RNTL: 4 suites, 4 tests passed.
+- Full root `npm test`: shared 32/32, server 171/171, client 24/24, mobile typecheck, mobile 306/306 all passed.
+- Maestro was intentionally not run because this PC has no emulator; the box owns those flows and device/TLS header proof.
+- Extra `:app:compileDebugKotlin` attempt stopped before compilation because this PC has no Android SDK configured (`ANDROID_HOME`/`mobile/android/local.properties`), not because of a Kotlin diagnostic.
+
+### Skill availability and remaining device proof
+
+The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, `react-best-practices`, and Expo/React Native/Android skills were not installed in this environment. Their practices were followed manually: root cause and cache behavior first, failing tests before production edits, small scoped components/host-only networking, and full available verification before completion. No provider account/key, debug network override, push, PR, deploy, billing/auth/account configuration change, or other checkout was touched. The box still needs to prove the header on its TLS logger, run Maestro with mocked GPS, and run the screenshot sweeps against the APK.
+
+## Follow-up 4: single entitlement source
+
+### Root cause and gate trace
+
+- The server status/cache adapter is `mobile/src/subscription/subscriptionClient.ts:42`; it reads `/subscription/status` and only falls back to a still-current cached entitlement after a network failure.
+- Today used `useSubscriptionAccess` (`HomeScreen.tsx:30`) and derived its banner from that hook's `trialEndsAt` (`HomeScreen.tsx:68-69`) and `canCreateRecords` (`HomeScreen.tsx:303-305`). Settings and Plan used another hook instance (`SettingsScreen.tsx:72-77`) and `planTrialLine` (`SettingsScreen.tsx:103`, `PlanBillingPanel.tsx:26`). Each hook instance previously owned independent React state, so mounted screens could disagree until their own refresh ran.
+- Reports had a third, independent entitlement state plus its own direct status request. The old `ProgressClaimReportsScreen.tsx:54-60,164-183` path could retain a different response than Today/Settings. Its PDF/CSV/file actions all reached `ensureCanExport`, but `canExportProgressClaim` and `getDisputePackExportAccess` additionally required `hasPaidSubscription`; that helper explicitly excluded `TRIALING`. Thus an extended server trial could display as current in one screen while the report gate remained locked even when `canExportReports` was true.
+- The fixed source is the shared external store in `useSubscriptionAccess.ts`. App start and foreground-active refresh are owned there; successful purchase/restore server sync emits `requestEntitlementRefresh`, and Settings also refreshes after purchase. Today, Projects, Photos, Settings/Plan, and Reports now read that same snapshot. Reports no longer import or directly call `fetchSubscriptionStatus`.
+- The canonical rules are now `hasCurrentFullAccess` plus the server's `canExportReports` flag (`subscriptionClient.ts:108-136`, `recordAccess.ts:26-38`): current extended/active trial unlocks signed-in PDF and CSV, expired trial without subscription locks, and a current active subscription unlocks. Guest/account-required behavior remains (`recordAccess.ts:31`), and Today still renders the real ended state (`HomeScreen.tsx:303-305`). No server or billing/trial rule was changed.
+
+### Project page proposal implemented
+
+What stays: the selected-project picker (`ProjectDetailScreen.tsx:25`) and the single `Create & share PDF` action (`ProjectDetailScreen.tsx:35`). The page ends there. What was removed from this render: period/week line, Preview/CSV, Status/lock card, Earlier reports, Show sessions, Sessions and its empty text, pay rate, metric tiles, project-complete/rename/site summary, and Photos/See all. Their data/repositories and reusable report components remain for other screens; the minimal option was to stop rendering them in the compact project route.
+
+Settings now owns the report-period control (`SettingsScreen.tsx:288`) and per-project pay-rate controls (`SettingsScreen.tsx:277-294`). The rate still writes `project.hourlyRateCents`; it is not global. PDF construction loads the saved period and the selected project's rate (`ProgressClaimReportsScreen.tsx:121-139`). Stable Maestro IDs are `project-picker`, `create-share-pdf`, `settings-report-period`, `settings-pay-rate-project-picker`, `settings-pay-rate-input`, and `settings-pay-rate-save`.
+
+### Tests and commits
+
+- Added `entitlement.test.ts`, `projectPage.test.tsx`, and `settingsPayRate.test.tsx`; updated obsolete source-contract tests to the new trial and minimal-project behavior.
+- Implementation/test commit: `a62980b`. Documentation/verification commit: the following local commit.
+- Verification passed: mobile strict typecheck; mobile Node 302/302; Jest 13/13 in 7 suites. Full root `npm test` passed with shared 32/32, server 171/171, client 24/24, mobile 302 Node + 12 Jest before the final store-sync refresh regression; the post-change mobile typecheck and mobile 302 + 13 suites also passed.
+
+## Follow-up 5: keyboard + swipe-down sheets + attribution (0.3.4)
+
+### Changes by commit
+
+- `708d59e` — shared `KeyboardAwareScroll`, app/auth/Settings coverage, and the Settings per-project-rate label.
+- `9061f8f` — shared animated `SwipeDownSheet`, grab handles, threshold/velocity dismissal, spring-back, and migration of all three modal surfaces.
+- `741f6fc` — real U+00A9 OSM attribution; the tile User-Agent contact placeholder is unchanged.
+- `bb45c21` — app/package/native/map version 0.3.4 and Android versionCode 6.
+- `0b28325` — RNTL coverage for focused keyboard inputs and exact attribution.
+- `9fa17c7` — obsolete 0.3.3 and raw-`Modal` guards aligned with 0.3.4 and `SwipeDownSheet`.
+- `ca1bc6c` — narrow design-token test exception for the required copyright sign.
+- Documentation and final verification are in the following local report commit.
+
+### Keyboard coverage
+
+The app-level shared container covers Login (email, password), Create account (name, email, mobile number, password), Forgot password (email, reset code, new password, confirm password), Verify email (code), Settings pay fields (project hourly rate, base rate, normal start/end, overtime/off-day/holiday multipliers), and Settings account deletion (current password, DELETE confirmation). New/Rename project name and Photo proof note use sheet-local containers. Each uses `KeyboardAvoidingView`, a handled-taps `ScrollView`, safe-area bottom padding, and keyboard-open scrolling to the focused native input. No font was reduced.
+
+### Sheet coverage
+
+- New/Rename project: `project-sheet-grab-handle`; swipe, Cancel, and Android back.
+- Photo proof: `photo-proof-sheet-grab-handle`; swipe, Cancel, and Android back, retaining the existing no-dismiss-while-saving rule.
+- Photo detail: `photo-detail-sheet-grab-handle`; swipe, Close, and Android back.
+
+### Tests and constraints
+
+Focused tests exposed the missing gesture and keyboard behavior before completion. Final verification passed: mobile strict TypeScript; mobile Node 302/302; Jest/RNTL 43/43 across 9 suites; full root `npm test` with shared 32/32, server 171/171, client 24/24, mobile Node 302/302, and mobile Jest 43/43. Obsolete tests updated: `followUp3Guards.test.js` (0.3.4), `photoSeal.test.js` (`SwipeDownSheet` boundary), and `designTokens.test.js` (required-copyright exception).
+
+## Follow-up 6: locate-me crosshair (0.3.5-test, versionCode 7)
+
+The Today map locate control now uses a composed React Native reticle: a circular outline crossed by full horizontal and vertical hairlines with a small centre dot. It is the standard map “find me” shape matching Material `gps_fixed` / `my-location` and Unicode U+2316 `⌖`, without relying on a font glyph. The accessible `today-locate-button` remains inside `today-map` and keeps the `Show my location` label.
+
+The standalone location evidence row and its pin icon were removed. The map no longer shows the saved address as an always-visible details line; the address (or the existing coordinate fallback when reverse geocoding has no street) appears inside the location area after the crosshair is pressed. The existing GPS refresh path remains available during a shift, and a crosshair press opens Android settings when location services are off. The empty-state copy now directs the worker to the crosshair. OpenStreetMap attribution, the accuracy ring, and the fixed non-draggable pin remain intact.
+
+Tests were updated before implementation to cover reticle composition and containment, removal of the outside location chrome, and address reveal after a mocked `Raffles Place` fix. Final verification passed: mobile strict TypeScript; mobile Node 302/302; Jest/RNTL 43/43 across 9 suites; full root `npm test` with shared 32/32, server 171/171, client 24/24, mobile Node 302/302, and mobile Jest 43/43. Gradle assemble was not run and no APK is claimed.
+
+Implementation and tests commit: `a6e2d276a8512ae728e6c65c5af3ff2080eec8b4`. The documentation commit is the subsequent local commit containing this section.
+
+The requested `systematic-debugging`, `test-driven-development`, `verification-before-completion`, and `react-best-practices` skills were not installed, and no Expo/React Native skill was available. Their practices were followed manually. No push, PR, remote, deploy, store, Play, RevenueCat, billing/account action, production/server data change, or other checkout was touched. Existing entitlement, auth/trial gates, fixed GPS pin, Android back ordering, and safe-area behavior were preserved.
+
+## Follow-up 7: Today map visible on open (0.3.6-test, versionCode 8)
+
+The Today map now renders OpenStreetMap tiles on its first frame even before a GPS result exists. Its initial center priority is: restore any pending or active/recent-entry fix while `refreshWorkState` runs; quietly request a fresh fix through the existing `getWorkLocationWithTimeout` path (which already falls back to Expo last-known location); replace the restored center only when that request returns GPS coordinates; otherwise retain the restored center. When neither restored nor requested coordinates are available, the tile canvas uses Singapore latitude `1.3521`, longitude `103.8198`, at zoom `16`. The default center has no pin or accuracy ring, so it is not presented as a live fix.
+
+The idle/default copy `No GPS reading yet. Tap the crosshair.` was removed from both native and web map paths and does not appear elsewhere. Web now shares the same tile-rendering implementation instead of its former empty fallback. A fresh or last-known auto-load fix recenters the map and may show the fixed pin and accuracy ring, but the address remains hidden. Only a crosshair press enables address details; that press still calls `handleLocateMe` without an `isRunning` guard, and location-off behavior still opens Android settings.
+
+The 0.3.5 crosshair is unchanged: the composed 16 dp, 2 dp ring; 28 dp horizontal and vertical hairlines; 4 dp center dot; primary/disabled-placeholder colors; `today-locate-reticle` test ID; `today-locate-button` top-right placement; and `Show my location` accessibility label all remain. OSM attribution, `osm-v2`, the native tile User-Agent interceptor, fixed non-draggable pin, and absence of standalone location chrome and accuracy text are also unchanged.
+
+Tests were updated before implementation and first failed against the old empty panel, missing mount request, and 0.3.5/7 version values. Final verification passed:
+
+- Mobile strict TypeScript: passed.
+- Mobile Node: 302/302 passed.
+- Mobile Jest/RNTL: 43/43 across 9 suites passed.
+- Shared: 32/32 passed.
+- Server: 171/171 passed.
+- Client: 24/24 passed.
+
+Gradle assemble was not run and no APK is claimed. Implementation, tests, and version bump commit: `b244e50` (`fix: show Today map tiles on open`). This report is the subsequent local documentation commit. No push, PR, deploy, store/billing/account action, paid account/API key, or other checkout was touched.
+
+## Follow-up 8: pay-rate first Save (0.3.7-test, versionCode 9)
+
+The first Save failed when the Settings load had not populated its local project array and selected project ID. Although the user's project already existed in owned storage, `handleSaveProjectRate` only searched that empty in-memory array and silently returned. When a write did succeed, the handler immediately ran the full pay-rate load again; any transient failure in that cosmetic reload replaced `Saved` with `Couldn't load pay rate. Reopen the app and try again.` This made a successful or recoverable first attempt appear to have failed while a later tap worked after state settled.
+
+The save path now prefers the valid selected in-memory project, but if it is missing it reopens the existing user-scoped project store, calls `listProjects(userId)`, and uses the first already-stored project, matching the load path's fallback. It does not create or guess a project. A missing/zero existing hourly rate is accepted and the entered valid rate is written through the existing `updateProject` update. After the project and report period writes succeed, local project/selection state is updated and the status remains `Saved`; the clobbering post-save full reload was removed.
+
+The RNTL regression starts with a transient first `listProjects` failure, an empty/null UI selection, and an existing stored `1111.` project whose rate is zero. It enters `150`, presses `settings-pay-rate-save` once, verifies the owned project receives `15000` cents, verifies `Saved`, and verifies the reopen-app load error is no longer the save outcome. Existing test IDs, per-project update, report-period ownership, and PDF project-rate guards remain covered.
+
+Version declarations are now 0.3.7 with Android versionCode 9. The existing internal `versionNameSuffix "-test"` remains, so the internal build name is `0.3.7-test` and its application ID suffix remains unchanged. The map User-Agent contact remains `+https://github.com/`; no map, address, geocoder, LocationMap, project-name, add-project, dropdown-menu, or photo-refresh behavior was changed.
+
+Final verification passed:
+
+- Mobile strict TypeScript: passed.
+- Mobile Node: 302/302 passed.
+- Mobile Jest/RNTL: 44/44 across 9 suites passed (one new behavioral test).
+- Full root `npm test`: shared 32/32, server 171/171, client 24/24, mobile typecheck, mobile Node 302/302, and mobile Jest 44/44 passed.
+- Gradle assemble was not run and no APK is claimed.
+
+Implementation, regression test, and version bump commit: `e62e771` (`fix: save project pay rate on first tap`). This report is the subsequent local documentation commit. The requested debugging, TDD, verification, and React practices were followed manually because their named skills were not installed. No push, PR, deploy, store/billing/account action, paid account/API key, other checkout, or out-of-scope map/dropdown work was touched.
+
+## Follow-up 9: project picker sheets (0.3.8-test, versionCode 10)
+
+The Project detail top control now opens a slide-up list of the user's active projects instead of navigating back. Choosing a row switches the open project through the callback owned by `ProjectsScreen`. Settings -> Pay rate -> Project now opens the same readable list and selecting a row updates `rateProjectId`, which continues to refresh the displayed project rate. Today's project chooser is now a slide-up sheet as well; project names and `+ New project` use DISPUTE's existing light-on-dark text and surface styles, and `+ New project` still opens the existing name sheet.
+
+All three project pickers use the shared DISPUTE `SwipeDownSheet` primitive, `projectSheetBackdrop`, and `projectSheet` styling. The Scrapwho reference informed only the interaction pattern: a modal sheet, grab handle, option list, swipe-down dismissal, and Android-back dismissal. No Scrapwho module, code, colors, typography, layout, or chrome was copied. Stable sheet IDs are `project-detail-picker-sheet`, `settings-pay-rate-project-sheet`, and `today-project-picker-sheet`.
+
+Settings Report period was left working as before. The 0.3.7 first-Save upsert behavior is retained: when local selection is missing, Save re-reads the owned stored projects, uses the first stored project, updates local state, and preserves `Saved` without a post-save reload clobber. No map, address, geocoder, LocationMap, rename-project, photo-refresh, billing, or account behavior was changed.
+
+Tests were written/updated first and failed against the old controls before implementation. Final verification passed:
+
+- Mobile strict TypeScript: passed.
+- Mobile Node: 303/303 passed.
+- Mobile Jest/RNTL: 54/54 across 9 suites passed.
+- Full root `npm test`: shared 32/32, server 171/171, client 24/24, mobile typecheck, mobile Node 303/303, and mobile Jest 54/54 passed.
+- Gradle assemble was not run and no APK is claimed.
+
+Implementation, regression tests, and version bump commit: `1a57317` (`fix: add project picker sheets`). This report is the subsequent local documentation commit. Version declarations are 0.3.8 with Android versionCode 10; the existing `versionNameSuffix "-test"`, test package, and map User-Agent contact remain unchanged. The requested debugging, TDD, verification, and React practices were followed manually because their named skills were not installed. No push, PR, deploy, store/billing/account action, paid account/API key, other checkout, Scrapwho import, or out-of-scope map/address work was performed.

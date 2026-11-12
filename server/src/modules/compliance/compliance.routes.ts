@@ -55,8 +55,8 @@ complianceRouter.post('/account-deletion', deletionLimiter, async (req, res, nex
   const requestId = String(req.body?.requestId ?? '');
   if (String(req.body?.confirmation ?? '') !== ACCOUNT_DELETION_CONFIRMATION) {
     res.status(400).type('html').send(renderResultPage(
-      'Not deleted yet',
-      `Type ${ACCOUNT_DELETION_CONFIRMATION} exactly as shown to confirm.`
+        'Not deleted yet',
+        `Type ${ACCOUNT_DELETION_CONFIRMATION} exactly as shown to confirm.`
     ));
     return;
   }
@@ -70,14 +70,14 @@ complianceRouter.post('/account-deletion', deletionLimiter, async (req, res, nex
     res.type('html').send(renderResultPage(
       'Account deleted',
       result.storageCleanupComplete
-        ? `Your DISPUTE account has been deleted. Records saved on your phone stay there until you clear DISPUTE's storage in your phone settings or uninstall DISPUTE. Request number: ${result.requestId}`
-        : `Your account has been deleted. We're still clearing some files. Keep this request number in case you need help: ${result.requestId}`
+          ? `Your DISPUTE account has been deleted. Records saved on your phone stay there until you clear DISPUTE's storage in your phone settings or uninstall DISPUTE. Request number: ${result.requestId}`
+          : `Your account has been deleted. We're still clearing some files. Keep this request number in case you need help: ${result.requestId}`
     ));
   } catch (error) {
     if (error instanceof AuthServiceError && error.statusCode === 401) {
       res.status(401).type('html').send(renderResultPage(
-        'Not deleted',
-        'The email or password is wrong. Nothing was deleted.'
+          'Not deleted',
+          'The email or password is wrong. Nothing was deleted.'
       ));
       return;
     }
@@ -115,19 +115,19 @@ function renderPrivacyPolicy(): string {
 
 function renderAccountDeletionForm(requestId: string): string {
   return renderCompliancePage('Delete your DISPUTE account', `
-    <p>Use this page to delete your DISPUTE account if you can't use the app.</p>
-    <div class="warning"><strong>This can't be undone.</strong> We will delete your DISPUTE account and everything DISPUTE keeps for it: your profile, sign-in details, plan and referral details. You can't get them back.</div>
-    <p><strong>Records on your phone.</strong> Your projects, time entries, places, photos and reports are saved only on your phone. A web request can't reach your phone. To remove them, clear DISPUTE's storage in your phone settings, or uninstall DISPUTE. Copies you saved or shared elsewhere are not removed.</p>
-    <p><strong>What we keep.</strong> We keep a short record with no personal details showing that a deletion was asked for: a request number, the time, and whether clean-up finished. Google Play or our payment partner may keep their own payment records.</p>
-    <p>Deleting your account does not cancel a Google Play subscription. Cancel it first in <a href="https://play.google.com/store/account/subscriptions">Manage Google Play subscriptions</a>.</p>
+      <p>Use this page to delete your DISPUTE account if you can't use the app.</p>
+      <div class="warning"><strong>This can't be undone.</strong> We will delete your DISPUTE account and everything DISPUTE keeps for it: your profile, sign-in details, plan and referral details. You can't get them back.</div>
+      <p><strong>Records on your phone.</strong> Your projects, time entries, places, photos and reports are saved only on your phone. A web request can't reach your phone. To remove them, clear DISPUTE's storage in your phone settings, or uninstall DISPUTE. Copies you saved or shared elsewhere are not removed.</p>
+      <p><strong>What we keep.</strong> We keep a short record with no personal details showing that a deletion was asked for: a request number, the time, and whether clean-up finished. Google Play or our payment partner may keep their own payment records.</p>
+      <p>Deleting your account does not cancel a Google Play subscription. Cancel it first in <a href="https://play.google.com/store/account/subscriptions">Manage Google Play subscriptions</a>.</p>
     <form method="post" action="/account-deletion">
       <input type="hidden" name="requestId" value="${escapeHtml(requestId)}" />
       <label>Email<input autocomplete="email" inputmode="email" name="email" required type="email" /></label>
-      <label>Password<input autocomplete="current-password" name="password" required type="password" /></label>
-      <label>Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm<input autocomplete="off" name="confirmation" pattern="${ACCOUNT_DELETION_CONFIRMATION}" required /></label>
-      <button style="background:#D93F44;color:#fff" type="submit">Delete my account</button>
+        <label>Password<input autocomplete="current-password" name="password" required type="password" /></label>
+        <label>Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm<input autocomplete="off" name="confirmation" pattern="${ACCOUNT_DELETION_CONFIRMATION}" required /></label>
+        <button style="background:#D93F44;color:#fff" type="submit">Delete my account</button>
     </form>
-    <p class="small">Forgot your password? Reset it in the DISPUTE app first. Read our <a href="/privacy">Privacy Policy</a>.</p>
+      <p class="small">Forgot your password? Reset it in the DISPUTE app first. Read our <a href="/privacy">Privacy Policy</a>.</p>
   `);
 }
 

@@ -13,10 +13,13 @@ export type PhotoEvidenceRow = {
   local_uri: string;
   caption: string | null;
   evidence_type: string;
-  captured_at: string;
+  captured_at: string | null;
+  capture_source?: string | null;
+  capture_time_source?: string | null;
   gps_latitude: number | null;
   gps_longitude: number | null;
   gps_message: string | null;
+  gps_accuracy_m?: number | null;
   status: string;
   lock_hash?: string | null;
   locked_at?: string | null;
@@ -46,8 +49,13 @@ export class PhotoEvidenceRepository {
         gps_latitude,
         gps_longitude,
         gps_message,
-        status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        gps_accuracy_m,
+        status,
+        capture_source,
+        capture_time_source,
+        lock_hash,
+        locked_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.id,
         input.userId,
@@ -60,7 +68,12 @@ export class PhotoEvidenceRepository {
         input.gpsLatitude,
         input.gpsLongitude,
         input.gpsMessage,
+        input.gpsAccuracyM ?? null,
         input.status,
+        input.captureSource ?? null,
+        input.captureTimeSource ?? null,
+        input.lockHash ?? null,
+        input.lockedAt ?? null,
       ],
     );
   }
@@ -69,7 +82,7 @@ export class PhotoEvidenceRepository {
     userId: string;
     limit?: number;
   }): Promise<PhotoEvidenceRow[]> {
-    const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
+    const limit = params.limit == null ? -1 : Math.max(1, Math.min(params.limit, 100));
 
     return this.database.getAllAsync<PhotoEvidenceRow>(
       `SELECT
@@ -84,7 +97,10 @@ export class PhotoEvidenceRepository {
         gps_latitude,
         gps_longitude,
         gps_message,
+        gps_accuracy_m,
         status,
+        capture_source,
+        capture_time_source,
         lock_hash,
         locked_at,
         created_at,
@@ -98,6 +114,12 @@ export class PhotoEvidenceRepository {
   }
 
   async deletePhotoEvidence(params: { id: string; userId: string }): Promise<void> {
+    const eventAt = new Date().toISOString();
+    await this.database.runAsync(
+      `INSERT INTO evidence_audit (id, user_id, project_id, time_entry_id, photo_id, event_type, event_at, captured_at, message)
+       SELECT ?, user_id, project_id, time_entry_id, id, 'photo_deleted', ?, captured_at, 'Photo deleted at ' || ? || CASE WHEN captured_at IS NOT NULL THEN ' (captured ' || captured_at || ')' ELSE ' (capture time unavailable)' END FROM photo_evidence WHERE id = ? AND user_id = ?`,
+      [`audit-${params.id}-${Date.now()}`, eventAt, new Date(eventAt).toLocaleString(), params.id, params.userId],
+    );
     await this.database.runAsync(
       "DELETE FROM photo_evidence WHERE id = ? AND user_id = ?",
       [params.id, params.userId],
@@ -116,6 +138,10 @@ function validatePhotoEvidenceInput(input: PhotoEvidenceInput): PhotoEvidenceInp
     caption: input.caption,
     evidenceType: input.evidenceType,
     timestamp: input.capturedAt,
+    captureSource: input.captureSource,
+    captureTimeSource: input.captureTimeSource,
+    lockHash: input.lockHash,
+    lockedAt: input.lockedAt,
     gps: {
       coordinates:
         input.gpsLatitude == null || input.gpsLongitude == null
@@ -123,6 +149,7 @@ function validatePhotoEvidenceInput(input: PhotoEvidenceInput): PhotoEvidenceInp
           : {
               latitude: input.gpsLatitude,
               longitude: input.gpsLongitude,
+              accuracy: input.gpsAccuracyM ?? null,
             },
       message: input.gpsMessage ?? "",
       blocked: false,

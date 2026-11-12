@@ -33,9 +33,10 @@ export function getWebProgressClaimRepositories() {
       listRecentGeneratedDocuments: async (params: {
         userId: string;
         limit?: number;
+        projectId?: string;
       }) =>
         readRows(params.userId)
-          .filter((row) => row.user_id === params.userId)
+          .filter((row) => row.user_id === params.userId && (!params.projectId || row.project_id === params.projectId))
           .slice(0, Math.max(1, Math.min(params.limit ?? 20, 100))),
       getGeneratedDocumentById: async (params: {
         id: string;

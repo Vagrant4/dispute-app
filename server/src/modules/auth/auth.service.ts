@@ -45,11 +45,13 @@ export async function registerUser(input: {
   fullName: string;
   phone: string;
   referralCode?: string;
+  firstUseAt?: string;
 }): Promise<RegistrationResult> {
   const email = normalizeEmail(input.email);
   validateCredentials(email, input.password);
   const profile = normalizeSignupProfile(input.fullName, input.phone);
   const requestedReferralCode = normalizeReferralCode(input.referralCode);
+  const appFirstUseAt = normalizeAppFirstUseAt(input.firstUseAt);
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -98,6 +100,7 @@ export async function registerUser(input: {
           passwordHash,
           role: 'WORKER',
           status: 'PENDING_EMAIL_VERIFICATION',
+          appFirstUseAt,
           appSetting: {
             create: {}
           },
@@ -504,6 +507,16 @@ function normalizeSignupProfile(
   const abuseControlPhone = normalizePhoneForAbuseControl(normalizedPhone);
   if (abuseControlPhone.length < 8) throw new AuthServiceError('Enter a valid mobile number', 400);
   return { fullName: normalizedName, phone: normalizedPhone, normalizedPhone: abuseControlPhone };
+}
+
+export function normalizeAppFirstUseAt(value: string | undefined, now = new Date()): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  const oldest = now.getTime() - 400 * 24 * 60 * 60 * 1000;
+  if (parsed.getTime() < oldest) return null;
+  if (parsed.getTime() > now.getTime() + 5 * 60 * 1000) return now;
+  return parsed.getTime() > now.getTime() ? now : parsed;
 }
 
 async function createEmailVerification(userId: string): Promise<{ id: string; token: string; code: string }> {

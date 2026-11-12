@@ -15,3 +15,15 @@ test("saved login credentials use platform secure storage instead of plaintext f
   assert.match(source, /SecureStore\.deleteItemAsync/);
   assert.doesNotMatch(source, /writeAsStringAsync\(SAVED_LOGIN_FILE/);
 });
+
+test("active signed-in session is persisted in SecureStore separately from remembered passwords", () => {
+  const source = readFileSync(
+    path.join(__dirname, "..", "src", "auth", "localAuthStorageExpo.ts"),
+    "utf8",
+  );
+  assert.match(source, /dispute\.active-session\.v1/);
+  assert.match(source, /export async function saveActiveSession/);
+  assert.match(source, /export async function loadActiveSession/);
+  assert.match(source, /export async function clearActiveSession/);
+  assert.match(source, /SecureStore\.deleteItemAsync\(ACTIVE_SESSION_KEY\)/);
+});

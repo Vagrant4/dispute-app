@@ -4,15 +4,27 @@
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="com.android.vending.BILLING"/>
+  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" tools:node="remove"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove"/>
+  <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" tools:node="remove"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
-  <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove"/>
   <uses-permission android:name="android.permission.VIBRATE" tools:node="remove"/>
   <uses-permission android:name="android.permission.USE_BIOMETRIC" tools:node="remove"/>
   <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove"/>
   <queries>
+    <package android:name="com.google.android.googlequicksearchbox"/>
+    <intent>
+      <action android:name="android.speech.RecognitionService"/>
+    </intent>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
       <category android:name="android.intent.category.BROWSABLE"/>
@@ -23,6 +35,7 @@
     </intent>
   </queries>
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false" android:usesCleartextTraffic="false">
+    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${googleMapsApiKey}"/>
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT" android:value="true"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>

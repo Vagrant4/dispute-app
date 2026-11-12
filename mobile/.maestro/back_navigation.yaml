@@ -1,0 +1,18 @@
+appId: sg.claimproof.mobile.test
+---
+- launchApp
+- tapOn: "Projects"
+- tapOn:
+    text: ".+"
+    index: 0
+- pressKey: back
+- assertVisible: "Projects"
+- tapOn: "Photos"
+- longPressOn: "Take photo"
+- pressKey: back
+- assertNotVisible: "Photo proof"
+- tapOn: "Settings"
+- tapOn: "Privacy & data"
+- pressKey: back
+- pressKey: back
+- assertVisible: "Today"

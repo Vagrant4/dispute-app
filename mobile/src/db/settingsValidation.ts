@@ -2,7 +2,7 @@ export type AppSettings = {
   id: string;
   userId: string;
   currency: string;
-  rateBasis: "daily" | "monthly";
+  rateBasis: "daily" | "monthly" | "hourly";
   baseRateCents: number;
   dailyHours: number;
   weeklyHours: number;
@@ -11,6 +11,9 @@ export type AppSettings = {
   overtimeMultiplier: number;
   offDayMultiplier: number;
   holidayMultiplier: number;
+  lunchMinutes: number;
+  dinnerMinutes: number;
+  dinnerStartTime: string | null;
   status: "active" | "locked";
   lockHash: string | null;
   lockedAt: string | null;
@@ -29,6 +32,9 @@ export type AppSettingsPatch = Partial<
     | "overtimeMultiplier"
     | "offDayMultiplier"
     | "holidayMultiplier"
+    | "lunchMinutes"
+    | "dinnerMinutes"
+    | "dinnerStartTime"
   >
 >;
 
@@ -48,6 +54,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   overtimeMultiplier: 1.5,
   offDayMultiplier: 2,
   holidayMultiplier: 2,
+  lunchMinutes: 0,
+  dinnerMinutes: 0,
+  dinnerStartTime: null,
   status: "active",
   lockHash: null,
   lockedAt: null,
@@ -81,8 +90,21 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
   if (!/^[A-Z]{3}$/.test(settings.currency)) {
     errors.push("currency must be 3 uppercase letters");
   }
-  if (settings.rateBasis !== "daily" && settings.rateBasis !== "monthly") {
-    errors.push("rateBasis must be daily or monthly");
+  if (
+    settings.rateBasis !== "daily" &&
+    settings.rateBasis !== "monthly" &&
+    settings.rateBasis !== "hourly"
+  ) {
+    errors.push("rateBasis must be daily, monthly or hourly");
+  }
+  if (!Number.isInteger(settings.lunchMinutes) || settings.lunchMinutes < 0 || settings.lunchMinutes > 240) {
+    errors.push("lunchMinutes must be between 0 and 240");
+  }
+  if (!Number.isInteger(settings.dinnerMinutes) || settings.dinnerMinutes < 0 || settings.dinnerMinutes > 240) {
+    errors.push("dinnerMinutes must be between 0 and 240");
+  }
+  if (settings.dinnerStartTime !== null && !isValidClockTime(settings.dinnerStartTime)) {
+    errors.push("dinnerStartTime must be HH:MM or null");
   }
   if (
     !Number.isInteger(settings.baseRateCents) ||
@@ -145,7 +167,7 @@ export function validateAppSettings(settings: AppSettings): AppSettings {
   return settings;
 }
 
-function isValidClockTime(value: string): boolean {
+export function isValidClockTime(value: string): boolean {
   if (!/^\d{2}:\d{2}$/.test(value)) {
     return false;
   }

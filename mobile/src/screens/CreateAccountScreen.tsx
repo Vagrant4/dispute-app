@@ -5,7 +5,8 @@ import {
   registerRemoteAccount,
   type PendingEmailVerification,
 } from "../auth/remoteAuth";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
+import { saveGuestTrial, startGuestTrial } from "../subscription/guestTrial";
 
 type CreateAccountScreenProps = {
   onVerificationRequired: (pending: PendingEmailVerification) => void;
@@ -21,11 +22,8 @@ export function CreateAccountScreen({
   const [countryCode, setCountryCode] = useState("+65");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [phone, setPhone] = useState("");
-  const [referralCode, setReferralCode] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -41,10 +39,9 @@ export function CreateAccountScreen({
         email,
         phone: formatPhoneNumber(countryCode, phone),
         password,
-        confirmPassword,
-        referralCode,
       });
       if (result.ok) {
+        await saveGuestTrial(startGuestTrial(Date.now())).catch(() => undefined);
         setStatus(result.pending.message);
         onVerificationRequired(result.pending);
       } else {
@@ -60,10 +57,9 @@ export function CreateAccountScreen({
   return (
     <View style={styles.authPage}>
       <View style={styles.heroPanel}>
-        <Text style={styles.eyebrow}>Create account</Text>
-        <Text style={styles.heroTitle}>Register and verify email.</Text>
+        <Text style={styles.heroTitle}>Create your account</Text>
         <Text style={styles.heroBody}>
-          We send a 6-digit code to your email before you enter Dispute.
+          We'll email you a 6-digit code. Your 30-day free trial starts when you're in.
         </Text>
       </View>
 
@@ -74,7 +70,7 @@ export function CreateAccountScreen({
           autoCapitalize="words"
           onChangeText={setName}
           placeholder="Your name"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={name}
         />
@@ -86,7 +82,7 @@ export function CreateAccountScreen({
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="name@example.com"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={email}
         />
@@ -145,24 +141,10 @@ export function CreateAccountScreen({
           keyboardType="phone-pad"
           onChangeText={setPhone}
           placeholder="9000 0000"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={phone}
         />
-
-        <Text style={styles.inputLabel}>Referral code (optional)</Text>
-        <TextInput
-          accessibilityLabel="Referral code"
-          autoCapitalize="characters"
-          onChangeText={setReferralCode}
-          placeholder="DSP-XXXXXXXXXX"
-          placeholderTextColor="#677064"
-          style={styles.textInput}
-          value={referralCode}
-        />
-        <Text style={styles.muted}>
-          Enter the code before creating the account. It cannot be changed after registration.
-        </Text>
 
         <Text style={styles.inputLabel}>Password</Text>
         <View style={styles.passwordInputRow}>
@@ -170,7 +152,7 @@ export function CreateAccountScreen({
             accessibilityLabel="Create account password"
             onChangeText={setPassword}
             placeholder="Minimum 8 characters"
-            placeholderTextColor="#677064"
+            placeholderTextColor={theme.colors.placeholder}
             secureTextEntry={!showPassword}
             style={[styles.textInput, styles.passwordTextInput]}
             value={password}
@@ -182,32 +164,7 @@ export function CreateAccountScreen({
             style={styles.passwordToggleButton}
           >
             <Text style={styles.passwordToggleSymbol}>
-              {showPassword ? "HIDE" : "EYE"}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.inputLabel}>Confirm password</Text>
-        <View style={styles.passwordInputRow}>
-          <TextInput
-            accessibilityLabel="Confirm account password"
-            onChangeText={setConfirmPassword}
-            placeholder="Re-type password"
-            placeholderTextColor="#677064"
-            secureTextEntry={!showConfirmPassword}
-            style={[styles.textInput, styles.passwordTextInput]}
-            value={confirmPassword}
-          />
-          <Pressable
-            accessibilityLabel={
-              showConfirmPassword ? "Hide confirm password" : "Show confirm password"
-            }
-            accessibilityRole="button"
-            onPress={() => setShowConfirmPassword((current) => !current)}
-            style={styles.passwordToggleButton}
-          >
-            <Text style={styles.passwordToggleSymbol}>
-              {showConfirmPassword ? "HIDE" : "EYE"}
+              {showPassword ? "Hide" : "Show"}
             </Text>
           </Pressable>
         </View>
@@ -218,7 +175,7 @@ export function CreateAccountScreen({
           onPress={handleCreateAccount}
           style={[styles.actionButton, isSubmitting && styles.disabledButton]}
         >
-          <Text style={styles.actionButtonText}>
+          <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
             {isSubmitting ? "Creating..." : "Create account"}
           </Text>
         </Pressable>

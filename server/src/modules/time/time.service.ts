@@ -80,6 +80,7 @@ export async function createManualEntry(userId: string, input: CreateManualEntry
       workDescription: input.workDescription ?? '',
       manualEntryFlag: true,
       locationText: input.locationText ?? '',
+      locationSource: 'typed',
       clockInGpsLat: input.clockInGpsLat,
       clockInGpsLng: input.clockInGpsLng,
       clockOutGpsLat: input.clockOutGpsLat,
@@ -106,6 +107,7 @@ export async function clockIn(userId: string, input: ClockInInput): Promise<Time
       workDescription: input.workDescription ?? '',
       manualEntryFlag: false,
       locationText: input.locationText ?? '',
+      locationSource: 'typed',
       clockInGpsLat: input.clockInGpsLat,
       clockInGpsLng: input.clockInGpsLng,
       notes: input.notes ?? '',
@@ -120,7 +122,7 @@ export async function clockOut(userId: string, entryId: string, input: ClockOutI
   const totals = await calculateTotals(userId, existing.clockInTime, input.clockOutTime, breakMinutes);
 
   return prisma.timeEntry.update({
-    where: { id: existing.id },
+    where: { id: existing.id, userId },
     data: {
       clockOutTime: input.clockOutTime,
       breakMinutes,
@@ -128,7 +130,7 @@ export async function clockOut(userId: string, entryId: string, input: ClockOutI
       overtimeHours: totals.overtimeHours,
       clockOutGpsLat: input.clockOutGpsLat,
       clockOutGpsLng: input.clockOutGpsLng,
-      ...(input.locationText !== undefined ? { locationText: input.locationText } : {}),
+      ...(input.locationText !== undefined ? { locationText: input.locationText, locationSource: 'typed' } : {}),
       ...(input.workDescription !== undefined ? { workDescription: input.workDescription } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {})
     }
@@ -177,7 +179,7 @@ export async function updateEntry(userId: string, entryId: string, input: Update
   const totals = clockOutTime ? await calculateTotals(userId, clockInTime, clockOutTime, breakMinutes) : { totalHours: 0, overtimeHours: 0 };
 
   return prisma.timeEntry.update({
-    where: { id: existing.id },
+    where: { id: existing.id, userId },
     data: {
       ...defined({
         projectId: input.projectId,
@@ -187,6 +189,7 @@ export async function updateEntry(userId: string, entryId: string, input: Update
         breakMinutes: input.breakMinutes,
         workDescription: input.workDescription,
         locationText: input.locationText,
+        locationSource: input.locationText !== undefined ? 'typed' : undefined,
         clockInGpsLat: input.clockInGpsLat,
         clockInGpsLng: input.clockInGpsLng,
         clockOutGpsLat: input.clockOutGpsLat,

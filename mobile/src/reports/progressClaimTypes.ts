@@ -1,8 +1,10 @@
+import type { LocationSource } from "../work/locationEvidence";
+import type { BreakInterval, TaskSwitch } from "../work/shiftTimeline";
 export const PROGRESS_CLAIM_DISCLAIMER =
   "This app helps you record work, time, pay, and evidence for reference. It does not replace legal, accounting, or MOM advice.";
 
 export const LOCAL_REPORT_STORAGE_NOTICE =
-  "Generated report files are stored locally on this device and can be shared or exported manually. They are not uploaded or emailed automatically.";
+  "Reports are saved on your phone and only leave it when you share them.";
 
 export type WorkerProfileSnapshot = {
   name?: string;
@@ -20,6 +22,7 @@ export type ProjectSnapshot = {
   id?: string;
   name?: string;
   description?: string | null;
+  siteAddress?: string | null;
   hourlyRateCents?: number | null;
   currency?: string;
 };
@@ -33,6 +36,20 @@ export type TimeEntrySnapshotInput = {
   activity: string;
   dayType?: "normal" | "off_day" | "holiday" | null;
   locationText?: string | null;
+  clockOutLocationText?: string | null;
+  clockInLocationSource?: LocationSource;
+  clockOutLocationSource?: LocationSource;
+  clockInGpsAccuracyM?: number | null;
+  clockOutGpsAccuracyM?: number | null;
+  clockInLocatedAt?: string | null;
+  clockOutLocatedAt?: string | null;
+  locationNote?: string | null;
+  locationHistoryJson?: string | null;
+  breakMinutes?: number;
+  breakIntervals?: BreakInterval[];
+  taskSwitches?: TaskSwitch[];
+  taskSegments?: Array<{ taskId: string | null; taskName: string; start: string; end: string; durationMinutes: number }>;
+
   clockInGpsLatitude?: number | null;
   clockInGpsLongitude?: number | null;
   clockOutGpsLatitude?: number | null;
@@ -44,6 +61,9 @@ export type PhotoEvidenceSnapshotInput = {
   timeEntryId?: string | null;
   localUri: string;
   printUri?: string | null;
+  captureSource?: string | null;
+  captureTimeSource?: string | null;
+  lockHash?: string | null;
   caption?: string | null;
   evidenceType?: string | null;
   capturedAt?: string | null;
@@ -51,6 +71,8 @@ export type PhotoEvidenceSnapshotInput = {
 
 export type PaySnapshotInput = {
   hourlyRateCents?: number | null;
+  rateBasis?: "daily" | "monthly" | "hourly";
+  baseRateCents?: number | null;
   currency?: string;
   dailyNormalMinutes?: number;
   normalWorkStartTime?: string;
@@ -58,6 +80,9 @@ export type PaySnapshotInput = {
   overtimeMultiplier?: number;
   offDayMultiplier?: number;
   holidayMultiplier?: number;
+  lunchMinutes?: number;
+  dinnerMinutes?: number;
+  dinnerStartTime?: string | null;
   allowancesCents?: number;
   deductionsCents?: number;
 };
@@ -73,23 +98,42 @@ export type ProgressClaimSnapshotInput = {
   project?: ProjectSnapshot;
   timeEntries?: TimeEntrySnapshotInput[];
   photoEvidence?: PhotoEvidenceSnapshotInput[];
+  evidenceAudit?: Array<{ message: string; eventAt: string; capturedAt?: string | null }>;
   pay?: PaySnapshotInput;
 };
 
 export type DailyWorkLogItem = {
   workDate: string;
   activity: string;
+  normalMinutes: number;
+  overtimeMinutes: number;
+  offDayMinutes: number;
+  holidayMinutes: number;
   normalHours: number;
   overtimeHours: number;
   offDayHours: number;
   holidayHours: number;
   dayTypes: string[];
   locations: WorkLocationSnapshot[];
+  locationEntries?: TimeEntrySnapshotInput[];
   durationMinutes: number;
   photoEvidenceIds: string[];
+  basicPayCents: number;
+  overtimePayCents: number;
+  offDayPayCents: number;
+  holidayPayCents: number;
+  grossPayCents: number;
+  lunchDeductedMinutes: number;
+  dinnerDeductedMinutes: number;
+  unpaidBeforeNormalStartMinutes: number;
 };
 
 export type WorkLocationSnapshot = {
+  siteAddress?: string;
+  source?: LocationSource;
+  accuracy?: number | null;
+  locatedAt?: string | null;
+  phase?: string;
   address: string;
   latitude: number | null;
   longitude: number | null;
@@ -97,6 +141,10 @@ export type WorkLocationSnapshot = {
 
 export type ProgressClaimTotals = {
   totalDaysWorked: number;
+  totalNormalMinutes: number;
+  totalOvertimeMinutes: number;
+  totalOffDayMinutes: number;
+  totalHolidayMinutes: number;
   totalNormalHours: number;
   totalOvertimeHours: number;
   totalOffDayHours: number;
@@ -125,16 +173,22 @@ export type ProgressClaimSnapshot = {
   rateCalculation: {
     currency: string;
     hourlyRateCents: number;
+    rateBasis: "daily" | "monthly" | "hourly";
+    baseRateCents: number;
     dailyNormalMinutes: number;
     normalWorkStartTime: string;
     normalWorkEndTime: string;
     overtimeMultiplier: number;
     offDayMultiplier: number;
     holidayMultiplier: number;
+    lunchMinutes: number;
+    dinnerMinutes: number;
+    dinnerStartTime: string;
   };
   totals: ProgressClaimTotals;
   dailyWorkLog: DailyWorkLogItem[];
   photoEvidence: PhotoEvidenceSnapshotInput[];
+  evidenceAudit: Array<{ message: string; eventAt: string; capturedAt?: string | null }>;
   signature: {
     workerSignature: string;
     clientAcknowledgement: string;

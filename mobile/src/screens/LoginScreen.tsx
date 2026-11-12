@@ -12,7 +12,7 @@ import {
   type PendingEmailVerification,
   requestRemoteEmailVerification,
 } from "../auth/remoteAuth";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 
 type LoginScreenProps = {
   onLogin: (account: LocalAccount) => void;
@@ -135,7 +135,7 @@ export function LoginScreen({
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="name@example.com"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={email}
         />
@@ -146,7 +146,7 @@ export function LoginScreen({
             accessibilityLabel="Login password"
             onChangeText={setPassword}
             placeholder="Your password"
-            placeholderTextColor="#677064"
+            placeholderTextColor={theme.colors.placeholder}
             secureTextEntry={!showPassword}
             style={[styles.textInput, styles.passwordTextInput]}
             value={password}
@@ -158,7 +158,7 @@ export function LoginScreen({
             style={styles.passwordToggleButton}
           >
             <Text style={styles.passwordToggleSymbol}>
-              {showPassword ? "HIDE" : "EYE"}
+              {showPassword ? "Hide" : "Show"}
             </Text>
           </Pressable>
         </View>
@@ -189,7 +189,7 @@ export function LoginScreen({
           onPress={handleLogin}
           style={[styles.actionButton, isSubmitting && styles.disabledButton]}
         >
-          <Text style={styles.actionButtonText}>
+          <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
             {isSubmitting ? "Checking..." : "Login"}
           </Text>
         </Pressable>
@@ -202,9 +202,9 @@ export function LoginScreen({
             accessibilityRole="button"
             disabled={isSubmitting || isContinuingVerification}
             onPress={handleContinueVerification}
-            style={styles.authLinkButton}
+            style={[styles.authLinkButton, (isSubmitting || isContinuingVerification) && styles.disabledButton]}
           >
-            <Text style={styles.authLinkText}>
+            <Text style={[styles.authLinkText, (isSubmitting || isContinuingVerification) && styles.disabledButtonText]}>
               {isContinuingVerification
                 ? "Sending verification code..."
                 : "Continue verification"}

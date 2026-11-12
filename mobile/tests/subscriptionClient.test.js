@@ -217,7 +217,7 @@ test("restore does not report success when server verification fails", async () 
   }
 });
 
-test("PDF export access accepts an active trial and rejects expired access", () => {
+test("PDF export access accepts active trial or subscription and rejects expired access", () => {
   const { canExportProgressClaim } = loadTsModule(
     "src/subscription/subscriptionClient.ts",
     {
@@ -260,6 +260,13 @@ test("PDF export access accepts an active trial and rejects expired access", () 
   );
   assert.equal(
     canExportProgressClaim(
+      { ...base, status: "ACTIVE", trialEndsAt: null, currentPeriodEnd: "2026-08-08T00:00:00.000Z" },
+      nowMs,
+    ),
+    true,
+  );
+  assert.equal(
+    canExportProgressClaim(
       { ...base, trialEndsAt: "2026-08-06T00:00:00.000Z" },
       nowMs,
     ),
@@ -290,9 +297,9 @@ test("PDF export access accepts an active trial and rejects expired access", () 
   );
 });
 
-test("export screen gates report actions behind canExportReports", () => {
+test("export screen gates report actions behind the paid dispute pack gate", () => {
   assert.match(reportsSource, /ensureCanExport/);
-  assert.match(reportsSource, /canExportReports/);
+  assert.match(reportsSource, /getDisputePackExportAccess/);
   assert.match(reportsSource, /Trial ended|subscription before export|Export requires/);
 });
 
@@ -302,7 +309,7 @@ test("settings screen keeps profile read-only and shows only subscribe or manage
   assert.match(settingsSource, /purchaseDisputeBasicSubscription/);
   assert.match(settingsSource, /getSubscriptionSettingsAction/);
   assert.match(settingsSource, /getSubscriptionManagementUrl/);
-  assert.match(settingsSource, /Plan & billing/);
+  assert.match(settingsSource, /label: "Plan"/);
   assert.match(settingsSource, /PlanBillingPanel/);
   assert.match(settingsSource, /ProfileSettingsPanel/);
   assert.match(planBillingSource, /Manage subscription/);
@@ -318,7 +325,7 @@ test("settings screen keeps profile read-only and shows only subscribe or manage
   assert.match(settingsSource, /useDisputeBasicStorePrice/);
   assert.match(planBillingSource, /formatMonthlyStorePrice/);
   assert.match(storePriceHookSource, /fetchDisputeBasicStorePrice/);
-  assert.match(storePriceHookSource, /S\$6\.99\/month/);
+  assert.match(storePriceHookSource, /S\$6\.99 a month \(final price shown in Google Play\)/);
   assert.doesNotMatch(settingsSource, /SGD 4\.99\/month/);
   assert.doesNotMatch(source, /Restore purchases/);
 });
@@ -409,3 +416,23 @@ function restoreEnv(name, value) {
     process.env[name] = value;
   }
 }
+
+test("Plan trial line shares the countdown and hides for paid plans", () => {
+  const { planTrialLine } = loadTsModule("src/subscription/subscriptionClient.ts", {
+    "react-native": { Platform: { OS: "android" } },
+    "../auth/remoteAuth": { getAuthApiBaseUrl: () => "https://example.test" },
+    "@claimproof/shared": {
+      DISPUTE_BASIC_ANDROID_BASE_PLAN_ID: "monthly-plan",
+      matchesConfiguredStoreProductIdentifier: () => false,
+    },
+  });
+  const now = Date.parse("2026-10-29T00:00:00Z");
+  const subscription = { status: "TRIALING", trialEndsAt: "2026-11-03T00:00:00Z" };
+  assert.equal(planTrialLine(subscription, now), "Free trial · 5 days left");
+  assert.equal(planTrialLine({ ...subscription, trialEndsAt: "2026-10-30T00:00:00Z" }, now), "Free trial · 1 day left");
+  const expired = "Trial ended. Existing records remain viewable.";
+  assert.equal(planTrialLine({ ...subscription, trialEndsAt: "2026-10-28T00:00:00Z" }, now), expired);
+  assert.equal(planTrialLine({ ...subscription, status: "EXPIRED" }, now), expired);
+  assert.equal(planTrialLine({ ...subscription, status: "ACTIVE", isActive: true }, now), null);
+  assert.equal(planTrialLine(null, now), null);
+});

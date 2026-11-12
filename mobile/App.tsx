@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BackHandler, Image, type ImageSourcePropType, Pressable, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
@@ -13,80 +13,168 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { LogoScreen } from "./src/screens/LogoScreen";
 import { PhotoEvidenceScreen } from "./src/screens/PhotoEvidenceScreen";
-import { ProgressClaimReportsScreen } from "./src/screens/ProgressClaimReportsScreen";
-import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { ProjectsScreen } from "./src/screens/ProjectsScreen";
+import { SettingsScreen, type SettingPanel } from "./src/screens/SettingsScreen";
 import { VerifyEmailScreen } from "./src/screens/VerifyEmailScreen";
 import { styles } from "./src/styles";
 import { clearCachedSubscriptionEntitlement } from "./src/subscription/subscriptionClient";
+import { isGuestSessionActive, setGuestSessionActive } from "./src/auth/guestSession";
+import {
+  clearActiveSession,
+  loadActiveSession,
+  saveActiveSession,
+} from "./src/auth/localAuthStorageExpo";
+import { claimLegacyLocalRepositoriesForUser } from "./src/db/repositories";
+import { KeyboardAwareScroll } from "./src/components/KeyboardAwareScroll";
+import { TabScreenContent } from "./src/components/TabScreenContent";
+
+const tabIcons: Record<TabId, ImageSourcePropType> = {
+  home: require("./assets/icons/tab-today.png"),
+  evidence: require("./assets/icons/tab-photos.png"),
+  reports: require("./assets/icons/tab-projects.png"),
+  settings: require("./assets/icons/tab-settings.png"),
+};
 
 function renderScreen(
   activeTab: TabId,
-  onNavigate: (tab: TabId) => void,
+  onNavigate: (tab: TabId, settingsPanel?: SettingPanel) => void,
   account: LocalAccount,
   onLogout: () => void,
   onAccountDeleted: (message: string) => void,
+  onCreateAccount: () => void,
+  settingsInitialPanel?: SettingPanel,
+  photoProjectId?: string,
+  onSeePhotos?: (projectId?: string) => void,
 ) {
   switch (activeTab) {
     case "evidence":
-      return <PhotoEvidenceScreen account={account} />;
+      return <PhotoEvidenceScreen account={account} initialProjectId={photoProjectId} />;
     case "reports":
-      return <ProgressClaimReportsScreen account={account} />;
+      return (
+        <ProjectsScreen
+          onSeePhotos={onSeePhotos ?? (() => onNavigate("evidence"))}
+          account={account}
+          onCreateAccount={onCreateAccount}
+          onOpenPlanBilling={() => onNavigate("settings", "subscription")}
+          onBack={() => onNavigate("home")}
+        />
+      );
     case "settings":
       return (
         <SettingsScreen
           account={account}
           onAccountDeleted={onAccountDeleted}
           onLogout={onLogout}
+          initialPanel={settingsInitialPanel}
         />
       );
     case "home":
     default:
-      return <HomeScreen account={account} />;
+      return <HomeScreen account={account} onOpenPhotos={onSeePhotos} />;
   }
 }
 
 export default function App() {
+  const lastBackPress = useRef(0);
+  const [photoProjectId, setPhotoProjectId] = useState<string | undefined>();
   const [authMode, setAuthMode] = useState<"logo" | "create" | "verify" | "login" | "forgot">("logo");
   const [account, setAccount] = useState<LocalAccount | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [pendingVerification, setPendingVerification] =
     useState<PendingEmailVerification | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [settingsInitialPanel, setSettingsInitialPanel] = useState<SettingPanel | undefined>(undefined);
   const [authNotice, setAuthNotice] = useState("");
   const activeTitle = useMemo(
     () => tabs.find((tab) => tab.id === activeTab)?.title ?? "dispute",
     [activeTab],
   );
-  const showHeader = account || authMode !== "logo";
+  const photosVisible = !!account && activeTab === "evidence";
+  const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
 
   useEffect(() => {
-    void reconcilePendingAccountDeletion().then((cleaned) => {
-      if (cleaned) {
-        setAuthNotice("Account deletion completed. Local app data was cleared.");
-        setAuthMode("login");
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (account && activeTab !== "home") {
+        setSettingsInitialPanel(undefined);
+        setActiveTab("home");
+        return true;
       }
+      if (!account && authMode !== "logo") {
+        setAuthMode("logo");
+        return true;
+      }
+      const now = Date.now();
+      if (now - lastBackPress.current <= 2_000) return false;
+      lastBackPress.current = now;
+      ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+      return true;
     });
+    return () => subscription.remove();
+  }, [account, activeTab, authMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await isGuestSessionActive()
+          .then((active) => (active ? setGuestSessionActive(false) : undefined))
+          .catch(() => undefined);
+        const cleaned = await reconcilePendingAccountDeletion();
+        if (cancelled) return;
+        if (cleaned) {
+          await clearActiveSession();
+          setAuthNotice("Your account was deleted and this phone was cleared.");
+          setAuthMode("login");
+          return;
+        }
+        const session = await loadActiveSession();
+        if (cancelled) return;
+        if (session) {
+          setAccount(session);
+          setActiveTab("home");
+        }
+      } catch {
+        // Session restore is best-effort; fall through to the welcome screen.
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  async function establishAccount(next: LocalAccount) {
+    await saveActiveSession(next);
+    setAccount(next);
+  }
+
+  async function endAccountSession() {
+    await clearActiveSession();
+    await setGuestSessionActive(false);
+    setAccount(null);
+  }
+
+  if (!authReady) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.app} edges={["top", "left", "right", "bottom"]} />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.app} edges={account ? ["top", "left", "right"] : ["top", "left", "right", "bottom"]}>
         <StatusBar style="light" />
         {showHeader ? (
           <View style={styles.header}>
             <View style={styles.brandRow}>
               <View>
-                <Text style={styles.appName}>DISPUTE</Text>
-                {account ? (
-                  <Text style={styles.headerMeta}>Signed in as {account.name}</Text>
-                ) : null}
+                <Text style={styles.appName}>Dispute</Text>
               </View>
-              {account?.emailVerified ? (
-                <View style={styles.headerPill}>
-                  <Text style={styles.headerPillText}>Email verified</Text>
-                </View>
-              ) : null}
             </View>
-            <Text numberOfLines={1} style={styles.screenTitle}>
+            {!account || (activeTab !== "settings" && activeTab !== "reports") ? <Text numberOfLines={1} style={styles.screenTitle}>
               {account
                 ? activeTitle
                 : authMode === "create"
@@ -96,65 +184,47 @@ export default function App() {
                     : authMode === "forgot"
                       ? "Reset password"
                     : "Login"}
-            </Text>
+            </Text> : null}
           </View>
         ) : null}
 
-        {account ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabScroller}
-            contentContainerStyle={styles.tabRow}
-          >
-            {tabs.map((tab) => {
-              const selected = tab.id === activeTab;
-              return (
-                <Pressable
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected }}
-                  key={tab.id}
-                  onPress={() => setActiveTab(tab.id)}
-                  style={[styles.tabButton, selected && styles.tabButtonActive]}
-                >
-                  <Text
-                    style={[
-                      styles.tabButtonText,
-                      selected && styles.tabButtonTextActive,
-                    ]}
-                  >
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
-
-        <ScrollView
+        {photosVisible ? <View style={[styles.content, styles.photoScreenContainer]}>
+          <PhotoEvidenceScreen account={account} initialProjectId={photoProjectId} />
+        </View> : <KeyboardAwareScroll
           style={styles.content}
-          contentContainerStyle={styles.contentInner}
+          contentContainerStyle={account && activeTab === "home" ? styles.todayContentInner : styles.contentInner}
           showsVerticalScrollIndicator={false}
         >
           {account ? (
-            renderScreen(
+            <TabScreenContent activeTab={activeTab}>
+            {renderScreen(
               activeTab,
-              setActiveTab,
+              (tab, settingsPanel) => {
+                setSettingsInitialPanel(settingsPanel);
+                setActiveTab(tab);
+              },
               account,
               () => {
                 void clearCachedSubscriptionEntitlement(account.id);
-                setAccount(null);
-                setActiveTab("home");
-                setAuthMode("logo");
+                void endAccountSession().then(() => {
+                  setActiveTab("home");
+                  setAuthMode("logo");
+                });
               },
               (message) => {
                 void clearCachedSubscriptionEntitlement(account.id);
-                setAccount(null);
-                setActiveTab("home");
-                setAuthNotice(message);
-                setAuthMode("login");
+                void endAccountSession().then(() => {
+                  setActiveTab("home");
+                  setAuthNotice(message);
+                  setAuthMode("login");
+                });
               },
-            )
+              () => { void endAccountSession().then(() => setAuthMode("create")); },
+              settingsInitialPanel,
+              photoProjectId,
+              (projectId) => { setPhotoProjectId(projectId); setActiveTab("evidence"); },
+            )}
+            </TabScreenContent>
           ) : authMode === "logo" ? (
             <LogoScreen
               onShowCreateAccount={() => setAuthMode("create")}
@@ -174,7 +244,12 @@ export default function App() {
               onBackToCreate={() => setAuthMode("create")}
               onShowLogin={() => setAuthMode("login")}
               onVerified={(verifiedAccount) => {
-                setAccount(verifiedAccount);
+                void (async () => {
+                  const moved = await claimLegacyLocalRepositoriesForUser(verifiedAccount.id ?? verifiedAccount.email);
+                  await setGuestSessionActive(false);
+                  setAuthNotice(moved ? "Moved your records to your account" : "");
+                  await establishAccount(verifiedAccount);
+                })();
                 setPendingVerification(null);
                 setActiveTab("home");
               }}
@@ -191,8 +266,13 @@ export default function App() {
               ) : null}
               <LoginScreen
                 onLogin={(loggedInAccount) => {
-                  setAuthNotice("");
-                  setAccount(loggedInAccount);
+                  void (async () => {
+                    const moved = await claimLegacyLocalRepositoriesForUser(loggedInAccount.id ?? loggedInAccount.email);
+                    await setGuestSessionActive(false);
+                    setAuthNotice(moved ? "Moved your records to your account" : "");
+                    await establishAccount(loggedInAccount);
+                    setActiveTab("home");
+                  })();
                 }}
                 onVerificationRequired={(pending) => {
                   setPendingVerification(pending);
@@ -203,7 +283,38 @@ export default function App() {
               />
             </>
           )}
-        </ScrollView>
+        </KeyboardAwareScroll>}
+        {account ? (
+          <SafeAreaView style={styles.bottomTabBar} edges={["bottom"]}>
+            {tabs.map((tab) => {
+              const selected = tab.id === activeTab;
+              return (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  key={tab.id}
+                  onPress={() => {
+                    setSettingsInitialPanel(undefined);
+                    setActiveTab(tab.id);
+                  }}
+                  accessibilityLabel={tab.label}
+                  style={styles.bottomTabItem}
+                >
+                  <Image accessible={false} source={tabIcons[tab.id]} style={[styles.bottomTabIcon, selected && styles.bottomTabIconActive]} />
+                  <Text
+                    style={[
+                      styles.bottomTabLabel,
+                      selected && styles.bottomTabActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </SafeAreaView>
+        ) : null}
+
       </SafeAreaView>
     </SafeAreaProvider>
   );

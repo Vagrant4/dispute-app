@@ -5,7 +5,7 @@ import {
   requestRemotePasswordReset,
   resetRemotePassword,
 } from "../auth/remoteAuth";
-import { styles } from "../styles";
+import { styles, theme } from "../styles";
 
 type ForgotPasswordScreenProps = {
   onBackToLogin: () => void;
@@ -83,7 +83,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="name@example.com"
-          placeholderTextColor="#677064"
+          placeholderTextColor={theme.colors.placeholder}
           style={styles.textInput}
           value={email}
         />
@@ -97,7 +97,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
               maxLength={6}
               onChangeText={(value) => setCode(value.replace(/\D/g, ""))}
               placeholder="123456"
-              placeholderTextColor="#677064"
+              placeholderTextColor={theme.colors.placeholder}
               style={[styles.textInput, styles.verificationCodeInput]}
               value={code}
             />
@@ -108,7 +108,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 accessibilityLabel="New password"
                 onChangeText={setPassword}
                 placeholder="Minimum 8 characters"
-                placeholderTextColor="#677064"
+                placeholderTextColor={theme.colors.placeholder}
                 secureTextEntry={!showPassword}
                 style={[styles.textInput, styles.passwordTextInput]}
                 value={password}
@@ -120,7 +120,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 style={styles.passwordToggleButton}
               >
                 <Text style={styles.passwordToggleSymbol}>
-                  {showPassword ? "HIDE" : "EYE"}
+                  {showPassword ? "Hide" : "Show"}
                 </Text>
               </Pressable>
             </View>
@@ -131,7 +131,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 accessibilityLabel="Confirm new password"
                 onChangeText={setConfirmPassword}
                 placeholder="Re-type password"
-                placeholderTextColor="#677064"
+                placeholderTextColor={theme.colors.placeholder}
                 secureTextEntry={!showConfirmPassword}
                 style={[styles.textInput, styles.passwordTextInput]}
                 value={confirmPassword}
@@ -145,7 +145,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 style={styles.passwordToggleButton}
               >
                 <Text style={styles.passwordToggleSymbol}>
-                  {showConfirmPassword ? "HIDE" : "EYE"}
+                  {showConfirmPassword ? "Hide" : "Show"}
                 </Text>
               </Pressable>
             </View>
@@ -158,7 +158,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
           onPress={resetEmailSent ? handleResetPassword : handleSendCode}
           style={[styles.actionButton, isSubmitting && styles.disabledButton]}
         >
-          <Text style={styles.actionButtonText}>
+          <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
             {isSubmitting
               ? resetEmailSent
                 ? "Resetting..."

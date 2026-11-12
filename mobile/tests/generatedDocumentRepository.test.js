@@ -79,9 +79,9 @@ function createFakeDatabase(rows = []) {
     },
     async getAllAsync(sql, params = []) {
       calls.push({ method: "getAllAsync", sql, params });
-      const [userId, limit] = params;
+      const [userId, projectId, , limit] = params;
       return records
-        .filter((row) => row.user_id === userId)
+        .filter((row) => row.user_id === userId && (!projectId || row.project_id === projectId))
         .slice(0, limit)
         .map((row) => ({ ...row }));
     },
@@ -157,7 +157,7 @@ test("GeneratedDocumentRepository filters list get and delete by userId", async 
   assert.deepEqual(rows.map((item) => item.user_id), ["user-a", "user-a"]);
   assert.equal(row.file_name, "a.pdf");
   assert.match(database.calls[0].sql, /WHERE user_id = \?/);
-  assert.deepEqual(database.calls[0].params, ["user-a", 5]);
+  assert.deepEqual(database.calls[0].params, ["user-a", null, null, 5]);
   assert.match(database.calls[1].sql, /WHERE id = \? AND user_id = \?/);
   assert.deepEqual(database.calls[1].params, ["doc-1", "user-a"]);
   assert.match(database.calls[2].sql, /DELETE FROM generated_documents WHERE id = \? AND user_id = \?/);

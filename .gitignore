@@ -13,6 +13,7 @@ packages/shared/dist/
 *.tsbuildinfo
 server-dev.*.log
 mobile/.expo/
+mobile/.env.googlemaps
 
 # Mobile signing credentials must never be committed.
 *.keystore

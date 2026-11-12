@@ -29,6 +29,7 @@ type EnvSource = Partial<
     | 'SUPPORT_EMAIL'
     | 'ADMIN_EMAILS'
     | 'TRIAL_DAYS'
+    | 'TRIAL_POLICY_START_AT'
     | 'REVENUECAT_WEBHOOK_SECRET'
     | 'REVENUECAT_SECRET_API_KEY'
     | 'REVENUECAT_PRODUCT_ID'
@@ -84,6 +85,7 @@ export function createEnv(source: EnvSource = process.env) {
     supportEmail: source.SUPPORT_EMAIL?.trim() || '',
     adminEmails: parseCsv(source.ADMIN_EMAILS),
     trialDays: parseTrialDays(source.TRIAL_DAYS),
+    trialPolicyStartAt: parseOptionalIsoDate(source.TRIAL_POLICY_START_AT),
     revenueCat: {
       webhookSecret: source.REVENUECAT_WEBHOOK_SECRET ?? '',
       secretApiKey: source.REVENUECAT_SECRET_API_KEY ?? '',
@@ -126,6 +128,16 @@ function parseTrialDays(value: string | undefined): number {
   const parsed = Number.parseInt(value?.trim() || '30', 10);
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 365) {
     throw new Error('TRIAL_DAYS must be an integer between 1 and 365');
+  }
+  return parsed;
+}
+
+function parseOptionalIsoDate(value: string | undefined): Date | null {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('TRIAL_POLICY_START_AT must be a valid ISO date');
   }
   return parsed;
 }

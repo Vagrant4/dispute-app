@@ -1,0 +1,759 @@
+diff --git a/mobile/src/reports/progressClaimHtml.ts b/mobile/src/reports/progressClaimHtml.ts
+index 289b902..74939d7 100644
+--- a/mobile/src/reports/progressClaimHtml.ts
++++ b/mobile/src/reports/progressClaimHtml.ts
+@@ -7,15 +7,22 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string
+   <meta charset="utf-8" />
+   <title>${escapeHtml(snapshot.title)}</title>
+   <style>
+-    body { color: #10201d; font-family: Arial, sans-serif; line-height: 1.4; margin: 32px; }
+-    h1 { color: #115e59; font-size: 28px; margin: 0 0 8px; }
+-    h2 { border-bottom: 1px solid #d5e2de; color: #10201d; font-size: 18px; margin-top: 28px; padding-bottom: 6px; }
++    @page { margin: 18mm 14mm; size: A4; }
++    * { box-sizing: border-box; }
++    body { color: #17233b; font-family: Arial, sans-serif; line-height: 1.4; margin: 0; }
++    h1 { color: #ffffff; font-size: 28px; letter-spacing: .3px; margin: 0 0 8px; }
++    h2 { border-bottom: 2px solid #2f6fed; color: #102447; font-size: 18px; margin-top: 28px; padding-bottom: 6px; page-break-after: avoid; }
+     table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+     th, td { border: 1px solid #d5e2de; font-size: 12px; padding: 8px; text-align: left; vertical-align: top; }
+-    th { background: #eef6f4; color: #10201d; }
+-    .muted { color: #5a6b67; font-size: 12px; }
+-    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+-    .box { border: 1px solid #d5e2de; padding: 10px; }
++    th { background: #edf4ff; color: #102447; }
++    tr, .report-section { page-break-inside: avoid; }
++    thead { display: table-header-group; }
++    .muted { color: #62708a; font-size: 12px; }
++    .report-header { background: #102447; border-bottom: 6px solid #f2a900; margin: -18mm -14mm 24px; padding: 20mm 14mm 16px; }
++    .report-header .muted { color: #dce7fb; margin: 0; }
++    .claim-highlight { background: #edf4ff; border-left: 6px solid #f2a900; display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin: 0 0 20px; padding: 14px; page-break-inside: avoid; }
++    .claim-highlight strong { color: #102447; display: block; font-size: 18px; }
++    .claim-highlight span { color: #62708a; font-size: 11px; text-transform: uppercase; }
+     .location-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 10px; }
+     .location-card { border: 1px solid #b9d8d2; border-radius: 12px; overflow: hidden; }
+     .location-map { background: linear-gradient(135deg, #dff3ef 0%, #f6fbfa 45%, #cde9e4 100%); border-bottom: 1px solid #b9d8d2; min-height: 92px; position: relative; }
+@@ -24,15 +31,23 @@ export function buildProgressClaimHtml(snapshot: ProgressClaimSnapshot): string
+     .location-pin::after { background: #dc2626; bottom: -8px; content: ""; height: 10px; left: 4px; position: absolute; transform: rotate(45deg); width: 10px; }
+     .location-body { padding: 10px; }
+     .photo-card { border: 1px solid #d5e2de; border-radius: 12px; margin-top: 10px; overflow: hidden; page-break-inside: avoid; }
+-    .photo-card-header { background: #eef6f4; font-size: 12px; font-weight: 700; padding: 8px 10px; }
++    .photo-card-header { background: #edf4ff; border-left: 5px solid #f2a900; color: #102447; font-size: 12px; font-weight: 700; padding: 8px 10px; }
+     .photo-card-body { display: grid; gap: 10px; grid-template-columns: 150px 1fr; padding: 10px; }
+     .photo-thumb { border: 1px solid #d5e2de; border-radius: 8px; max-height: 120px; max-width: 150px; object-fit: cover; }
+     .photo-placeholder { align-items: center; background: #f6fbfa; border: 1px dashed #b9d8d2; border-radius: 8px; color: #5a6b67; display: flex; font-size: 11px; justify-content: center; min-height: 90px; padding: 8px; text-align: center; }
+   </style>
+ </head>
+ <body>
+-  <h1>${escapeHtml(snapshot.title)}</h1>
+-  <p class="muted">Generated ${escapeHtml(snapshot.generatedAt)}</p>
++  <header class="report-header">
++    <h1>${escapeHtml(snapshot.title)}</h1>
++    <p class="muted">Generated ${escapeHtml(snapshot.generatedAt)}</p>
++  </header>
++
++  <section class="claim-highlight" aria-label="Claim overview">
++    <div><span>Total claim amount</span><strong>${escapeHtml(formatMoney(snapshot.totals.totalClaimAmountCents, snapshot.rateCalculation.currency))}</strong></div>
++    <div><span>Days worked</span><strong>${snapshot.totals.totalDaysWorked}</strong></div>
++    <div><span>Claim period</span><strong>${escapeHtml(snapshot.claimPeriod.start)} &ndash; ${escapeHtml(snapshot.claimPeriod.end)}</strong></div>
++  </section>
+ 
+   <h2>Worker Profile</h2>
+   ${detailsTable([
+diff --git a/mobile/src/reports/progressClaimSourceRepository.ts b/mobile/src/reports/progressClaimSourceRepository.ts
+index 4076545..d7adc38 100644
+--- a/mobile/src/reports/progressClaimSourceRepository.ts
++++ b/mobile/src/reports/progressClaimSourceRepository.ts
+@@ -1,4 +1,9 @@
+ import type { LocalDatabase } from "../db/localDatabase";
++import {
++  PAY_REPORT_HOURLY_RATE_ERROR,
++  PAY_REPORT_PROJECT_REQUIRED_ERROR,
++  requirePositiveProjectHourlyRateCents,
++} from "../work/projectRates";
+ import { buildProgressClaimSnapshot } from "./progressClaimSnapshot";
+ import type {
+   PhotoEvidenceSnapshotInput,
+@@ -96,26 +101,12 @@ export class ProgressClaimSourceRepository {
+         );
+ 
+     if (!project) {
+-      return {
+-        generatedAt: params.generatedAt,
+-        worker: { name: "Local worker" },
+-        client: { name: "Client not selected" },
+-        project: {
+-          name: "Project not selected",
+-          currency: settings?.currency ?? "SGD",
+-          hourlyRateCents: 0,
+-        },
+-        pay: {
+-          currency: settings?.currency ?? "SGD",
+-          dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
+-          normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
+-          normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",
+-          overtimeMultiplier: settings?.overtime_multiplier ?? 1.5,
+-          offDayMultiplier: settings?.off_day_multiplier ?? 2,
+-          holidayMultiplier: settings?.holiday_multiplier ?? 2,
+-        },
+-      };
++      throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
+     }
++    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
++      project.hourly_rate_cents,
++      PAY_REPORT_HOURLY_RATE_ERROR,
++    );
+ 
+     const [client, timeEntries, photoEvidence] = await Promise.all([
+       this.database.getFirstAsync<ClientRow>(
+@@ -153,14 +144,14 @@ export class ProgressClaimSourceRepository {
+         id: project.id,
+         name: project.name,
+         description: project.description,
+-        hourlyRateCents: project.hourly_rate_cents,
++        hourlyRateCents,
+         currency: project.currency,
+       },
+       timeEntries: mapTimeEntries(timeEntries),
+       photoEvidence: mapPhotoEvidence(photoEvidence),
+       pay: {
+         currency: settings?.currency ?? project.currency,
+-        hourlyRateCents: project.hourly_rate_cents,
++        hourlyRateCents,
+         dailyNormalMinutes: Math.round((settings?.daily_hours ?? 8) * 60),
+         normalWorkStartTime: settings?.normal_work_start_time ?? "08:00",
+         normalWorkEndTime: settings?.normal_work_end_time ?? "17:00",
+diff --git a/mobile/src/screens/HomeScreen.tsx b/mobile/src/screens/HomeScreen.tsx
+index 843e412..f1eb585 100644
+--- a/mobile/src/screens/HomeScreen.tsx
++++ b/mobile/src/screens/HomeScreen.tsx
+@@ -12,6 +12,7 @@ import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
+ import type { WorkDayType, WorkHomeState, WorkProject } from "../work/workRepository";
+ import { getOptionalWorkLocationAddress } from "../work/workLocation";
+ import { getProjectSaveMode, startNewProjectDraft } from "../work/projectDraft";
++import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
+ import type { LocalAccount } from "../auth/localAuth";
+ 
+ export function HomeScreen({ account }: { account: LocalAccount }) {
+@@ -31,6 +32,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+   }>({ latitude: null, longitude: null });
+   const [projectName, setProjectName] = useState("");
+   const [projectDescription, setProjectDescription] = useState("");
++  const [projectHourlyRate, setProjectHourlyRate] = useState("");
+   const [activityText, setActivityText] = useState("");
+   const [breakMinutes, setBreakMinutes] = useState("0");
+   const [dayType, setDayType] = useState<WorkDayType>("normal");
+@@ -60,13 +62,27 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+   const activeProject = selectedProjectId
+     ? projects.find((project) => project.id === selectedProjectId) ?? null
+     : null;
++  const activeProjectDescription = activeProject?.description ?? "";
++  const activeProjectHourlyRateCents = activeProject?.hourlyRateCents;
++  const activeProjectId = activeProject?.id;
++  const activeProjectName = activeProject?.name ?? "";
+ 
+   useEffect(() => {
+     // Intentional local-database hydration of the editable project draft.
+     // eslint-disable-next-line react-hooks/set-state-in-effect
+-    setProjectName(activeProject?.name ?? "");
+-    setProjectDescription(activeProject?.description ?? "");
+-  }, [activeProject?.description, activeProject?.id, activeProject?.name]);
++    setProjectName(activeProjectName);
++    setProjectDescription(activeProjectDescription);
++    setProjectHourlyRate(
++      activeProjectHourlyRateCents == null
++        ? ""
++        : formatSgdHourlyRate(activeProjectHourlyRateCents),
++    );
++  }, [
++    activeProjectDescription,
++    activeProjectHourlyRateCents,
++    activeProjectId,
++    activeProjectName,
++  ]);
+ 
+   async function refreshWorkState() {
+     try {
+@@ -99,7 +115,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+       setWorkStatus(
+         nextProjects.length
+           ? "Local work records are ready on this device."
+-          : "No project yet. Enter your project detail below, then tap Create Project.",
++          : "No project yet. Enter your project detail and hourly rate below, then tap Create Project.",
+       );
+       if (Platform.OS === "web" && nextProjects.length === 0) {
+         const { hasLegacyWebWorkData } = await import("../work/webWorkStore");
+@@ -153,6 +169,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+     }
+     try {
+       const store = await getWorkStore(userId);
++      const hourlyRateCents = parseSgdHourlyRateCents(projectHourlyRate);
+       if (getProjectSaveMode(activeProject?.id) === "update" && activeProject) {
+         if (!("updateProject" in store) || typeof store.updateProject !== "function") {
+           throw new Error("Project editing is unavailable in this runtime.");
+@@ -162,6 +179,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+           projectId: activeProject.id,
+           name: projectName,
+           description: projectDescription,
++          hourlyRateCents,
+         });
+         setSelectedProjectId(updated.id);
+         setWorkStatus("Project details saved.");
+@@ -186,7 +204,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+         clientId: client.id,
+         name: projectName,
+         description: projectDescription,
+-        hourlyRateCents: 0,
++        hourlyRateCents,
+         currency: "SGD",
+       });
+       setSelectedProjectId(created.id);
+@@ -209,6 +227,7 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+     setSelectedProjectId(result.selectedProjectId);
+     setProjectName(result.projectName);
+     setProjectDescription(result.projectDescription);
++    setProjectHourlyRate("");
+     setWorkStatus(result.message);
+   }
+ 
+@@ -411,6 +430,16 @@ export function HomeScreen({ account }: { account: LocalAccount }) {
+             style={[styles.textInput, styles.textAreaSmall]}
+             value={projectDescription}
+           />
++          <TextInput
++            accessibilityLabel="Project hourly rate"
++            editable={access.canCreateRecords}
++            inputMode="decimal"
++            keyboardType="decimal-pad"
++            onChangeText={setProjectHourlyRate}
++            placeholder="25.00"
++            style={styles.textInput}
++            value={projectHourlyRate}
++          />
+           <Pressable
+             accessibilityRole="button"
+             accessibilityState={{ disabled: !access.canCreateRecords }}
+diff --git a/mobile/src/screens/WorkSetupScreen.tsx b/mobile/src/screens/WorkSetupScreen.tsx
+index d9ba2cf..1d953b9 100644
+--- a/mobile/src/screens/WorkSetupScreen.tsx
++++ b/mobile/src/screens/WorkSetupScreen.tsx
+@@ -4,6 +4,7 @@ import { Platform, Pressable, Text, TextInput, View } from "react-native";
+ import { styles } from "../styles";
+ import type { WorkClient, WorkDayType, WorkProject } from "../work/workRepository";
+ import { getOptionalWorkLocationAddress } from "../work/workLocation";
++import { formatSgdHourlyRate, parseSgdHourlyRateCents } from "../work/projectRates";
+ 
+ export function WorkSetupScreen() {
+   const [clients, setClients] = useState<WorkClient[]>([]);
+@@ -83,7 +84,7 @@ export function WorkSetupScreen() {
+         clientId: client.id,
+         name: projectName,
+         description: projectDescription,
+-        hourlyRateCents: parseHourlyRateCents(hourlyRate),
++        hourlyRateCents: parseSgdHourlyRateCents(hourlyRate),
+         currency: "SGD",
+       });
+       setStatus(`Project saved locally: ${project.name}`);
+@@ -352,7 +353,7 @@ export function WorkSetupScreen() {
+                   <Text style={styles.rowLabel}>{project.name}</Text>
+                   <Text style={styles.muted}>
+                     {project.clientName} · {project.currency}{" "}
+-                    {formatMoney(project.hourlyRateCents)}/hr
++                    {formatSgdHourlyRate(project.hourlyRateCents)}/hr
+                   </Text>
+                   {project.description ? (
+                     <Text style={styles.body}>{project.description}</Text>
+@@ -387,18 +388,6 @@ async function getWorkStore() {
+   return repositories.work;
+ }
+ 
+-function parseHourlyRateCents(value: string): number {
+-  const parsed = Number.parseFloat(value);
+-  if (!Number.isFinite(parsed) || parsed < 0) {
+-    return 0;
+-  }
+-  return Math.round(parsed * 100);
+-}
+-
+-function formatMoney(cents: number): string {
+-  return (cents / 100).toFixed(2);
+-}
+-
+ function getErrorMessage(error: unknown): string {
+   return error instanceof Error ? error.message : "Work setup action failed.";
+ }
+diff --git a/mobile/src/work/webWorkStore.ts b/mobile/src/work/webWorkStore.ts
+index 0dcfff6..49c6d78 100644
+--- a/mobile/src/work/webWorkStore.ts
++++ b/mobile/src/work/webWorkStore.ts
+@@ -14,6 +14,11 @@ import type {
+   DeleteEntryParams,
+ } from "./workRepository";
+ import { DEFAULT_USER_ID } from "../db/settingsValidation";
++import {
++  PAY_REPORT_HOURLY_RATE_ERROR,
++  PAY_REPORT_PROJECT_REQUIRED_ERROR,
++  requirePositiveProjectHourlyRateCents,
++} from "./projectRates";
+ 
+ const STORAGE_KEY = "claimproof-sg-web-work-state";
+ 
+@@ -63,6 +68,9 @@ export const webWorkStore = {
+     if (!client) {
+       throw new Error("Create a client before adding a project.");
+     }
++    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
++      params.hourlyRateCents,
++    );
+ 
+     const project: WorkProject = {
+       id: createLocalId("web-project"),
+@@ -70,7 +78,7 @@ export const webWorkStore = {
+       name: requireText(params.name, "Project name"),
+       clientName: client.name,
+       description: normalizeOptionalText(params.description),
+-      hourlyRateCents: Math.max(0, Math.floor(params.hourlyRateCents ?? 0)),
++      hourlyRateCents,
+       currency: normalizeCurrency(params.currency),
+       status: "active",
+     };
+@@ -92,11 +100,15 @@ export const webWorkStore = {
+     if (!existingProject) {
+       throw new Error("Selected project was not found in browser preview storage.");
+     }
++    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
++      params.hourlyRateCents,
++    );
+ 
+     const savedProject: WorkProject = {
+       ...existingProject,
+       name: requireText(params.name, "Project name"),
+       description: normalizeOptionalText(params.description),
++      hourlyRateCents,
+     };
+     const projects = state.projects.map((project) =>
+       project.id === params.projectId ? savedProject : project,
+@@ -251,30 +263,12 @@ export function buildWebWorkProgressClaimSnapshot(params: {
+       ? state.projects.find((project) => project.id === params.projectId)
+       : state.project) ?? null;
+   if (!selectedProject) {
+-    return buildProgressClaimSnapshot({
+-      generatedAt: new Date().toISOString(),
+-      worker: {
+-        name: "Local worker",
+-      },
+-      client: {
+-        name: "Client not selected",
+-      },
+-      project: {
+-        name: "Project not selected",
+-        hourlyRateCents: 0,
+-        currency: "SGD",
+-      },
+-      pay: {
+-        currency: "SGD",
+-        dailyNormalMinutes: 480,
+-        normalWorkStartTime: "08:00",
+-        normalWorkEndTime: "17:00",
+-        overtimeMultiplier: 1.5,
+-        offDayMultiplier: 2,
+-        holidayMultiplier: 2,
+-      },
+-    });
++    throw new Error(PAY_REPORT_PROJECT_REQUIRED_ERROR);
+   }
++  const hourlyRateCents = requirePositiveProjectHourlyRateCents(
++    selectedProject.hourlyRateCents,
++    PAY_REPORT_HOURLY_RATE_ERROR,
++  );
+   return buildProgressClaimSnapshot({
+     generatedAt: new Date().toISOString(),
+     worker: {
+@@ -289,7 +283,7 @@ export function buildWebWorkProgressClaimSnapshot(params: {
+       id: selectedProject.id,
+       name: selectedProject.name,
+       description: selectedProject.description,
+-      hourlyRateCents: selectedProject.hourlyRateCents,
++      hourlyRateCents,
+       currency: selectedProject.currency,
+     },
+     timeEntries: state.entries
+@@ -310,7 +304,7 @@ export function buildWebWorkProgressClaimSnapshot(params: {
+       })),
+     pay: {
+       currency: selectedProject.currency,
+-      hourlyRateCents: selectedProject.hourlyRateCents,
++      hourlyRateCents,
+       dailyNormalMinutes: 480,
+       normalWorkStartTime: "08:00",
+       normalWorkEndTime: "17:00",
+diff --git a/mobile/src/work/workRepository.ts b/mobile/src/work/workRepository.ts
+index f4ea54d..207f06e 100644
+--- a/mobile/src/work/workRepository.ts
++++ b/mobile/src/work/workRepository.ts
+@@ -2,6 +2,7 @@ import { calculateTotalHours } from "@claimproof/shared";
+ 
+ import type { LocalDatabase } from "../db/localDatabase";
+ import { DEFAULT_USER_ID } from "../db/settingsValidation";
++import { requirePositiveProjectHourlyRateCents } from "./projectRates";
+ 
+ export type WorkProject = {
+   id: string;
+@@ -83,7 +84,7 @@ export type CreateProjectParams = {
+   clientId: string;
+   name: string;
+   description?: string;
+-  hourlyRateCents?: number;
++  hourlyRateCents: number;
+   currency?: string;
+ };
+ 
+@@ -92,6 +93,7 @@ export type UpdateProjectParams = {
+   projectId: string;
+   name: string;
+   description?: string | null;
++  hourlyRateCents: number;
+ };
+ 
+ export type CreateManualEntryParams = {
+@@ -421,6 +423,9 @@ INSERT INTO clients (
+     const name = requireText(params.name, "Project name");
+     const id = createLocalId("project");
+     const currency = normalizeCurrency(params.currency);
++    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
++      params.hourlyRateCents,
++    );
+ 
+     await this.database.runAsync(
+       `
+@@ -441,7 +446,7 @@ INSERT INTO projects (
+         params.clientId,
+         name,
+         normalizeOptionalText(params.description),
+-        Math.max(0, Math.floor(params.hourlyRateCents ?? 0)),
++        hourlyRateCents,
+         currency,
+       ],
+     );
+@@ -474,18 +479,23 @@ LIMIT 1
+   async updateProject(params: UpdateProjectParams): Promise<WorkProject> {
+     const userId = params.userId ?? DEFAULT_USER_ID;
+     const name = requireText(params.name, "Project name");
++    const hourlyRateCents = requirePositiveProjectHourlyRateCents(
++      params.hourlyRateCents,
++    );
+ 
+     await this.database.runAsync(
+       `
+ UPDATE projects
+ SET name = ?,
+     description = ?,
++    hourly_rate_cents = ?,
+     updated_at = CURRENT_TIMESTAMP
+ WHERE id = ? AND user_id = ?
+ `,
+       [
+         name,
+         normalizeOptionalText(params.description),
++        hourlyRateCents,
+         params.projectId,
+         userId,
+       ],
+diff --git a/mobile/tests/reportBuilders.test.js b/mobile/tests/reportBuilders.test.js
+index 6428f7a..7066690 100644
+--- a/mobile/tests/reportBuilders.test.js
++++ b/mobile/tests/reportBuilders.test.js
+@@ -158,6 +158,48 @@ test("buildProgressClaimHtml includes clean report sections without signature or
+   assert.doesNotMatch(html, /Deductions/);
+ });
+ 
++test("buildProgressClaimHtml renders the revised palette, dynamic overview, and print-safe page rules", () => {
++  const { buildProgressClaimHtml } = createTsLoader()(
++    "src/reports/progressClaimHtml.ts",
++  );
++  const snapshot = createSnapshot();
++  snapshot.totals.totalClaimAmountCents = 98765;
++  snapshot.totals.totalDaysWorked = 7;
++  snapshot.claimPeriod = { start: "2026-07-01", end: "2026-07-31" };
++
++  const html = buildProgressClaimHtml(snapshot);
++
++  assert.match(html, /#102447/);
++  assert.match(html, /#2f6fed/);
++  assert.match(html, /#f2a900/);
++  assert.match(html, /SGD 987\.65/);
++  assert.match(html, />7<\/strong>/);
++  assert.match(html, /2026-07-01 &ndash; 2026-07-31/);
++  assert.match(html, /@page \{ margin: 18mm 14mm; size: A4; \}/);
++  assert.match(html, /thead \{ display: table-header-group; \}/);
++  assert.match(html, /page-break-inside: avoid/);
++});
++
++test("buildProgressClaimHtml embeds printable photos and keeps unsupported references as placeholders", () => {
++  const { buildProgressClaimHtml } = createTsLoader()(
++    "src/reports/progressClaimHtml.ts",
++  );
++  const snapshot = createSnapshot();
++  snapshot.photoEvidence.push({
++    id: "photo-2",
++    localUri: "https://example.invalid/photo.jpg",
++    caption: "Remote reference",
++  });
++  snapshot.photoEvidence[0].printUri = "data:image/jpeg;base64,aW1hZ2U=";
++
++  const html = buildProgressClaimHtml(snapshot);
++
++  assert.match(html, /src="data:image\/jpeg;base64,aW1hZ2U="/);
++  assert.match(html, /alt="Photo evidence photo-1"/);
++  assert.match(html, /Photo file reference only/);
++  assert.match(html, /\.photo-card \{[^}]*page-break-inside: avoid/s);
++});
++
+ test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
+   const { buildProgressClaimCsv } = createTsLoader()(
+     "src/reports/progressClaimCsv.ts",
+diff --git a/mobile/tests/reportSnapshot.test.js b/mobile/tests/reportSnapshot.test.js
+index 5dbe391..4c477d2 100644
+--- a/mobile/tests/reportSnapshot.test.js
++++ b/mobile/tests/reportSnapshot.test.js
+@@ -201,3 +201,147 @@ test("buildProgressClaimSnapshot applies off day and holiday multipliers to mark
+   assert.deepEqual(snapshot.dailyWorkLog[0].dayTypes, ["off_day"]);
+   assert.deepEqual(snapshot.dailyWorkLog[1].dayTypes, ["holiday"]);
+ });
++
++test("buildProgressClaimSnapshot calculates short normal time and overtime from configured rates", () => {
++  const { buildProgressClaimSnapshot } = createTsLoader()(
++    "src/reports/progressClaimSnapshot.ts",
++  );
++
++  const shortTimeSnapshot = buildProgressClaimSnapshot({
++    generatedAt: "2026-10-08T12:00:00.000Z",
++    project: {
++      name: "Six minute task",
++      hourlyRateCents: 2500,
++      currency: "SGD",
++    },
++    timeEntries: [
++      {
++        id: "time-short",
++        workDate: "2026-10-08",
++        startTime: "2026-10-08T08:00:00",
++        endTime: "2026-10-08T08:06:00",
++        durationMinutes: 6,
++        activity: "Short task",
++      },
++    ],
++    pay: {
++      hourlyRateCents: 2500,
++      normalWorkStartTime: "08:00",
++      normalWorkEndTime: "16:00",
++      overtimeMultiplier: 1.5,
++    },
++  });
++
++  assert.equal(shortTimeSnapshot.totals.totalNormalHours, 0.1);
++  assert.equal(shortTimeSnapshot.totals.basicPayCents, 250);
++  assert.equal(shortTimeSnapshot.totals.totalClaimAmountCents, 250);
++
++  const overtimeSnapshot = buildProgressClaimSnapshot({
++    generatedAt: "2026-10-08T12:00:00.000Z",
++    project: {
++      name: "Overtime task",
++      hourlyRateCents: 2500,
++      currency: "SGD",
++    },
++    timeEntries: [
++      {
++        id: "time-overtime",
++        workDate: "2026-10-08",
++        startTime: "2026-10-08T08:00:00",
++        endTime: "2026-10-08T17:30:00",
++        durationMinutes: 570,
++        activity: "Overtime task",
++      },
++    ],
++    pay: {
++      hourlyRateCents: 2500,
++      normalWorkStartTime: "08:00",
++      normalWorkEndTime: "16:00",
++      overtimeMultiplier: 1.5,
++    },
++  });
++
++  assert.equal(overtimeSnapshot.totals.totalNormalHours, 8);
++  assert.equal(overtimeSnapshot.totals.totalOvertimeHours, 1.5);
++  assert.equal(overtimeSnapshot.totals.basicPayCents, 20000);
++  assert.equal(overtimeSnapshot.totals.overtimePayCents, 5625);
++  assert.equal(overtimeSnapshot.totals.totalClaimAmountCents, 25625);
++});
++
++test("ProgressClaimSourceRepository rejects zero-rate projects before building a pay report", async () => {
++  const { ProgressClaimSourceRepository } = createTsLoader()(
++    "src/reports/progressClaimSourceRepository.ts",
++  );
++  const repository = new ProgressClaimSourceRepository(
++    new FakeProgressClaimSourceDatabase(),
++  );
++
++  await assert.rejects(
++    () =>
++      repository.buildLatestProgressClaimSnapshot({
++        userId: "rate-user",
++        projectId: "project-zero",
++        generatedAt: "2026-10-08T12:00:00.000Z",
++      }),
++    /hourly rate/i,
++  );
++});
++
++class FakeProgressClaimSourceDatabase {
++  async getFirstAsync(sql) {
++    if (/FROM app_settings/i.test(sql)) {
++      return {
++        currency: "SGD",
++        daily_hours: 8,
++        normal_work_start_time: "08:00",
++        normal_work_end_time: "16:00",
++        overtime_multiplier: 1.5,
++        off_day_multiplier: 2,
++        holiday_multiplier: 2,
++      };
++    }
++
++    if (/FROM projects/i.test(sql)) {
++      return {
++        id: "project-zero",
++        name: "Zero Rate Project",
++        description: null,
++        hourly_rate_cents: 0,
++        currency: "SGD",
++        client_id: "client-zero",
++      };
++    }
++
++    if (/FROM clients/i.test(sql)) {
++      return {
++        name: "Demo Client",
++        contact_name: null,
++        contact_email: null,
++      };
++    }
++
++    return null;
++  }
++
++  async getAllAsync(sql) {
++    if (/FROM time_entries/i.test(sql)) {
++      return [
++        {
++          id: "time-zero",
++          work_date: "2026-10-08",
++          start_time: "2026-10-08T08:00:00",
++          end_time: "2026-10-08T08:06:00",
++          duration_minutes: 6,
++          activity: "Short task",
++          day_type: "normal",
++          location_text: null,
++          clock_in_gps_latitude: null,
++          clock_in_gps_longitude: null,
++          clock_out_gps_latitude: null,
++          clock_out_gps_longitude: null,
++        },
++      ];
++    }
++    return [];
++  }
++}
+diff --git a/mobile/tests/workRepository.test.js b/mobile/tests/workRepository.test.js
+index e765b9d..3310a55 100644
+--- a/mobile/tests/workRepository.test.js
++++ b/mobile/tests/workRepository.test.js
+@@ -115,6 +115,7 @@ test("WorkRepository persists clock in/out for a user-created project", async ()
+   const project = await repository.createProject({
+     clientId: client.id,
+     name: "Phone Test Project",
++    hourlyRateCents: 2500,
+   });
+ 
+   const clockIn = await repository.clockIn({
+@@ -179,6 +180,40 @@ test("WorkRepository creates local clients and projects for work setup", async (
+   assert.equal(homeState.project.hourlyRateCents, 3200);
+ });
+ 
++test("WorkRepository requires and updates a positive project hourly rate", async () => {
++  const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
++  const database = new FakeWorkDatabase();
++  const repository = new WorkRepository(database);
++
++  const client = await repository.createClient({ name: "Rate Client" });
++  await assert.rejects(
++    () =>
++      repository.createProject({
++        clientId: client.id,
++        name: "Missing Rate Project",
++        hourlyRateCents: 0,
++      }),
++    /hourly rate/i,
++  );
++
++  const project = await repository.createProject({
++    clientId: client.id,
++    name: "Rate Project",
++    hourlyRateCents: 2500,
++  });
++  assert.equal(project.hourlyRateCents, 2500);
++
++  const updated = await repository.updateProject({
++    projectId: project.id,
++    name: "Updated Rate Project",
++    description: "Updated scope.",
++    hourlyRateCents: 3750,
++  });
++  assert.equal(updated.name, "Updated Rate Project");
++  assert.equal(updated.description, "Updated scope.");
++  assert.equal(updated.hourlyRateCents, 3750);
++});
++
+ test("WorkRepository creates a manual entry for the selected project with inclusive break", async () => {
+   const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
+   const database = new FakeWorkDatabase();
+@@ -216,6 +251,7 @@ test("WorkRepository deletes a recent time entry", async () => {
+   const project = await repository.createProject({
+     clientId: client.id,
+     name: "Delete Entry Project",
++    hourlyRateCents: 2500,
+   });
+ 
+   const entry = await repository.createManualEntry({
+@@ -245,6 +281,7 @@ test("WorkRepository prevents one user from deleting another user's time entry",
+     userId: "user-a",
+     clientId: client.id,
+     name: "User A Project",
++    hourlyRateCents: 2500,
+   });
+   const entry = await repository.createManualEntry({
+     userId: "user-a",
+@@ -270,6 +307,7 @@ test("WorkRepository unlinks photo evidence before deleting a time entry", async
+   const project = await repository.createProject({
+     clientId: client.id,
+     name: "Evidence Project",
++    hourlyRateCents: 2500,
+   });
+   const entry = await repository.createManualEntry({
+     projectId: project.id,
+@@ -359,6 +397,16 @@ class FakeWorkDatabase {
+       return;
+     }
+ 
++    if (/UPDATE projects/i.test(sql)) {
++      const project = this.projects.find(
++        (row) => row.id === params[3] && row.user_id === params[4],
++      );
++      project.name = params[0];
++      project.description = params[1];
++      project.hourly_rate_cents = params[2];
++      return;
++    }
++
+     if (/INSERT INTO time_entries/i.test(sql)) {
+       const isManual = /VALUES \(\?, \?, \?, \?, \?, \?, \?, \?, \?, \?, NULL, NULL, \?, \?, \?, 'finalized'\)/i.test(
+         sql.replace(/\s+/g, " "),

@@ -85,6 +85,7 @@ model User {
   role            UserRole    @default(WORKER)
   status          UserStatus  @default(PENDING_EMAIL_VERIFICATION)
   emailVerifiedAt DateTime?
+  appFirstUseAt   DateTime?
   lastSeenAt      DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -217,6 +218,7 @@ model TimeEntry {
   overtimeHours   Float
   workDescription String
   manualEntryFlag Boolean         @default(false)
+  locationSource  String          @default("typed")
   locationText    String
   clockInGpsLat   Float?
   clockInGpsLng   Float?

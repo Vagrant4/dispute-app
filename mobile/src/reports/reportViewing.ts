@@ -19,7 +19,7 @@ export async function viewGeneratedDocument(params: {
       opened: false,
       filePath: params.filePath,
       message:
-        "Report viewer is unavailable in this runtime. Use Email / Share to open the file in another app.",
+        "Can't open the report here. Use Share to open it in another app.",
     };
   }
 

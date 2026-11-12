@@ -1,34 +1,48 @@
-import { useCallback, useEffect, useState } from "react";
-import { Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BackHandler, Image, Linking, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import type { LocalAccount } from "../auth/localAuth";
-import { DEFAULT_APP_SETTINGS, type AppSettings } from "../db/settingsValidation";
-import { styles } from "../styles";
+import { DEFAULT_APP_SETTINGS, isValidClockTime, type AppSettings } from "../db/settingsValidation";
+import { saveWorkHours, loadWorkHours as loadSavedWorkHours, calculateNormalHours } from "../work/workHoursSettings";
+import { styles, theme } from "../styles";
 import { DeleteAccountScreen } from "./DeleteAccountScreen";
 import { PlanBillingPanel } from "./PlanBillingPanel";
 import { PrivacyScreen } from "./PrivacyScreen";
 import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
-import { ReferralScreen } from "./ReferralScreen";
 import { SettingsBackupScreen } from "./SettingsBackupScreen";
 import {
+  planTrialLine,
   getSubscriptionManagementUrl,
   getSubscriptionSettingsAction,
   purchaseDisputeBasicSubscription,
 } from "../subscription/subscriptionClient";
 import { useSubscriptionAccess } from "../subscription/useSubscriptionAccess";
 import { useDisputeBasicStorePrice } from "../subscription/useDisputeBasicStorePrice";
+import { getDisputePackBillingNote } from "../subscription/recordAccess";
+import { loadReportPeriod, saveReportPeriod, type ReportPeriod } from "../reports/reportPeriodSettings";
+import { SwipeDownSheet } from "../components/SwipeDownSheet";
 
 type SettingsScreenProps = {
   account: LocalAccount;
   onLogout: () => void;
   onAccountDeleted: (message: string) => void;
+  initialPanel?: SettingPanel;
 };
 
-type SettingPanel = "profile" | "work_hours" | "subscription" | "referrals" | "privacy_data";
+export type SettingPanel = "profile" | "work_hours" | "subscription" | "privacy_data";
 
-export function SettingsScreen({ account, onLogout, onAccountDeleted }: SettingsScreenProps) {
+type SettingsPage = "main" | "name" | "pay_rate" | "language" | "plan" | "support" | "more" | "privacy_data" | "backup" | "delete_account";
+
+const INITIAL_PANEL_PAGES: Record<SettingPanel, SettingsPage> = {
+  profile: "name",
+  work_hours: "pay_rate",
+  subscription: "plan",
+  privacy_data: "privacy_data",
+};
+
+export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPanel }: SettingsScreenProps) {
   const userId = account.id ?? account.email.trim().toLowerCase();
-  const [panel, setPanel] = useState<SettingPanel>("profile");
+  const [panel, setPanel] = useState<SettingsPage>(initialPanel ? INITIAL_PANEL_PAGES[initialPanel] : "main");
   const [currency, setCurrency] = useState(DEFAULT_APP_SETTINGS.currency);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [rateBasis, setRateBasis] = useState<AppSettings["rateBasis"]>(
@@ -49,9 +63,20 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   const [holidayMultiplier, setHolidayMultiplier] = useState(
     String(DEFAULT_APP_SETTINGS.holidayMultiplier),
   );
-  const [workHoursStatus, setWorkHoursStatus] = useState(
-    "Normal hours decide when OT starts in reports.",
-  );
+  const [lunchMinutes, setLunchMinutes] = useState(String(DEFAULT_APP_SETTINGS.lunchMinutes));
+  const [lunchChoice, setLunchChoice] = useState<LunchChoice>("none");
+  const [lunchPickerOpen, setLunchPickerOpen] = useState(false);
+  const [dinnerMinutes, setDinnerMinutes] = useState(String(DEFAULT_APP_SETTINGS.dinnerMinutes));
+  const [dinnerChoice, setDinnerChoice] = useState<LunchChoice>("none");
+  const [dinnerStart, setDinnerStart] = useState(plusOneHour(DEFAULT_APP_SETTINGS.normalWorkEndTime));
+  const [dinnerPickerOpen, setDinnerPickerOpen] = useState(false);
+  const savedPayForm = useRef("");
+  const [workHoursStatus, setWorkHoursStatus] = useState("");
+  const paySettingsLoaded = useRef(false);
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("week");
+  const [reportPeriodPickerOpen, setReportPeriodPickerOpen] = useState(false);
+  const [leavePromptOpen, setLeavePromptOpen] = useState(false);
+  const [leaveTarget, setLeaveTarget] = useState<SettingsPage>("main");
   const [subscriptionActionStatus, setSubscriptionActionStatus] = useState("");
   const {
     subscription,
@@ -60,14 +85,50 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   } = useSubscriptionAccess(account);
   const storePrice = useDisputeBasicStorePrice(account);
   const subscriptionAction = getSubscriptionSettingsAction(subscription);
+  const exportNote = getDisputePackBillingNote(false, subscriptionAction, subscription?.trialEndsAt ?? null);
 
-  const options: { id: SettingPanel; label: string }[] = [
-    { id: "profile", label: "Profile" },
-    { id: "subscription", label: "Plan & billing" },
-    { id: "work_hours", label: "Work & rates" },
-    { id: "referrals", label: "Referrals" },
-    { id: "privacy_data", label: "Privacy & data" },
+  useEffect(() => {
+    setPanel(initialPanel ? INITIAL_PANEL_PAGES[initialPanel] : "main");
+  }, [initialPanel]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
+      if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }
+      if (reportPeriodPickerOpen) { setReportPeriodPickerOpen(false); return true; }
+      if (lunchPickerOpen) { setLunchPickerOpen(false); return true; }
+      if (dinnerPickerOpen) { setDinnerPickerOpen(false); return true; }
+      if (panel !== "main") {
+        requestPayRateLeave(panel === "delete_account" ? "privacy_data" : (panel === "privacy_data" || panel === "backup") ? "more" : "main");
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [currencyDropdownOpen, dinnerPickerOpen, lunchPickerOpen, panel, rateBasisDropdownOpen, reportPeriodPickerOpen]);
+
+  const mainRows: { id: SettingsPage; label: string; value: string }[] = [
+    { id: "pay_rate", label: "Pay rate", value: Number(baseRate) > 0 ? `${currency} ${baseRate} / ${rateBasis === "monthly" ? "month" : rateBasis === "hourly" ? "hour" : "day"}` : "Not set" },
+    { id: "language", label: "Language", value: "English" },
+    { id: "plan", label: "Plan", value: planTrialLine(subscription) ?? (subscription?.planName || "Checking plan…") },
+    { id: "support", label: "Support", value: "Help and policies" },
+    { id: "more", label: "More", value: "Privacy and backup" },
   ];
+  const moreRows: { id: SettingsPage; label: string; value: string }[] = [
+    { id: "privacy_data", label: "Privacy & data", value: "Your privacy and account" },
+    { id: "backup", label: "Keep a copy", value: "Save or restore your records" },
+  ];
+  const rowIcons = {
+    name: require("../../assets/icons/set-name.png"),
+    pay_rate: require("../../assets/icons/set-pay.png"),
+    language: require("../../assets/icons/set-language.png"),
+    plan: require("../../assets/icons/set-plan.png"),
+    support: require("../../assets/icons/set-support.png"),
+    more: require("../../assets/icons/set-more.png"),
+    privacy_data: require("../../assets/icons/set-privacy.png"),
+    backup: require("../../assets/icons/set-backup.png"),
+  };
+  const insideMore = panel === "privacy_data" || panel === "backup";
 
   async function handleSubscribe() {
     setSubscriptionActionStatus("Opening store subscription...");
@@ -96,12 +157,12 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
   }
 
   const loadWorkHours = useCallback(async () => {
-    if (Platform.OS === "web") {
-      return;
-    }
-    try {
-      const repositories = await getNativeRepositories(userId);
-      const settings = await repositories.settings.getSettings(userId);
+    const [workHoursResult, periodResult] = await Promise.allSettled([
+      loadSavedWorkHours(userId),
+      loadReportPeriod(userId),
+    ]);
+    if (workHoursResult.status === "fulfilled") {
+      const { settings } = workHoursResult.value;
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -110,10 +171,21 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
-      setWorkHoursStatus("Work hours loaded from this phone.");
-    } catch (error) {
-      setWorkHoursStatus(getErrorMessage(error));
+      setLunchMinutes(String(settings.lunchMinutes));
+      setLunchChoice(lunchChoiceForMinutes(settings.lunchMinutes));
+      setDinnerMinutes(String(settings.dinnerMinutes ?? 0));
+      setDinnerChoice(lunchChoiceForMinutes(settings.dinnerMinutes ?? 0));
+      setDinnerStart(settings.dinnerStartTime ?? plusOneHour(settings.normalWorkEndTime));
+      savedPayForm.current = payFormKey(settings, periodResult.status === "fulfilled" ? periodResult.value : reportPeriod);
     }
+    if (periodResult.status === "fulfilled") setReportPeriod(periodResult.value);
+    const loadError = workHoursResult.status === "rejected"
+      ? "Couldn't load pay rate. Try again."
+      : periodResult.status === "rejected"
+          ? "Couldn't load report period. Try again."
+          : "";
+    setWorkHoursStatus(loadError);
+    paySettingsLoaded.current = workHoursResult.status === "fulfilled";
   }, [userId]);
 
   useEffect(() => {
@@ -121,17 +193,21 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
     return () => clearTimeout(initialLoad);
   }, [loadWorkHours]);
 
-  async function handleSaveWorkHours() {
+  async function handleSaveWorkHours(): Promise<boolean> {
+    if (!paySettingsLoaded.current) return false;
+    const parsedLunchMinutes = Number.parseInt(lunchMinutes, 10) || 0;
+    const parsedDinnerMinutes = Number.parseInt(dinnerMinutes, 10) || 0;
+    if (lunchChoice === "custom" && (parsedLunchMinutes < 1 || parsedLunchMinutes > 240)) {
+      setWorkHoursStatus("Custom lunch break must be 1–240 minutes.");
+      return false;
+    }
+    if (dinnerChoice === "custom" && (parsedDinnerMinutes < 1 || parsedDinnerMinutes > 240)) { setWorkHoursStatus("Custom dinner break must be 1–240 minutes."); return false; }
+    if (parsedDinnerMinutes && !isValidClockTime(dinnerStart)) { setWorkHoursStatus("Dinner start time must be HH:MM."); return false; }
     try {
       const multiplier = Number.parseFloat(overtimeMultiplier);
       const offDayRate = Number.parseFloat(offDayMultiplier);
       const holidayRate = Number.parseFloat(holidayMultiplier);
-      if (Platform.OS === "web") {
-        setWorkHoursStatus("Work hours are saved in the native phone app build.");
-        return;
-      }
-      const repositories = await getNativeRepositories(userId);
-      const settings = await repositories.settings.updateSettings({
+      const settings = await saveWorkHours(userId, {
         currency,
         rateBasis,
         baseRateCents: parseRateAmountCents(baseRate),
@@ -145,7 +221,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
         overtimeMultiplier: multiplier,
         offDayMultiplier: offDayRate,
         holidayMultiplier: holidayRate,
-      }, userId);
+        lunchMinutes: parsedLunchMinutes,
+        dinnerMinutes: parsedDinnerMinutes,
+        dinnerStartTime: parsedDinnerMinutes ? dinnerStart : null,
+      });
       setCurrency(settings.currency);
       setRateBasis(settings.rateBasis);
       setBaseRate(formatRateAmount(settings.baseRateCents));
@@ -154,55 +233,106 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
       setOvertimeMultiplier(String(settings.overtimeMultiplier));
       setOffDayMultiplier(String(settings.offDayMultiplier));
       setHolidayMultiplier(String(settings.holidayMultiplier));
-      setWorkHoursStatus(
-        `Saved. ${settings.currency} ${formatRateAmount(settings.baseRateCents)} ${settings.rateBasis} rate. OT ${settings.overtimeMultiplier}x, off day ${settings.offDayMultiplier}x, holiday ${settings.holidayMultiplier}x.`,
-      );
+      setLunchMinutes(String(settings.lunchMinutes));
+      setLunchChoice(lunchChoiceForMinutes(settings.lunchMinutes));
+      setDinnerMinutes(String(settings.dinnerMinutes ?? 0));
+      setDinnerChoice(lunchChoiceForMinutes(settings.dinnerMinutes ?? 0));
+      setDinnerStart(settings.dinnerStartTime ?? plusOneHour(settings.normalWorkEndTime));
+      await saveReportPeriod(userId, reportPeriod);
+      savedPayForm.current = payFormKey(settings, reportPeriod);
+      setWorkHoursStatus("Saved");
+      return true;
     } catch (error) {
-      setWorkHoursStatus(getErrorMessage(error));
+      setWorkHoursStatus(getPayRateSaveErrorMessage(error));
+      return false;
+    }
+  }
+
+  const isPayRateDirty = () => paySettingsLoaded.current && savedPayForm.current !== payFormKey({ currency, rateBasis, baseRateCents: parseRateAmountCents(baseRate), normalWorkStartTime: normalStart, normalWorkEndTime: normalEnd, overtimeMultiplier: Number(overtimeMultiplier), offDayMultiplier: Number(offDayMultiplier), holidayMultiplier: Number(holidayMultiplier), lunchMinutes: Number(lunchMinutes) || 0, dinnerMinutes: Number(dinnerMinutes) || 0, dinnerStartTime: Number(dinnerMinutes) ? dinnerStart : null }, reportPeriod);
+
+  function requestPayRateLeave(target: SettingsPage) {
+    if (panel === "pay_rate" && isPayRateDirty()) {
+      setLeaveTarget(target);
+      setLeavePromptOpen(true);
+      return;
+    }
+    setPanel(target);
+  }
+
+  async function discardPayRateChanges() {
+    setLeavePromptOpen(false);
+    await loadWorkHours();
+    setPanel(leaveTarget);
+  }
+
+  async function saveAndLeavePayRate() {
+    if (await handleSaveWorkHours()) {
+      setLeavePromptOpen(false);
+      setPanel(leaveTarget);
     }
   }
 
   return (
-    <>
-      <View style={styles.card}>
-        <Text style={styles.eyebrow}>Settings</Text>
-        <Text style={styles.heading}>Account</Text>
-        <View style={styles.actionRow}>
-          {options.map((item) => (
-            <Pressable
-              accessibilityRole="button"
-              key={item.id}
-              onPress={() => setPanel(item.id)}
-              style={
-                item.id === panel ? styles.actionButton : styles.actionButtonSecondary
-              }
-            >
-              <Text
-                style={
-                  item.id === panel
-                    ? styles.actionButtonText
-                    : styles.actionButtonSecondaryText
-                }
-              >
-                {item.label}
-              </Text>
+    <View style={styles.todayScreen}>
+      {panel === "main" ? (
+        <><View style={styles.todayHeader}><Text style={styles.todayTitle}>Settings</Text><Text style={styles.todayWordmark}>DISPUTE</Text></View><Pressable accessibilityRole="button" onPress={() => setPanel("name")} style={styles.settingsProfile}><View style={styles.settingsProfileAvatar}><Text style={styles.settingsProfileInitial}>{(account.name?.trim() || account.email || "W")[0].toUpperCase()}</Text></View><View style={styles.settingsRowContent}><Text style={styles.heading}>{account.name?.trim() || "Worker"}</Text>{account.email ? <Text numberOfLines={2} style={[styles.muted, styles.settingsProfileEmail]}>{account.email}</Text> : null}</View><Text style={styles.settingsChevron}>›</Text></Pressable></>
+      ) : null}
+      {panel !== "main" ? (
+        <Pressable accessibilityRole="button" onPress={() => requestPayRateLeave(panel === "delete_account" ? "privacy_data" : insideMore ? "more" : "main")} style={styles.settingsBackRow}>
+          <Text style={styles.settingsBackText}>{panel === "delete_account" ? "‹ Privacy & data" : insideMore ? "‹ More" : "‹ Settings"}</Text>
+        </Pressable>
+      ) : null}
+      {panel === "more" ? <Text style={styles.todayTitle}>More</Text> : null}
+      {panel === "main" || panel === "more" ? (
+        <View style={styles.settingsList}>
+          {(panel === "main" ? mainRows : moreRows).map((item) => (
+            <Pressable accessibilityRole="button" key={item.id} onPress={() => setPanel(item.id)} style={styles.settingsRow}>
+              <View style={styles.todayIconTile}>
+                <Image accessible={false} source={rowIcons[item.id as keyof typeof rowIcons]} style={styles.todayRowIcon} />
+              </View>
+              <View style={styles.settingsRowContent}>
+                <Text style={styles.settingsRowLabel}>{item.label}</Text>
+                <Text style={styles.settingsRowSubtitle}>{item.value}</Text>
+              </View>
+              <Text style={styles.settingsChevron}>›</Text>
             </Pressable>
           ))}
         </View>
-      </View>
+      ) : null}
+      {panel === "main" ? <Pressable accessibilityRole="button" onPress={onLogout} style={styles.settingsLogout}><Text style={styles.settingsLogoutText}>Log out</Text></Pressable> : null}
+      {panel === "language" ? (
+        <View style={styles.settingsSection}>
+          <Text style={styles.todayTitle}>Language</Text>
+          <Text style={styles.body}>English is the only language for now.</Text>
+        </View>
+      ) : null}
+      {panel === "support" ? <PrivacyScreen supportOnly /> : null}
+      {panel === "more" ? (
+        <>
+        </>
+      ) : null}
 
-      {panel === "profile" ? (
+      {panel === "name" ? (
         <ProfileSettingsPanel account={account} onLogout={onLogout} />
       ) : null}
 
-      {panel === "work_hours" ? (
-        <View style={styles.card}>
-          <Text style={styles.heading}>Work hours</Text>
+      {panel === "pay_rate" ? (
+        <View style={styles.settingsSection}>
+          <Text style={styles.todayTitle}>Pay rate</Text>
           <Text style={styles.body}>
-            Set the normal working time. Normal hours are based on this start/end
-            range. OT applies after the normal end time; off day and holiday
-            rates apply to entries marked with those day types.
+            Set your normal hours and rates. Overtime, off-day and holiday rates apply automatically.
           </Text>
+          <Text style={styles.inputLabel}>Report period</Text>
+          <Pressable testID="settings-report-period" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setReportPeriodPickerOpen(true)}>
+            <Text style={styles.dropdownValue}>{reportPeriod === "week" ? "This week" : "This month"}</Text>
+            <Text style={styles.settingsDropdownChevron}>▼</Text>
+          </Pressable>
+          {reportPeriodPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setReportPeriodPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-report-period-sheet">
+            <Text style={styles.heading}>Report period</Text>
+            {(["week", "month"] as const).map((period) => <Pressable accessibilityRole="button" key={period} onPress={() => { setReportPeriod(period); setReportPeriodPickerOpen(false); }} style={period === reportPeriod ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-report-period-${period}`}>
+              <Text style={styles.body}>{period === "week" ? "This week" : "This month"}{period === reportPeriod ? " ✓" : ""}</Text>
+            </Pressable>)}
+          </SwipeDownSheet> : null}
           <Text style={styles.inputLabel}>Currency</Text>
           <View style={styles.dropdownContainer}>
             <Pressable
@@ -213,7 +343,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
               style={styles.dropdownBox}
             >
               <Text style={styles.dropdownValue}>{getCurrencyLabel(currency)}</Text>
-              <Text style={styles.dropdownChevron}>
+              <Text style={styles.settingsDropdownChevron}>
                 {currencyDropdownOpen ? "▲" : "▼"}
               </Text>
             </Pressable>
@@ -232,16 +362,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
                         setCurrencyDropdownOpen(false);
                       }}
                       style={
-                        selected ? styles.dropdownOptionActive : styles.dropdownOption
+                        selected ? styles.settingsDropdownOptionSelected : styles.dropdownOption
                       }
                     >
-                      <Text
-                        style={
-                          selected
-                            ? styles.dropdownOptionActiveText
-                            : styles.dropdownOptionText
-                        }
-                      >
+                      <Text style={styles.dropdownOptionText}>
                         {option.code} — {option.name}
                       </Text>
                     </Pressable>
@@ -250,7 +374,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
               </View>
             ) : null}
           </View>
-          <Text style={styles.inputLabel}>Rate entry type</Text>
+          <Text style={styles.inputLabel}>Paid by</Text>
           <View style={styles.dropdownContainer}>
             <Pressable
               accessibilityLabel="Rate entry type dropdown"
@@ -262,7 +386,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
               <Text style={styles.dropdownValue}>
                 {getRateBasisLabel(rateBasis)}
               </Text>
-              <Text style={styles.dropdownChevron}>
+              <Text style={styles.settingsDropdownChevron}>
                 {rateBasisDropdownOpen ? "▲" : "▼"}
               </Text>
             </Pressable>
@@ -281,16 +405,10 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
                         setRateBasisDropdownOpen(false);
                       }}
                       style={
-                        selected ? styles.dropdownOptionActive : styles.dropdownOption
+                        selected ? styles.settingsDropdownOptionSelected : styles.dropdownOption
                       }
                     >
-                      <Text
-                        style={
-                          selected
-                            ? styles.dropdownOptionActiveText
-                            : styles.dropdownOptionText
-                        }
-                      >
+                      <Text style={styles.dropdownOptionText}>
                         {option.label}
                       </Text>
                     </Pressable>
@@ -300,19 +418,20 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             ) : null}
           </View>
           <Text style={styles.inputLabel}>
-            {rateBasis === "monthly" ? "Monthly rate" : "Daily rate"} ({currency})
+            {rateBasis === "monthly" ? "Monthly rate" : rateBasis === "hourly" ? "Hourly rate" : "Daily rate"} ({currency})
           </Text>
-          <TextInput
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Base rate amount"
+            testID="pay-rate-own-rate"
             inputMode="decimal"
             keyboardType="decimal-pad"
             onChangeText={setBaseRate}
-            placeholder={rateBasis === "monthly" ? "3000" : "150"}
+            placeholder={rateBasis === "monthly" ? "3000" : rateBasis === "hourly" ? "15" : "150"}
             style={styles.textInput}
             value={baseRate}
           />
-          <Text style={styles.inputLabel}>Normal start (HH:MM)</Text>
-          <TextInput
+          <Text style={styles.inputLabel}>Start time</Text>
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Normal work start time"
             inputMode="numeric"
             keyboardType="numbers-and-punctuation"
@@ -321,8 +440,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             style={styles.textInput}
             value={normalStart}
           />
-          <Text style={styles.inputLabel}>Normal end (HH:MM)</Text>
-          <TextInput
+          <Text style={styles.inputLabel}>End time</Text>
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Normal work end time"
             inputMode="numeric"
             keyboardType="numbers-and-punctuation"
@@ -331,8 +450,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             style={styles.textInput}
             value={normalEnd}
           />
-          <Text style={styles.inputLabel}>OT rate multiplier</Text>
-          <TextInput
+          <Text style={styles.inputLabel}>Overtime ×</Text>
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Overtime rate multiplier"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -341,8 +460,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             style={styles.textInput}
             value={overtimeMultiplier}
           />
-          <Text style={styles.inputLabel}>Off day rate multiplier</Text>
-          <TextInput
+          <Text style={styles.inputLabel}>Off day ×</Text>
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Off day rate multiplier"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -351,8 +470,8 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             style={styles.textInput}
             value={offDayMultiplier}
           />
-          <Text style={styles.inputLabel}>Holiday rate multiplier</Text>
-          <TextInput
+          <Text style={styles.inputLabel}>Public holiday ×</Text>
+          <TextInput placeholderTextColor={theme.colors.placeholder}
             accessibilityLabel="Holiday rate multiplier"
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -361,40 +480,69 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted }: Settings
             style={styles.textInput}
             value={holidayMultiplier}
           />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleSaveWorkHours()}
-            style={styles.actionButton}
-          >
-            <Text style={styles.actionButtonText}>Save Work Hours</Text>
+          <Text style={styles.inputLabel}>Lunch break</Text>
+          <Pressable testID="settings-lunch-break" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setLunchPickerOpen(true)}>
+            <Text style={styles.dropdownValue}>{lunchChoiceLabel(lunchChoice, lunchMinutes)}</Text>
+            <Text style={styles.settingsDropdownChevron}>▼</Text>
           </Pressable>
+          {lunchPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setLunchPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-lunch-break-sheet">
+            <Text style={styles.heading}>Lunch break</Text>
+            {LUNCH_CHOICES.map((choice) => <Pressable accessibilityRole="button" key={choice.id} onPress={() => { setLunchChoice(choice.id); if (choice.minutes !== null) setLunchMinutes(String(choice.minutes)); setLunchPickerOpen(false); }} style={choice.id === lunchChoice ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-lunch-${choice.id}`}>
+              <Text style={styles.body}>{choice.label}{choice.id === lunchChoice ? " ✓" : ""}</Text>
+            </Pressable>)}
+          </SwipeDownSheet> : null}
+          {lunchChoice === "custom" ? <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Custom lunch break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setLunchMinutes} placeholder="1–240" style={styles.textInput} value={lunchMinutes} /> : null}
+          <Text style={styles.inputLabel}>Dinner break</Text>
+          <Pressable testID="settings-dinner-break" accessibilityRole="button" style={styles.dropdownBox} onPress={() => setDinnerPickerOpen(true)}><Text style={styles.dropdownValue}>{lunchChoiceLabel(dinnerChoice, dinnerMinutes)}</Text><Text style={styles.settingsDropdownChevron}>▼</Text></Pressable>
+          {dinnerPickerOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setDinnerPickerOpen(false)} sheetStyle={styles.projectSheet} testID="settings-dinner-break-sheet"><Text style={styles.heading}>Dinner break</Text>{LUNCH_CHOICES.map((choice) => <Pressable accessibilityRole="button" key={choice.id} onPress={() => { setDinnerChoice(choice.id); if (choice.minutes !== null) setDinnerMinutes(String(choice.minutes)); setDinnerPickerOpen(false); }} style={choice.id === dinnerChoice ? styles.settingsDropdownOptionSelected : styles.dropdownOption} testID={`settings-dinner-${choice.id}`}><Text style={styles.body}>{choice.label}{choice.id === dinnerChoice ? " ✓" : ""}</Text></Pressable>)}</SwipeDownSheet> : null}
+          {dinnerChoice === "custom" ? <TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Custom dinner break minutes" inputMode="numeric" keyboardType="number-pad" onChangeText={setDinnerMinutes} placeholder="1–240" style={styles.textInput} value={dinnerMinutes} /> : null}
+          {Number(dinnerMinutes) > 0 ? <><Text style={styles.inputLabel}>Dinner starts</Text><TextInput placeholderTextColor={theme.colors.placeholder} accessibilityLabel="Dinner start time" inputMode="numeric" keyboardType="numbers-and-punctuation" onChangeText={setDinnerStart} placeholder="18:00" style={styles.textInput} value={dinnerStart} /></> : null}
+          <Pressable testID="settings-pay-rate-save" accessibilityRole="button" accessibilityState={{ disabled: !isPayRateDirty() }} disabled={!isPayRateDirty()} onPress={() => void handleSaveWorkHours()} style={[styles.actionButton, !isPayRateDirty() ? styles.disabledButton : null]}><Text style={[styles.actionButtonText, !isPayRateDirty() ? styles.disabledButtonText : null]}>Save</Text></Pressable>
           <Text style={styles.statusMessage}>{workHoursStatus}</Text>
+          {leavePromptOpen ? <SwipeDownSheet backdropStyle={styles.projectSheetBackdrop} onClose={() => setLeavePromptOpen(false)} sheetStyle={styles.projectSheet} testID="settings-pay-rate-leave-sheet">
+            <Text style={styles.heading}>Save changes before leaving?</Text>
+            <Text style={styles.body}>Your pay rate changes have not been saved.</Text>
+            <View style={styles.clockButtonRow}>
+              <Pressable accessibilityRole="button" onPress={() => void discardPayRateChanges()} style={styles.actionButtonSecondary}><Text style={styles.actionButtonSecondaryText}>Discard</Text></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => void saveAndLeavePayRate()} style={styles.actionButton}><Text style={styles.actionButtonText}>Save</Text></Pressable>
+            </View>
+          </SwipeDownSheet> : null}
         </View>
       ) : null}
 
-      {panel === "subscription" ? (
+      {panel === "plan" ? (
         <PlanBillingPanel
+          subscription={subscription}
           action={subscriptionAction}
           actionStatus={subscriptionActionStatus}
           localizedStorePrice={storePrice}
           onManageSubscription={() => void handleManageSubscription()}
           onSubscribe={() => void handleSubscribe()}
+          exportNote={exportNote}
         />
       ) : null}
 
-      {panel === "referrals" ? <ReferralScreen /> : null}
+      {panel === "backup" ? <SettingsBackupScreen account={account} exportOnly={!hasFullAccess} /> : null}
 
       {panel === "privacy_data" ? (
         <>
           <PrivacyScreen />
-          <SettingsBackupScreen account={account} exportOnly={!hasFullAccess} />
+          <Pressable accessibilityRole="button" onPress={() => setPanel("delete_account")} style={styles.settingsRow}>
+            <View style={styles.settingsRowContent}>
+              <Text style={styles.settingsRowLabel}>Delete account</Text>
+            </View>
+            <Text style={styles.settingsChevron}>›</Text>
+          </Pressable>
+        </>
+      ) : null}
+      {panel === "delete_account" ? (
           <DeleteAccountScreen
+            embedded
             account={account}
             onAccountDeleted={onAccountDeleted}
           />
-        </>
       ) : null}
-    </>
+    </View>
   );
 }
 
@@ -410,9 +558,30 @@ const CURRENCY_OPTIONS = [
 ] as const;
 
 const RATE_BASIS_OPTIONS: { id: AppSettings["rateBasis"]; label: string }[] = [
+  { id: "hourly", label: "Hourly" },
   { id: "daily", label: "Daily" },
   { id: "monthly", label: "Monthly" },
 ];
+
+type LunchChoice = "none" | "30" | "60" | "90" | "120" | "custom";
+
+const LUNCH_CHOICES: { id: LunchChoice; label: string; minutes: number | null }[] = [
+  { id: "none", label: "None", minutes: 0 },
+  { id: "30", label: "30 min", minutes: 30 },
+  { id: "60", label: "1 h", minutes: 60 },
+  { id: "90", label: "1.5 h", minutes: 90 },
+  { id: "120", label: "2 h", minutes: 120 },
+  { id: "custom", label: "Custom", minutes: null },
+];
+
+function lunchChoiceForMinutes(minutes: number): LunchChoice {
+  return LUNCH_CHOICES.find((choice) => choice.minutes === minutes)?.id ?? "custom";
+}
+
+function lunchChoiceLabel(choice: LunchChoice, minutes: string): string {
+  if (choice !== "custom") return LUNCH_CHOICES.find((item) => item.id === choice)?.label ?? "None";
+  return minutes ? `Custom (${minutes} min)` : "Custom";
+}
 
 function getCurrencyLabel(currency: string): string {
   const option = CURRENCY_OPTIONS.find((item) => item.code === currency);
@@ -422,27 +591,6 @@ function getCurrencyLabel(currency: string): string {
 function getRateBasisLabel(rateBasis: AppSettings["rateBasis"]): string {
   const option = RATE_BASIS_OPTIONS.find((item) => item.id === rateBasis);
   return option?.label ?? rateBasis;
-}
-
-async function getNativeRepositories(userId: string) {
-  const { getLocalRepositories } = await import("../db/repositories");
-  return getLocalRepositories(userId);
-}
-
-function calculateNormalHours(startTime: string, endTime: string): number {
-  const start = minutesOfDay(startTime);
-  let end = minutesOfDay(endTime);
-  if (end <= start) {
-    end += 24 * 60;
-  }
-  return Number(((end - start) / 60).toFixed(2));
-}
-
-function minutesOfDay(value: string): number {
-  const [hourText, minuteText] = value.split(":");
-  const hour = Number.parseInt(hourText, 10);
-  const minute = Number.parseInt(minuteText, 10);
-  return hour * 60 + minute;
 }
 
 function parseRateAmountCents(value: string): number {
@@ -461,6 +609,27 @@ function formatRateAmount(cents: number): string {
   return (cents / 100).toFixed(2).replace(/\.00$/, "");
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Work hours action failed.";
+function payFormKey(settings: Pick<AppSettings, "currency" | "rateBasis" | "baseRateCents" | "normalWorkStartTime" | "normalWorkEndTime" | "overtimeMultiplier" | "offDayMultiplier" | "holidayMultiplier" | "lunchMinutes" | "dinnerMinutes" | "dinnerStartTime">, period: ReportPeriod): string {
+  return JSON.stringify({ ...settings, dinnerMinutes: settings.dinnerMinutes ?? 0, dinnerStartTime: settings.dinnerStartTime ?? null, period });
+}
+
+function plusOneHour(clockTime: string): string { const [hour, minute] = clockTime.split(":").map(Number); const total = ((hour * 60 + minute + 60) % 1440 + 1440) % 1440; return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; }
+
+function getPayRateSaveErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message.startsWith("Invalid app settings: ")) {
+    const reason = message.slice("Invalid app settings: ".length)
+      .replace("normalWorkEndTime must be different from normalWorkStartTime", "End time must differ from start time")
+      .replace("dailyHours", "Daily hours")
+      .replace("weeklyHours", "Weekly hours")
+      .replace("overtimeMultiplier", "Overtime multiplier")
+      .replace("offDayMultiplier", "Off-day multiplier")
+      .replace("holidayMultiplier", "Holiday multiplier")
+      .replace("baseRateCents", "Pay rate")
+      .replace("normalWorkStartTime", "Start time")
+      .replace("normalWorkEndTime", "End time")
+      .replace("rateBasis", "Rate basis");
+    return `Couldn't save pay rate: ${reason}`;
+  }
+  return "Couldn't save pay rate. Your phone storage didn't respond — reopen the app and try again.";
 }

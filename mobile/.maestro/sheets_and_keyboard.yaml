@@ -1,0 +1,19 @@
+appId: sg.claimproof.mobile.test
+---
+- launchApp
+- tapOn: "Choose a project"
+- tapOn: "+ New project"
+- tapOn: "Project name"
+- inputText: "Keyboard visibility project"
+- assertVisible: "Cancel"
+- assertVisible: "Save"
+- tapOn: "Cancel"
+- assertNotVisible: "New project"
+- tapOn: "Photos"
+- longPressOn: "Take photo"
+- tapOn: "Photo evidence caption"
+- inputText: "Keyboard visibility photo"
+- assertVisible: "Cancel"
+- assertVisible: "Save"
+- tapOn: "Cancel"
+- assertNotVisible: "Photo proof"

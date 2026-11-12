@@ -60,12 +60,12 @@ function createTsLoader() {
   return load;
 }
 
-test("schema version 7 adds rate entry settings", () => {
+test("schema version 15 keeps existing data and adds project discovery, audit, lunch and dinner fields", () => {
   const { CURRENT_SCHEMA_VERSION, LOCAL_MIGRATIONS, MOBILE_SCHEMA_SQL } = createTsLoader()(
     "src/db/schema.ts",
   );
 
-  assert.equal(CURRENT_SCHEMA_VERSION, 7);
+  assert.equal(CURRENT_SCHEMA_VERSION, 15);
   for (const field of [
     "break_minutes",
     "location_text",
@@ -78,12 +78,20 @@ test("schema version 7 adds rate entry settings", () => {
     "day_type",
     "rate_basis",
     "base_rate_cents",
+    "dinner_minutes",
+    "dinner_start_time",
   ]) {
     assert.match(MOBILE_SCHEMA_SQL, new RegExp(`\\b${field}\\b`));
   }
-  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 7);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /rate_basis/);
-  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /base_rate_cents/);
+  assert.equal(LOCAL_MIGRATIONS.at(-1).version, 15);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /CREATE TABLE IF NOT EXISTS project_groups/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /ALTER TABLE projects ADD COLUMN site_address/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 12).sql, /project_status TEXT NOT NULL DEFAULT 'active'/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 13).sql, /CREATE TABLE IF NOT EXISTS evidence_audit/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 14).sql, /lunch_minutes/);
+  assert.match(LOCAL_MIGRATIONS.at(-1).sql, /dinner_minutes/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /rate_basis/);
+  assert.match(LOCAL_MIGRATIONS.find((migration) => migration.version === 7).sql, /base_rate_cents/);
 });
 
 test("WorkRepository starts empty until the user creates a project", async () => {
@@ -115,6 +123,7 @@ test("WorkRepository persists clock in/out for a user-created project", async ()
   const project = await repository.createProject({
     clientId: client.id,
     name: "Phone Test Project",
+    hourlyRateCents: 2500,
   });
 
   const clockIn = await repository.clockIn({
@@ -179,6 +188,37 @@ test("WorkRepository creates local clients and projects for work setup", async (
   assert.equal(homeState.project.hourlyRateCents, 3200);
 });
 
+test("WorkRepository accepts an unset rate and updates a positive project hourly rate", async () => {
+  const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
+  const database = new FakeWorkDatabase();
+  const repository = new WorkRepository(database);
+
+  const client = await repository.createClient({ name: "Rate Client" });
+  const unsetRateProject = await repository.createProject({
+    clientId: client.id,
+    name: "Missing Rate Project",
+    hourlyRateCents: 0,
+  });
+  assert.equal(unsetRateProject.hourlyRateCents, 0);
+
+  const project = await repository.createProject({
+    clientId: client.id,
+    name: "Rate Project",
+    hourlyRateCents: 2500,
+  });
+  assert.equal(project.hourlyRateCents, 2500);
+
+  const updated = await repository.updateProject({
+    projectId: project.id,
+    name: "Updated Rate Project",
+    description: "Updated scope.",
+    hourlyRateCents: 3750,
+  });
+  assert.equal(updated.name, "Updated Rate Project");
+  assert.equal(updated.description, "Updated scope.");
+  assert.equal(updated.hourlyRateCents, 3750);
+});
+
 test("WorkRepository creates a manual entry for the selected project with inclusive break", async () => {
   const { WorkRepository } = createTsLoader()("src/work/workRepository.ts");
   const database = new FakeWorkDatabase();
@@ -216,6 +256,7 @@ test("WorkRepository deletes a recent time entry", async () => {
   const project = await repository.createProject({
     clientId: client.id,
     name: "Delete Entry Project",
+    hourlyRateCents: 2500,
   });
 
   const entry = await repository.createManualEntry({
@@ -245,6 +286,7 @@ test("WorkRepository prevents one user from deleting another user's time entry",
     userId: "user-a",
     clientId: client.id,
     name: "User A Project",
+    hourlyRateCents: 2500,
   });
   const entry = await repository.createManualEntry({
     userId: "user-a",
@@ -270,6 +312,7 @@ test("WorkRepository unlinks photo evidence before deleting a time entry", async
   const project = await repository.createProject({
     clientId: client.id,
     name: "Evidence Project",
+    hourlyRateCents: 2500,
   });
   const entry = await repository.createManualEntry({
     projectId: project.id,
@@ -359,6 +402,16 @@ class FakeWorkDatabase {
       return;
     }
 
+    if (/UPDATE projects/i.test(sql)) {
+      const project = this.projects.find(
+        (row) => row.id === params[3] && row.user_id === params[4],
+      );
+      project.name = params[0];
+      project.description = params[1];
+      project.hourly_rate_cents = params[2];
+      return;
+    }
+
     if (/INSERT INTO time_entries/i.test(sql)) {
       const isManual = /VALUES \(\?, \?, \?, \?, \?, \?, \?, \?, \?, \?, NULL, NULL, \?, \?, \?, 'finalized'\)/i.test(
         sql.replace(/\s+/g, " "),
@@ -399,6 +452,10 @@ class FakeWorkDatabase {
         clock_out_gps_latitude: null,
         clock_out_gps_longitude: null,
         duration_minutes: 0,
+        clock_in_location_source: params[10],
+        clock_in_gps_accuracy_m: params[11],
+        clock_in_located_at: params[12],
+        location_note: params[13],
         activity: params[8],
         day_type: params[9],
         status: "draft",
@@ -409,14 +466,19 @@ class FakeWorkDatabase {
 
     if (/UPDATE time_entries/i.test(sql)) {
       const entry = this.timeEntries.find(
-        (row) => row.id === params[6] && row.user_id === params[7],
+        (row) => row.id === params[11] && row.user_id === params[12],
       );
       entry.end_time = params[0];
       entry.break_minutes = params[1];
-      entry.clock_out_gps_latitude = params[2];
-      entry.clock_out_gps_longitude = params[3];
-      entry.duration_minutes = params[4];
-      entry.activity = params[5];
+      entry.clock_out_location_text = params[2];
+      entry.clock_out_gps_latitude = params[3];
+      entry.clock_out_gps_longitude = params[4];
+      entry.duration_minutes = params[5];
+      entry.activity = params[6];
+      entry.clock_out_location_source = params[7];
+      entry.clock_out_gps_accuracy_m = params[8];
+      entry.clock_out_located_at = params[9];
+      entry.location_note = params[10] ?? entry.location_note;
       return;
     }
 

@@ -86,7 +86,7 @@ test("parseBackupJson rejects malformed JSON with a clear error", () => {
 
   assert.throws(
     () => parseBackupJson("{not-json"),
-    /Backup JSON is malformed/,
+    (error) => error.message === "This file isn't a DISPUTE copy." && /Backup JSON is malformed/.test(String(error.cause)),
   );
 });
 
@@ -105,7 +105,7 @@ test("parseBackupJson rejects wrong app marker and unsupported version", () => {
           tables: createCompleteTables(),
         }),
       ),
-    /not a dispute mobile backup/,
+    (error) => error.message === "This file isn't a DISPUTE copy." && /not a dispute mobile backup/.test(String(error.cause)),
   );
 
   assert.throws(
@@ -119,7 +119,7 @@ test("parseBackupJson rejects wrong app marker and unsupported version", () => {
           tables: createCompleteTables(),
         }),
       ),
-    /Unsupported backup version/,
+    (error) => error.message === "This file isn't a DISPUTE copy." && /Unsupported backup version/.test(String(error.cause)),
   );
 });
 
@@ -158,7 +158,7 @@ test("parseBackupJson rejects known table payloads that are not arrays", () => {
           }),
         }),
       ),
-    /Backup table clients must be an array/,
+    (error) => error.message === "This file isn't a DISPUTE copy." && /Backup table clients must be an array/.test(String(error.cause)),
   );
 });
 
@@ -177,7 +177,7 @@ test("parseBackupJson rejects partial destructive restore table payloads", () =>
           tables: { clients: [] },
         }),
       ),
-    /Backup is missing required table app_settings/,
+    (error) => error.message === "This file isn't a DISPUTE copy." && /Backup is missing required table app_settings/.test(String(error.cause)),
   );
 });
 
@@ -198,7 +198,7 @@ test("parseBackupJson rejects schema migration table payloads", () => {
           }),
         }),
       ),
-    /schema_migrations cannot be restored from backup/,
+    (error) => error.message === "This file isn't a DISPUTE copy." && /schema_migrations cannot be restored from backup/.test(String(error.cause)),
   );
 });
 

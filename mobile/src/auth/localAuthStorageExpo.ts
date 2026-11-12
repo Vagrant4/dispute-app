@@ -7,6 +7,7 @@ const AUTH_DIRECTORY = `${FileSystem.documentDirectory ?? ""}auth`;
 const AUTH_FILE = `${AUTH_DIRECTORY}/local-accounts.json`;
 const LEGACY_SAVED_LOGIN_FILE = `${AUTH_DIRECTORY}/saved-login.json`;
 const SAVED_LOGIN_KEY = "dispute.saved-login.v1";
+const ACTIVE_SESSION_KEY = "dispute.active-session.v1";
 
 export type SavedLoginDetails = {
   email: string;
@@ -78,8 +79,47 @@ export async function clearSavedLoginDetails(): Promise<void> {
   await FileSystem.deleteAsync(LEGACY_SAVED_LOGIN_FILE, { idempotent: true });
 }
 
+
+export async function loadActiveSession(): Promise<LocalAccount | null> {
+  const value = await SecureStore.getItemAsync(ACTIVE_SESSION_KEY);
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Partial<LocalAccount>;
+    if (typeof parsed.email !== "string" || typeof parsed.name !== "string") {
+      return null;
+    }
+    return {
+      ...(typeof parsed.id === "string" ? { id: parsed.id } : {}),
+      email: parsed.email.trim().toLowerCase(),
+      name: parsed.name,
+      phone: typeof parsed.phone === "string" ? parsed.phone : "",
+      emailVerified: parsed.emailVerified === true,
+      ...(parsed.isGuest === true ? { isGuest: true } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveActiveSession(account: LocalAccount): Promise<void> {
+  const payload: LocalAccount = {
+    ...(typeof account.id === "string" ? { id: account.id } : {}),
+    email: account.email.trim().toLowerCase(),
+    name: account.name,
+    phone: account.phone ?? "",
+    emailVerified: account.emailVerified === true,
+    ...(account.isGuest === true ? { isGuest: true } : {}),
+  };
+  await SecureStore.setItemAsync(ACTIVE_SESSION_KEY, JSON.stringify(payload));
+}
+
+export async function clearActiveSession(): Promise<void> {
+  await SecureStore.deleteItemAsync(ACTIVE_SESSION_KEY);
+}
+
 export async function clearAllLocalAuthData(): Promise<void> {
   await SecureStore.deleteItemAsync(SAVED_LOGIN_KEY);
+  await SecureStore.deleteItemAsync(ACTIVE_SESSION_KEY);
   await FileSystem.deleteAsync(AUTH_DIRECTORY, { idempotent: true });
 }
 
@@ -99,6 +139,13 @@ export async function removeLocalAccountData(params: {
   const savedLogin = await loadSavedLoginDetails();
   if (savedLogin?.email.trim().toLowerCase() === normalizedEmail) {
     await clearSavedLoginDetails();
+  }
+  const active = await loadActiveSession();
+  if (
+    active &&
+    (active.id === params.userId || active.email.trim().toLowerCase() === normalizedEmail)
+  ) {
+    await clearActiveSession();
   }
 }
 
@@ -138,6 +185,7 @@ function sanitizeAccounts(value: unknown): LocalAccount[] {
       name: account.name,
       phone: typeof account.phone === "string" ? account.phone : "",
       emailVerified: account.emailVerified === true,
+      ...(account.isGuest === true ? { isGuest: true } : {}),
     }];
   });
 }

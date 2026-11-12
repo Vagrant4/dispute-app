@@ -1,7 +1,13 @@
+import { locationReading, appendLocationHistory, assertRefreshPhase, type LocationSource, type LocationParams } from "./locationEvidence";
 import { calculateTotalHours } from "@claimproof/shared";
 
 import type { LocalDatabase } from "../db/localDatabase";
 import { DEFAULT_USER_ID } from "../db/settingsValidation";
+import { normalizeProjectHourlyRateCents } from "./projectRates";
+import { closeOpenBreak, summarizeBreaks, type BreakInterval, type TaskSwitch } from "./shiftTimeline";
+import { normalizeProjectStatus, type ProjectStatus } from "./projectDiscovery";
+
+export type WorkTask = { id: string; projectId: string; name: string };
 
 export type WorkProject = {
   id: string;
@@ -12,6 +18,21 @@ export type WorkProject = {
   hourlyRateCents: number;
   currency: string;
   status: string;
+  projectStatus: ProjectStatus;
+  groupId: string | null;
+  siteAddress: string | null;
+  siteLatitude: number | null;
+  siteLongitude: number | null;
+};
+
+export type ProjectGroup = { id: string; name: string };
+
+export type ProjectSummary = {
+  id: string; name: string; lastSiteAddress: string | null; lastWorkedAt: string | null;
+  lastSiteLatitude: number | null; lastSiteLongitude: number | null; lastSiteAccuracyM: number | null;
+  minutesThisWeek: number; photoCount: number; isActive: boolean; status: string;
+  projectStatus: ProjectStatus; groupId: string | null;
+  siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null; latestPhotoUri: string | null;
 };
 
 export type WorkClient = {
@@ -35,6 +56,19 @@ export type WorkEntry = {
   activity: string;
   dayType: WorkDayType;
   locationText: string | null;
+  clockOutLocationText?: string | null;
+  clockInLocationSource?: LocationSource;
+  clockOutLocationSource?: LocationSource;
+  clockInGpsAccuracyM?: number | null;
+  clockOutGpsAccuracyM?: number | null;
+  clockInLocatedAt?: string | null;
+  clockOutLocatedAt?: string | null;
+  locationNote?: string | null;
+  locationHistoryJson?: string | null;
+  breakIntervals: BreakInterval[];
+  taskSwitches: TaskSwitch[];
+  currentTaskId: string | null;
+
   clockInGpsLatitude: number | null;
   clockInGpsLongitude: number | null;
   clockOutGpsLatitude: number | null;
@@ -51,7 +85,7 @@ export type WorkHomeState = {
   totalMinutesToday: number;
 };
 
-export type ClockInParams = {
+export type ClockInParams = LocationParams & {
   userId?: string;
   projectId?: string;
   clockInAt?: Date;
@@ -59,14 +93,16 @@ export type ClockInParams = {
   locationText?: string;
   gpsLatitude?: number | null;
   gpsLongitude?: number | null;
+  taskId?: string | null;
 };
 
-export type ClockOutParams = {
+export type ClockOutParams = LocationParams & {
   userId?: string;
   entryId: string;
   clockOutAt?: Date;
   breakMinutes?: number;
   activity?: string;
+  locationText?: string;
   gpsLatitude?: number | null;
   gpsLongitude?: number | null;
 };
@@ -83,8 +119,11 @@ export type CreateProjectParams = {
   clientId: string;
   name: string;
   description?: string;
-  hourlyRateCents?: number;
+  hourlyRateCents: number;
   currency?: string;
+  siteAddress?: string;
+  siteLatitude?: number | null;
+  siteLongitude?: number | null;
 };
 
 export type UpdateProjectParams = {
@@ -92,6 +131,7 @@ export type UpdateProjectParams = {
   projectId: string;
   name: string;
   description?: string | null;
+  hourlyRateCents: number;
 };
 
 export type CreateManualEntryParams = {
@@ -125,6 +165,19 @@ type EntryRow = {
   activity: string;
   day_type: WorkDayType | null;
   location_text: string | null;
+  clock_out_location_text: string | null;
+  clock_in_location_source: LocationSource;
+  clock_out_location_source: LocationSource;
+  clock_in_gps_accuracy_m: number | null;
+  clock_out_gps_accuracy_m: number | null;
+  clock_in_located_at: string | null;
+  clock_out_located_at: string | null;
+  location_note: string | null;
+  location_history_json: string | null;
+  break_intervals_json: string;
+  task_switches_json: string;
+  current_task_id: string | null;
+
   clock_in_gps_latitude: number | null;
   clock_in_gps_longitude: number | null;
   clock_out_gps_latitude: number | null;
@@ -141,6 +194,11 @@ type ProjectRow = {
   currency: string;
   client_name: string;
   status: string;
+  project_status: string | null;
+  group_id: string | null;
+  site_address: string | null;
+  site_latitude: number | null;
+  site_longitude: number | null;
 };
 
 type ClientRow = {
@@ -193,6 +251,7 @@ export class WorkRepository {
     }
     const clockInAt = params.clockInAt ?? new Date();
     const id = createLocalId("time");
+    const reading = locationReading(params, "start");
 
     await this.database.runAsync(
       `
@@ -210,8 +269,8 @@ INSERT INTO time_entries (
   duration_minutes,
   activity,
   day_type,
-  status
-) VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, 0, ?, ?, 'draft')
+  status, clock_in_location_source, clock_in_gps_accuracy_m, clock_in_located_at, location_note, clock_out_location_source
+) VALUES (?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, 0, ?, ?, 'draft', ?, ?, ?, ?, 'none')
 `,
       [
         id,
@@ -219,13 +278,18 @@ INSERT INTO time_entries (
         project.id,
         dateOnly(clockInAt),
         clockInAt.toISOString(),
-        normalizeOptionalText(params.locationText),
-        params.gpsLatitude ?? null,
-        params.gpsLongitude ?? null,
+        reading.address,
+        reading.latitude,
+        reading.longitude,
         "Clocked in on site.",
         normalizeDayType(params.dayType),
+        reading.source,
+        reading.accuracy,
+        reading.locatedAt,
+        params.locationNote?.trim() || null,
       ],
     );
+    if (params.taskId) await this.database.runAsync("UPDATE time_entries SET current_task_id = ?, task_switches_json = ? WHERE id = ? AND user_id = ?", [params.taskId, JSON.stringify([{ taskId: params.taskId, at: clockInAt.toISOString() }]), id, userId]);
 
     return this.getEntryOrThrow(userId, id);
   }
@@ -240,8 +304,10 @@ INSERT INTO time_entries (
       return existing;
     }
 
+    const reading = locationReading(params, "stop");
     const clockOutAt = params.clockOutAt ?? new Date();
-    const breakMinutes = Math.max(0, Math.floor(params.breakMinutes ?? 0));
+    const closedBreaks = closeOpenBreak(existing.breakIntervals, clockOutAt);
+    const breakMinutes = existing.breakIntervals.length ? summarizeBreaks(closedBreaks).minutes : Math.max(0, Math.floor(params.breakMinutes ?? 0));
     const totalHours = calculateTotalHours(
       new Date(existing.startTime),
       clockOutAt,
@@ -257,26 +323,108 @@ INSERT INTO time_entries (
 UPDATE time_entries
 SET end_time = ?,
     break_minutes = ?,
+    clock_out_location_text = ?,
     clock_out_gps_latitude = ?,
     clock_out_gps_longitude = ?,
     duration_minutes = ?,
     activity = ?,
+    clock_out_location_source = ?,
+    clock_out_gps_accuracy_m = ?,
+    clock_out_located_at = ?,
+    location_note = COALESCE(?, location_note),
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND user_id = ? AND end_time IS NULL
 `,
       [
         clockOutAt.toISOString(),
         breakMinutes,
-        params.gpsLatitude ?? null,
-        params.gpsLongitude ?? null,
+        reading.address,
+        reading.latitude,
+        reading.longitude,
         durationMinutes,
         activity,
+        reading.source,
+        reading.accuracy,
+        reading.locatedAt,
+        params.locationNote?.trim() || null,
         params.entryId,
         userId,
       ],
     );
+    if (existing.breakIntervals.length) await this.database.runAsync("UPDATE time_entries SET break_intervals_json = ? WHERE id = ? AND user_id = ?", [JSON.stringify(closedBreaks), params.entryId, userId]);
 
     return this.getEntryOrThrow(userId, params.entryId);
+  }
+
+  async completeStartLocation(params: LocationParams & { userId: string; entryId: string }): Promise<boolean> {
+    const reading = locationReading(params, "start");
+    const result = await this.database.runAsync(
+      `UPDATE time_entries SET location_text = ?, clock_in_location_source = ?, clock_in_gps_latitude = ?, clock_in_gps_longitude = ?, clock_in_gps_accuracy_m = ?, clock_in_located_at = ? WHERE id = ? AND user_id = ? AND end_time IS NULL AND clock_in_location_source = 'none'`,
+      [reading.address, reading.source, reading.latitude, reading.longitude, reading.accuracy, reading.locatedAt, params.entryId, params.userId],
+    );
+    return result.changes > 0;
+  }
+
+  async refreshLocation(params: LocationParams & { userId: string; entryId: string; phase: "start" | "stop" }): Promise<void> {
+    // A SQLite write transaction prevents concurrent refreshes from dropping history.
+    await this.database.execAsync("BEGIN IMMEDIATE TRANSACTION;");
+    try {
+      const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+      assertRefreshPhase(entry, params.phase);
+      const reading = locationReading(params, params.phase);
+      const history = appendLocationHistory(entry.locationHistoryJson, reading);
+      await this.database.runAsync(
+        `UPDATE time_entries SET location_history_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`,
+        [history, params.entryId, params.userId],
+      );
+      await this.database.execAsync("COMMIT;");
+    } catch (error) {
+      await this.database.execAsync("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  async saveLocationNote(params: { userId: string; entryId: string; note: string }): Promise<void> {
+    await this.database.runAsync(`UPDATE time_entries SET location_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`, [params.note.trim() || null, params.entryId, params.userId]);
+  }
+
+  async listTasks(userId: string, projectId: string): Promise<WorkTask[]> {
+    const rows = await this.database.getAllAsync<{ id: string; project_id: string; name: string }>("SELECT id, project_id, name FROM project_tasks WHERE user_id = ? AND project_id = ? ORDER BY created_at, name", [userId, projectId]);
+    return rows.map((row) => ({ id: row.id, projectId: row.project_id, name: row.name }));
+  }
+
+  async addTask(params: { userId: string; projectId: string; name: string }): Promise<WorkTask> {
+    await this.getProjectOrThrow(params.userId, params.projectId);
+    const task = { id: createLocalId("task"), projectId: params.projectId, name: requireText(params.name, "Task name") };
+    await this.database.runAsync("INSERT INTO project_tasks (id, user_id, project_id, name) VALUES (?, ?, ?, ?)", [task.id, params.userId, task.projectId, task.name]);
+    return task;
+  }
+
+  async renameTask(params: { userId: string; taskId: string; name: string }): Promise<void> {
+    await this.database.runAsync("UPDATE project_tasks SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [requireText(params.name, "Task name"), params.taskId, params.userId]);
+  }
+
+  async startBreak(params: { userId: string; entryId: string; at?: Date }): Promise<WorkEntry> {
+    const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+    if (!entry.endTime && !entry.breakIntervals.some((item) => !item.endedAt)) entry.breakIntervals.push({ startedAt: (params.at ?? new Date()).toISOString(), endedAt: null });
+    await this.database.runAsync("UPDATE time_entries SET break_intervals_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND end_time IS NULL", [JSON.stringify(entry.breakIntervals), params.entryId, params.userId]);
+    return this.getEntryOrThrow(params.userId, params.entryId);
+  }
+
+  async endBreak(params: { userId: string; entryId: string; at?: Date }): Promise<WorkEntry> {
+    const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+    const intervals = closeOpenBreak(entry.breakIntervals, params.at ?? new Date());
+    await this.database.runAsync("UPDATE time_entries SET break_intervals_json = ?, break_minutes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND end_time IS NULL", [JSON.stringify(intervals), summarizeBreaks(intervals).minutes, params.entryId, params.userId]);
+    return this.getEntryOrThrow(params.userId, params.entryId);
+  }
+
+  async switchTask(params: { userId: string; entryId: string; taskId: string; at?: Date }): Promise<WorkEntry> {
+    const entry = await this.getEntryOrThrow(params.userId, params.entryId);
+    const tasks = await this.listTasks(params.userId, entry.projectId);
+    if (!tasks.some((task) => task.id === params.taskId)) throw new Error("Task not found for this project.");
+    const switches = [...entry.taskSwitches, { taskId: params.taskId, at: (params.at ?? new Date()).toISOString() }];
+    await this.database.runAsync("UPDATE time_entries SET current_task_id = ?, task_switches_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? AND end_time IS NULL", [params.taskId, JSON.stringify(switches), params.entryId, params.userId]);
+    return this.getEntryOrThrow(params.userId, params.entryId);
   }
 
   async createManualEntry(params: CreateManualEntryParams): Promise<WorkEntry> {
@@ -359,6 +507,36 @@ ORDER BY updated_at DESC, name ASC
     }));
   }
 
+  async listProjectSummaries(userId: string, weekStart: string): Promise<ProjectSummary[]> {
+    const weekEnd = new Date(`${weekStart}T00:00:00Z`);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    const rows = await this.database.getAllAsync<Omit<ProjectSummary, "isActive"> & { isActive: number }>(`
+SELECT p.id, p.name, p.status, p.project_status AS projectStatus, p.group_id AS groupId,
+ p.site_address AS siteAddress, p.site_latitude AS siteLatitude, p.site_longitude AS siteLongitude,
+ (SELECT f.local_uri FROM photo_evidence f WHERE f.user_id = p.user_id AND f.project_id = p.id ORDER BY COALESCE(f.captured_at, f.created_at) DESC LIMIT 1) AS latestPhotoUri,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_location_text WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.location_text END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAddress,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_latitude WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_latitude END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteLatitude,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_longitude WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_longitude END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteLongitude,
+ (SELECT CASE WHEN e.clock_out_gps_latitude IS NOT NULL AND e.clock_out_gps_longitude IS NOT NULL THEN e.clock_out_gps_accuracy_m WHEN e.clock_in_gps_latitude IS NOT NULL AND e.clock_in_gps_longitude IS NOT NULL THEN e.clock_in_gps_accuracy_m END FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id ORDER BY e.start_time DESC, e.id DESC LIMIT 1) AS lastSiteAccuracyM,
+ (SELECT MAX(e.start_time) FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id) AS lastWorkedAt,
+ COALESCE((SELECT SUM(e.duration_minutes) FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id AND e.work_date >= ? AND e.work_date < ?), 0) AS minutesThisWeek,
+ (SELECT COUNT(*) FROM photo_evidence f WHERE f.user_id = p.user_id AND f.project_id = p.id) AS photoCount,
+ EXISTS(SELECT 1 FROM time_entries e WHERE e.user_id = p.user_id AND e.project_id = p.id AND e.status = 'draft' AND e.end_time IS NULL) AS isActive
+FROM projects p WHERE p.user_id = ? ORDER BY lastWorkedAt DESC, p.name`, [weekStart, weekEnd.toISOString().slice(0, 10), userId]);
+    return rows.map((row) => ({ ...row, projectStatus: normalizeProjectStatus(row.projectStatus), isActive: Boolean(row.isActive) }));
+  }
+
+  async listProjectEntries(userId: string, projectId: string): Promise<WorkEntry[]> {
+    const rows = await this.database.getAllAsync<EntryRow>(`${baseEntrySelect()} WHERE time_entries.user_id = ? AND time_entries.project_id = ? ORDER BY time_entries.start_time DESC`, [userId, projectId]);
+    return rows.map(mapEntryRow);
+  }
+
+  async setProjectStatus(userId: string, projectId: string, status: "active" | "archived"): Promise<void> {
+    const entries = await this.listProjectEntries(userId, projectId);
+    if (status === "archived" && entries.some((entry) => !entry.endTime && entry.status === "draft")) throw new Error("Stop work before finishing this project.");
+    await this.database.runAsync("UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [status, projectId, userId]);
+  }
+
   async listProjects(userId = DEFAULT_USER_ID): Promise<WorkProject[]> {
     await this.removeBuiltInDemoData(userId);
     const rows = await this.database.getAllAsync<ProjectRow>(
@@ -370,6 +548,11 @@ SELECT projects.id,
        projects.hourly_rate_cents,
        projects.currency,
        projects.status,
+       projects.project_status,
+       projects.group_id,
+       projects.site_address,
+       projects.site_latitude,
+       projects.site_longitude,
        clients.name AS client_name
 FROM projects
 JOIN clients ON clients.id = projects.client_id AND clients.user_id = projects.user_id
@@ -380,6 +563,24 @@ ORDER BY projects.updated_at DESC, projects.name ASC
     );
 
     return rows.map(mapProjectRow);
+  }
+
+  async listProjectGroups(userId: string): Promise<ProjectGroup[]> {
+    return this.database.getAllAsync<ProjectGroup>("SELECT id, name FROM project_groups WHERE user_id = ? ORDER BY name", [userId]);
+  }
+
+  async addProjectGroup(userId: string, name: string): Promise<ProjectGroup> {
+    const group = { id: createLocalId("group"), name: requireText(name, "Group name") };
+    await this.database.runAsync("INSERT INTO project_groups (id, user_id, name) VALUES (?, ?, ?)", [group.id, userId, group.name]);
+    return group;
+  }
+
+  async assignProjectGroup(userId: string, projectId: string, groupId: string | null): Promise<void> {
+    await this.database.runAsync("UPDATE projects SET group_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [groupId, projectId, userId]);
+  }
+
+  async updateProjectDiscovery(userId: string, projectId: string, fields: { status: ProjectStatus; siteAddress: string | null; siteLatitude: number | null; siteLongitude: number | null }): Promise<void> {
+    await this.database.runAsync("UPDATE projects SET project_status = ?, site_address = ?, site_latitude = ?, site_longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [fields.status, fields.siteAddress, fields.siteLatitude, fields.siteLongitude, projectId, userId]);
   }
 
   async createClient(params: CreateClientParams): Promise<WorkClient> {
@@ -421,6 +622,9 @@ INSERT INTO clients (
     const name = requireText(params.name, "Project name");
     const id = createLocalId("project");
     const currency = normalizeCurrency(params.currency);
+    const hourlyRateCents = normalizeProjectHourlyRateCents(
+      params.hourlyRateCents,
+    );
 
     await this.database.runAsync(
       `
@@ -432,8 +636,11 @@ INSERT INTO projects (
   description,
   hourly_rate_cents,
   currency,
-  status
-) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+  status,
+  site_address,
+  site_latitude,
+  site_longitude
+) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 `,
       [
         id,
@@ -441,8 +648,11 @@ INSERT INTO projects (
         params.clientId,
         name,
         normalizeOptionalText(params.description),
-        Math.max(0, Math.floor(params.hourlyRateCents ?? 0)),
+        hourlyRateCents,
         currency,
+        normalizeOptionalText(params.siteAddress),
+        params.siteLatitude ?? null,
+        params.siteLongitude ?? null,
       ],
     );
 
@@ -474,18 +684,23 @@ LIMIT 1
   async updateProject(params: UpdateProjectParams): Promise<WorkProject> {
     const userId = params.userId ?? DEFAULT_USER_ID;
     const name = requireText(params.name, "Project name");
+    const hourlyRateCents = normalizeProjectHourlyRateCents(
+      params.hourlyRateCents,
+    );
 
     await this.database.runAsync(
       `
 UPDATE projects
 SET name = ?,
     description = ?,
+    hourly_rate_cents = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND user_id = ?
 `,
       [
         name,
         normalizeOptionalText(params.description),
+        hourlyRateCents,
         params.projectId,
         userId,
       ],
@@ -600,6 +815,19 @@ SELECT time_entries.id,
        time_entries.activity,
        time_entries.day_type,
        time_entries.location_text,
+       time_entries.clock_out_location_text,
+       time_entries.clock_in_location_source,
+       time_entries.clock_out_location_source,
+       time_entries.clock_in_gps_accuracy_m,
+       time_entries.clock_out_gps_accuracy_m,
+       time_entries.clock_in_located_at,
+       time_entries.clock_out_located_at,
+       time_entries.location_note,
+       time_entries.location_history_json,
+       time_entries.break_intervals_json,
+       time_entries.task_switches_json,
+       time_entries.current_task_id,
+
        time_entries.clock_in_gps_latitude,
        time_entries.clock_in_gps_longitude,
        time_entries.clock_out_gps_latitude,
@@ -624,6 +852,19 @@ function mapEntryRow(row: EntryRow): WorkEntry {
     activity: row.activity,
     dayType: normalizeDayType(row.day_type),
     locationText: row.location_text,
+    clockOutLocationText: row.clock_out_location_text,
+    clockInLocationSource: row.clock_in_location_source,
+    clockOutLocationSource: row.clock_out_location_source,
+    clockInGpsAccuracyM: row.clock_in_gps_accuracy_m,
+    clockOutGpsAccuracyM: row.clock_out_gps_accuracy_m,
+    clockInLocatedAt: row.clock_in_located_at,
+    clockOutLocatedAt: row.clock_out_located_at,
+    locationNote: row.location_note,
+    locationHistoryJson: row.location_history_json,
+    breakIntervals: parseJsonArray<BreakInterval>(row.break_intervals_json),
+    taskSwitches: parseJsonArray<TaskSwitch>(row.task_switches_json),
+    currentTaskId: row.current_task_id,
+
     clockInGpsLatitude: row.clock_in_gps_latitude,
     clockInGpsLongitude: row.clock_in_gps_longitude,
     clockOutGpsLatitude: row.clock_out_gps_latitude,
@@ -642,16 +883,28 @@ function mapProjectRow(row: ProjectRow): WorkProject {
     hourlyRateCents: row.hourly_rate_cents ?? 0,
     currency: row.currency,
     status: row.status,
+    projectStatus: normalizeProjectStatus(row.project_status),
+    groupId: row.group_id ?? null,
+    siteAddress: row.site_address ?? null,
+    siteLatitude: row.site_latitude ?? null,
+    siteLongitude: row.site_longitude ?? null,
   };
 }
 
 function dateOnly(value: Date): string {
-  return value.toISOString().slice(0, 10);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeOptionalText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function parseJsonArray<T>(value: string | null | undefined): T[] {
+  try { const parsed = JSON.parse(value || "[]"); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
 }
 
 function normalizeCurrency(value: string | null | undefined): string {

@@ -54,6 +54,7 @@ function createSnapshot() {
       name: "Shop \"A\" renovation",
       currency: "SGD",
       hourlyRateCents: 5000,
+      siteAddress: "10 Anson Road, Singapore 079903",
     },
     rateCalculation: {
       currency: "SGD",
@@ -128,6 +129,10 @@ test("buildProgressClaimHtml includes clean report sections without signature or
   );
 
   const html = buildProgressClaimHtml(createSnapshot());
+  assert.match(html, /Address: 10 Anson Road, Singapore 079903/);
+  const noAddress = createSnapshot();
+  noAddress.project.siteAddress = null;
+  assert.match(buildProgressClaimHtml(noAddress), /Address: None/);
 
   for (const expected of [
     "Progress Claim Report",
@@ -137,7 +142,7 @@ test("buildProgressClaimHtml includes clean report sections without signature or
     "Claim Period",
     "Daily Work Log",
     "Photo Evidence",
-    "Location Graphic",
+    "Work sites",
     "10 Anson Road, Singapore 079903",
     "Rate Calculation",
     "Normal working time",
@@ -158,6 +163,177 @@ test("buildProgressClaimHtml includes clean report sections without signature or
   assert.doesNotMatch(html, /Deductions/);
 });
 
+test("former-lead project reports omit retired discovery labels and retain Address", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const html = buildProgressClaimHtml(createSnapshot());
+  assert.match(html, /Address: 10 Anson Road, Singapore 079903/);
+  assert.doesNotMatch(html, /Lead|Group/);
+});
+
+test("buildProgressClaimHtml renders the revised palette, dynamic overview, and print-safe page rules", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const snapshot = createSnapshot();
+  snapshot.totals.totalClaimAmountCents = 98765;
+  snapshot.totals.totalDaysWorked = 7;
+  snapshot.claimPeriod = { start: "2026-07-01", end: "2026-07-31" };
+
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.match(html, /#102447/);
+  assert.match(html, /#2f6fed/);
+  assert.match(html, /#f2a900/);
+  assert.match(html, /SGD 987\.65/);
+  assert.match(html, />7<\/strong>/);
+  assert.match(html, /1 Jul 2026 &ndash; 31 Jul 2026/);
+  assert.match(html, /@page \{ margin: 18mm 14mm; size: A4; \}/);
+  assert.match(html, /thead \{ display: table-header-group; \}/);
+  assert.match(html, /page-break-inside: avoid/);
+  assert.match(html, /\.long-token \{ overflow-wrap: break-word; word-break: normal/);
+  assert.match(html, /tr, \.report-section \{[^}]*page-break-inside: avoid/);
+});
+
+test("buildProgressClaimHtml embeds printable photos and keeps unsupported references as placeholders", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const snapshot = createSnapshot();
+  snapshot.photoEvidence.push({
+    id: "photo-2",
+    localUri: "https://example.invalid/photo.jpg",
+    caption: "Remote reference",
+  });
+  snapshot.photoEvidence[0].printUri = "data:image/jpeg;base64,aW1hZ2U=";
+  snapshot.photoEvidence[0].localUri = "data:image/jpeg;base64,aW1hZ2U=";
+
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.match(html, /src="data:image\/jpeg;base64,aW1hZ2U="/);
+  assert.match(html, /alt="Photo evidence photo-1"/);
+  assert.match(html, /Embedded image data/);
+  assert.doesNotMatch(html, />data:image\/jpeg;base64,aW1hZ2U=<\/td>/);
+  assert.match(html, /Photo file reference only/);
+  assert.match(html, /\.photo-card \{[^}]*page-break-inside: avoid/s);
+});
+
+test("buildProgressClaimHtml never sends raw local photo URIs to the print WebView", () => {
+  const { buildProgressClaimHtml } = createTsLoader()(
+    "src/reports/progressClaimHtml.ts",
+  );
+  const snapshot = createSnapshot();
+  snapshot.photoEvidence[0].printUri = undefined;
+
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.doesNotMatch(html, /src="file:\/\//);
+  assert.doesNotMatch(html, /src="content:\/\//);
+  assert.match(html, /Photo file reference only/);
+});
+
+test("buildProgressClaimHtml uses print-safe wrapping, local dates, and sealed phone labels", () => {
+  const { buildProgressClaimHtml } = createTsLoader()("src/reports/progressClaimHtml.ts");
+  const snapshot = createSnapshot();
+  snapshot.generatedAt = "2026-11-11T15:04:00.000Z";
+  snapshot.claimPeriod = { start: "2026-11-10", end: "2026-11-11" };
+  snapshot.photoEvidence[0].localUri = "file:///private/photo.jpg";
+  snapshot.photoEvidence[0].capturedAt = "2026-11-11T06:25:09.379Z";
+  const html = buildProgressClaimHtml(snapshot);
+  assert.doesNotMatch(html, /overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(html, /file:\/\//);
+  assert.match(html, /10 Nov 2026/);
+  assert.match(html, /Sealed photo on this phone/);
+});
+
+test("daily work log uses per-day cards and every report table declares widths", () => {
+  const { buildProgressClaimHtml } = createTsLoader()("src/reports/progressClaimHtml.ts");
+  const html = buildProgressClaimHtml(createSnapshot());
+  assert.match(html, /class="daily-log-card"/);
+  assert.match(html, /class="daily-log-date short-cell">1 Jun 2026/);
+  assert.doesNotMatch(html, /<table\b[^>]*>(?!\s*<colgroup)/);
+  assert.doesNotMatch(html, /overflow:\s*hidden|word-break:\s*break-all/);
+  assert.doesNotMatch(html, />2026-\d{2}-\d{2}</);
+});
+
+test("report lunch deduction is report-time only and per-day cents remain the summary", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "full", workDate: "2026-11-11", startTime: "2026-11-11T08:00:00+08:00", endTime: "2026-11-11T17:00:00+08:00", durationMinutes: 540, activity: "full" },
+      { id: "short", workDate: "2026-11-12", startTime: "2026-11-12T09:00:00+08:00", endTime: "2026-11-12T11:00:00+08:00", durationMinutes: 120, activity: "short" },
+    ],
+    pay: { rateBasis: "hourly", baseRateCents: 1000, hourlyRateCents: 1000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60 },
+  });
+  assert.equal(snapshot.dailyWorkLog[0].normalHours, 8);
+  assert.equal(snapshot.dailyWorkLog[0].lunchDeductedMinutes, 60);
+  assert.equal(snapshot.dailyWorkLog[1].normalHours, 2);
+  assert.equal(snapshot.dailyWorkLog[1].lunchDeductedMinutes, 0);
+  assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day.grossPayCents, 0), snapshot.totals.grossPayCents);
+});
+
+test("normal-day early clock-in is unpaid and cannot trigger lunch duration rule", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "early-normal", workDate: "2026-11-10", startTime: "2026-11-10T07:55:00+08:00", endTime: "2026-11-10T17:00:00+08:00", durationMinutes: 545, activity: "Normal shift" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60 },
+  });
+  const day = snapshot.dailyWorkLog[0];
+  assert.deepEqual([day.normalMinutes, day.overtimeMinutes, day.unpaidBeforeNormalStartMinutes, day.basicPayCents], [480, 0, 5, 15000]);
+
+  const shortPayable = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "early-lunch", workDate: "2026-11-11", startTime: "2026-11-11T03:00:00+08:00", endTime: "2026-11-11T08:01:00+08:00", durationMinutes: 301, activity: "Early only" }],
+    pay: { normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", lunchMinutes: 60 },
+  });
+  assert.equal(shortPayable.dailyWorkLog[0].lunchDeductedMinutes, 0);
+});
+
+test("normal-day early clock-in stays unpaid before OT and entirely early entries pay nothing", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const longDay = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "early-ot", workDate: "2026-11-10", startTime: "2026-11-10T07:30:00+08:00", endTime: "2026-11-10T20:00:00+08:00", durationMinutes: 750, activity: "Long shift" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5, lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00" },
+  }).dailyWorkLog[0];
+  assert.deepEqual([longDay.normalMinutes, longDay.overtimeMinutes, longDay.unpaidBeforeNormalStartMinutes, longDay.basicPayCents, longDay.overtimePayCents], [480, 120, 30, 15000, 5625]);
+
+  const entirelyEarly = buildProgressClaimSnapshot({
+    timeEntries: [{ id: "all-early", workDate: "2026-11-11", startTime: "2026-11-11T06:00:00+08:00", endTime: "2026-11-11T07:30:00+08:00", durationMinutes: 90, activity: "Before start" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00" },
+  }).dailyWorkLog[0];
+  assert.deepEqual([entirelyEarly.normalMinutes, entirelyEarly.overtimeMinutes, entirelyEarly.unpaidBeforeNormalStartMinutes, entirelyEarly.grossPayCents], [0, 0, 90, 0]);
+});
+
+test("off-day and holiday early entries retain recorded payable minutes", () => {
+  const { buildProgressClaimSnapshot } = createTsLoader()("src/reports/progressClaimSnapshot.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "off", workDate: "2026-11-10", startTime: "2026-11-10T06:00:00+08:00", endTime: "2026-11-10T08:00:00+08:00", durationMinutes: 120, dayType: "off_day", activity: "Off day" },
+      { id: "holiday", workDate: "2026-11-11", startTime: "2026-11-11T06:00:00+08:00", endTime: "2026-11-11T08:00:00+08:00", durationMinutes: 120, dayType: "holiday", activity: "Holiday" },
+    ],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", offDayMultiplier: 2, holidayMultiplier: 2 },
+  });
+  assert.deepEqual(snapshot.dailyWorkLog.map((day) => [day.offDayMinutes, day.holidayMinutes, day.unpaidBeforeNormalStartMinutes, day.grossPayCents]), [[120, 0, 0, 6667], [0, 120, 0, 6667]]);
+});
+
+test("early-time HTML explains the report-only unpaid rule and daily figures sum to pay summary", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "normal", workDate: "2026-11-10", startTime: "2026-11-10T07:55:00+08:00", endTime: "2026-11-10T17:00:00+08:00", durationMinutes: 545, activity: "Normal" },
+      { id: "ot", workDate: "2026-11-11", startTime: "2026-11-11T07:30:00+08:00", endTime: "2026-11-11T20:00:00+08:00", durationMinutes: 750, activity: "OT" },
+      { id: "off", workDate: "2026-11-12", startTime: "2026-11-12T06:00:00+08:00", endTime: "2026-11-12T08:00:00+08:00", durationMinutes: 120, dayType: "off_day", activity: "Off" },
+    ],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5, offDayMultiplier: 2, lunchMinutes: 60, dinnerMinutes: 60, dinnerStartTime: "18:00" },
+  });
+  const html = buildProgressClaimHtml(snapshot);
+  assert.match(html, /Rate Calculation<\/th><td>Time before normal start \(08:00\) is not paid on normal days/);
+  assert.match(html, /Before start \(unpaid\): 5 min/);
+  for (const field of ["basicPayCents", "overtimePayCents", "offDayPayCents", "holidayPayCents", "grossPayCents"]) assert.equal(snapshot.dailyWorkLog.reduce((sum, day) => sum + day[field], 0), snapshot.totals[field]);
+});
+
 test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   const { buildProgressClaimCsv } = createTsLoader()(
     "src/reports/progressClaimCsv.ts",
@@ -173,4 +349,74 @@ test("buildProgressClaimCsv escapes commas quotes and line breaks", () => {
   assert.match(csv, /2026-06-01,normal,"Installed cable, tested line\nready","10 Anson Road, Singapore 079903 \(1.27650, 103.84580\)",8,1.5,0,0,photo-1/);
   assert.match(csv, /Photo Evidence,photo-1,time-1,"Before, after, and ""done"""/);
   assert.doesNotMatch(csv, /Deductions Cents/);
+});
+
+
+test("work sites group addresses by distinct day; GPS appendix retains both phases and refresh evidence", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const { buildProgressClaimCsv } = load("src/reports/progressClaimCsv.ts");
+  const entry = {
+    id: "first", workDate: "2026-10-26", durationMinutes: 60, activity: "Work",
+    locationText: "Site <A>", clockOutLocationText: "Site <A>",
+    clockInGpsLatitude: 1.2, clockInGpsLongitude: 103.4,
+    clockOutGpsLatitude: 1.2, clockOutGpsLongitude: 103.4,
+    clockInGpsAccuracyM: 5, clockOutGpsAccuracyM: 6,
+    clockInLocationSource: "gps", clockOutLocationSource: "gps",
+    clockInLocatedAt: "2026-10-26T01:00:00Z", clockOutLocatedAt: "2026-10-26T02:00:00Z",
+    locationHistoryJson: JSON.stringify([{ phase: "start", source: "gps", address: "Site <A>", latitude: 1.3, longitude: 103.5, accuracy: 4, locatedAt: "2026-10-26T01:30:00Z" }]),
+  };
+  const snapshot = buildProgressClaimSnapshot({ timeEntries: [entry, { ...entry, id: "second", workDate: "2026-10-27", locationHistoryJson: null }] });
+  const html = buildProgressClaimHtml(snapshot);
+  assert.match(html, /<h2>Work sites<\/h2>/);
+  assert.doesNotMatch(html, /Location Graphic|location-map|location-grid|maps\.google|openstreetmap/);
+  assert.match(html, /<td>Site &lt;A&gt;<\/td><td class="short-cell">2<\/td><td class="short-cell">26 Oct 2026<\/td><td class="short-cell">27 Oct 2026<\/td>/);
+  const workLog = html.split("<h2>Daily Work Log</h2>")[1].split("<h2>Work sites</h2>")[0];
+  assert.doesNotMatch(workLog, /1\.20000|103\.40000|T01:00/);
+  assert.match(workLog, /GPS ±5 m/);
+  assert.match(html, /26 Oct 2026 · start · 1\.20000, 103\.40000 · ±5 m · gps/);
+  assert.match(html, /26 Oct 2026 · stop · 1\.20000, 103\.40000 · ±6 m · gps/);
+  assert.match(html, /26 Oct 2026 · start · 1\.30000, 103\.50000 · ±4 m · gps/);
+  assert.doesNotMatch(html, /\d{4}-\d{2}-\d{2}/);
+  const csv = buildProgressClaimCsv(snapshot);
+  assert.match(csv, /location_note,start_lat,start_lng,stop_lat,stop_lng/);
+  assert.match(csv, /,1\.2,103\.4,1\.2,103\.4/);
+  assert.doesNotMatch(csv, /Local Storage,Notice/);
+});
+
+test("report renders exact minute totals, print-safe photo timestamps, and local GPS evidence", () => {
+  const load = createTsLoader();
+  const { buildProgressClaimSnapshot } = load("src/reports/progressClaimSnapshot.ts");
+  const { buildProgressClaimHtml } = load("src/reports/progressClaimHtml.ts");
+  const snapshot = buildProgressClaimSnapshot({
+    timeEntries: [
+      { id: "shi-normal", workDate: "2026-11-10", startTime: "2026-11-10T08:00:00+08:00", endTime: "2026-11-10T08:02:00+08:00", durationMinutes: 2, activity: "Opening check", locationText: "10 Anson Road, Singapore 079903", clockOutLocationText: "10 Anson Road, Singapore 079903", clockInLocationSource: "gps", clockOutLocationSource: "gps", clockInGpsLatitude: 1.27651, clockInGpsLongitude: 103.84581, clockOutGpsLatitude: 1.27652, clockOutGpsLongitude: 103.84582, clockInGpsAccuracyM: 4.4, clockOutGpsAccuracyM: 6.2, clockInLocatedAt: "2026-11-10T08:58:00.000Z", clockOutLocatedAt: "2026-11-10T09:00:00.000Z" },
+      { id: "shi-ot", workDate: "2026-11-11", startTime: "2026-11-11T17:00:00+08:00", endTime: "2026-11-11T20:10:00+08:00", durationMinutes: 190, activity: "Overtime repair", locationText: "10 Anson Road, Singapore 079903", clockInLocationSource: "gps", clockInGpsLatitude: 1.27651, clockInGpsLongitude: 103.84581, clockInGpsAccuracyM: 5, clockInLocatedAt: "2026-11-11T09:00:00.000Z" },
+    ],
+    photoEvidence: [{ id: "photo-123456789012345678", timeEntryId: "shi-normal", localUri: "file:///photo.jpg", evidenceType: "DURING_WORK", captureSource: "camera", capturedAt: "2026-11-11T06:25:09.379Z" }],
+    pay: { rateBasis: "daily", baseRateCents: 15000, normalWorkStartTime: "08:00", normalWorkEndTime: "17:00", overtimeMultiplier: 1.5 },
+  });
+  const html = buildProgressClaimHtml(snapshot);
+
+  assert.equal(snapshot.totals.totalNormalMinutes, 2);
+  assert.equal(snapshot.totals.totalOvertimeMinutes, 190);
+  assert.equal(snapshot.totals.basicPayCents, 56);
+  assert.equal(snapshot.totals.overtimePayCents, 7917);
+  for (const text of ["2 min", "3 h 10 min", "SGD 0.56", "SGD 79.17", "During work", "camera", "10 Nov 2026, 4:58 pm GMT+8"]) assert.match(html, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /<td class="short-cell">11 Nov 2026,/);
+  assert.match(html, /<col style="width:26%"><col style="width:20%"><col style="width:14%"><col style="width:20%"><col style="width:20%">/);
+  assert.match(html, /1\.27651, 103\.84581 · ±4 m · gps · 10 Nov 2026, 4:58 pm GMT\+8/);
+  assert.match(html, /<h2>Work sites<\/h2>[\s\S]*10 Anson Road, Singapore 079903/);
+
+  for (const table of html.match(/<table>[\s\S]*?<\/table>/g) ?? []) {
+    const widths = [...table.matchAll(/<col style="width:(\d+)%">/g)].map((match) => Number(match[1]));
+    const cells = [...table.matchAll(/<td class="short-cell">([^<]*)<\/td>/g)];
+    for (const cell of cells) {
+      const before = table.slice(0, cell.index);
+      const column = (before.match(/<t[dh][^>]*>/g) ?? []).length % widths.length;
+      const characterBudget = Math.floor((690 * widths[column] / 100) / 6.5);
+      assert.ok(cell[1].length <= characterBudget, `${cell[1]} exceeds ${characterBudget} characters in column ${column + 1}`);
+    }
+  }
 });
