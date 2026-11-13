@@ -57,6 +57,9 @@
     }
   },
   "submit": {
+    "testflight": {
+      "ios": {}
+    },
     "production": {
       "android": {
         "track": "internal",
