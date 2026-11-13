@@ -91,6 +91,7 @@ export function SettingsScreen({ account, onLogout, onAccountDeleted, initialPan
   }, [initialPanel]);
 
   useEffect(() => {
+    if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (currencyDropdownOpen) { setCurrencyDropdownOpen(false); return true; }
       if (rateBasisDropdownOpen) { setRateBasisDropdownOpen(false); return true; }

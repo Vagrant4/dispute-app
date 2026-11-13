@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BackHandler,
   Image,
+  Platform,
   Pressable,
   Text,
   TextInput,
@@ -148,6 +149,7 @@ export function ProjectsScreen({
     };
   }, [userId]);
   useEffect(() => {
+    if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {

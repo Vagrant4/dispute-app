@@ -12,11 +12,15 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "sg.claimproof.mobile",
+      "buildNumber": "32",
+      "icon": "./assets/icon-ios.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "dispute uses the camera only when you choose to capture work evidence.",
-        "NSPhotoLibraryUsageDescription": "dispute lets you choose photos to attach as local work evidence.",
-        "NSLocationWhenInUseUsageDescription": "dispute can attach optional location context to work records and photos. The app still works without location."
+        "NSCameraUsageDescription": "DISPUTE uses the camera when you choose to capture photo evidence.",
+        "NSPhotoLibraryUsageDescription": "DISPUTE lets you choose photo evidence from your library.",
+        "NSLocationWhenInUseUsageDescription": "DISPUTE uses your location for clock-in GPS proof and can attach it to work records or photo evidence. The app still works if you decline.",
+        "NSMicrophoneUsageDescription": "DISPUTE uses the microphone only when you choose voice search.",
+        "NSSpeechRecognitionUsageDescription": "DISPUTE uses speech recognition only when you choose voice search."
       }
     },
     "android": {
@@ -70,8 +74,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "dispute uses the microphone only when you choose voice search.",
-          "speechRecognitionPermission": "dispute uses speech recognition only when you choose voice search.",
+          "microphonePermission": "DISPUTE uses the microphone only when you choose voice search.",
+          "speechRecognitionPermission": "DISPUTE uses speech recognition only when you choose voice search.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox"
           ]

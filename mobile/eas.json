@@ -4,6 +4,14 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
     "development": {
       "developmentClient": false,
       "distribution": "internal",
@@ -15,8 +23,20 @@
     "preview": {
       "distribution": "internal",
       "environment": "preview",
+      "ios": {
+        "simulator": false
+      },
       "android": {
         "gradleCommand": ":app:assembleDebug"
+      }
+    },
+    "testflight": {
+      "distribution": "store",
+      "environment": "production",
+      "credentialsSource": "remote",
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
       }
     },
     "production": {
@@ -26,6 +46,9 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://dispute-api-live.onrender.com"
+      },
+      "ios": {
+        "simulator": false
       },
       "android": {
         "buildType": "app-bundle"

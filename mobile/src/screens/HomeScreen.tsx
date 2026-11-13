@@ -93,6 +93,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
   const trialDaysLeft = access.subscription?.status === "TRIALING" && access.subscription.trialEndsAt
     ? formatTrialDaysLeft(access.subscription.trialEndsAt, now.getTime()) : null;
   useEffect(() => {
+    if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (projectSheetOpen) { setProjectSheetOpen(false); return true; }
       if (projectPickerOpen) { setProjectPickerOpen(false); return true; }

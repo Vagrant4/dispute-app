@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Image, type ImageSourcePropType, Pressable, Text, ToastAndroid, View } from "react-native";
+import { BackHandler, Image, type ImageSourcePropType, Platform, Pressable, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { type LocalAccount } from "./src/auth/localAuth";
@@ -93,6 +93,7 @@ export default function App() {
   const showHeader = account ? activeTab !== "home" && activeTab !== "settings" : authMode !== "logo";
 
   useEffect(() => {
+    if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (account && activeTab !== "home") {
         setSettingsInitialPanel(undefined);
