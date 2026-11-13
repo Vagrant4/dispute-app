@@ -35,6 +35,7 @@
       "environment": "production",
       "credentialsSource": "remote",
       "autoIncrement": true,
+      "node": "22.22.2",
       "ios": {
         "simulator": false
       }
