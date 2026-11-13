@@ -15,6 +15,7 @@
       "buildNumber": "32",
       "icon": "./assets/icon-ios.png",
       "infoPlist": {
+        "CFBundleDisplayName": "DISPUTE Test 2",
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "DISPUTE uses the camera when you choose to capture photo evidence.",
         "NSPhotoLibraryUsageDescription": "DISPUTE lets you choose photo evidence from your library.",

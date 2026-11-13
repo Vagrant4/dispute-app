@@ -9,6 +9,7 @@ node_modules/
 client/node_modules/
 server/node_modules/
 server/.env
+mobile/.env.googlemaps
 
 client/dist/
 server/dist/

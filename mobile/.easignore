@@ -2,6 +2,7 @@
 # The repository-root .easignore is authoritative for this npm workspace.
 node_modules/
 .expo/
+\.env.googlemaps
 
 # Never upload locally generated native build state.
 android/build/

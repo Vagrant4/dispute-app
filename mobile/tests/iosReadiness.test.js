@@ -11,6 +11,7 @@ test("iOS config declares the App ID, assets, and evidence permissions", () => {
   assert.equal(app.ios.bundleIdentifier, "sg.claimproof.mobile");
   assert.equal(app.ios.buildNumber, "32");
   assert.equal(app.ios.icon, "./assets/icon-ios.png");
+  assert.equal(app.ios.infoPlist.CFBundleDisplayName, "DISPUTE Test 2");
   assert.equal(app.plugins[0], "./plugins/withDisputeTest2Android");
   assert.equal(app.plugins[1][1].image, "./assets/splash.png");
   assert.equal(app.ios.infoPlist.NSCameraUsageDescription, "DISPUTE uses the camera when you choose to capture photo evidence.");
