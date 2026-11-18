@@ -58,7 +58,13 @@
   },
   "submit": {
     "testflight": {
-      "ios": {}
+      "ios": {
+        "ascApiKeyPath": "C:/Users/User 2024/Documents/Codex/2026-11-12-dispute-pay-policy/secrets/AuthKey_PT872GJD83.p8",
+        "ascApiKeyId": "PT872GJD83",
+        "ascApiKeyIssuerId": "4523bd95-757c-4263-a288-718d92754b2d",
+        "ascAppId": "6797351536",
+        "appleTeamId": "ZNNGD928JK"
+      }
     },
     "production": {
       "android": {
