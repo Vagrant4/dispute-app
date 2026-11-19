@@ -40,6 +40,17 @@
         "simulator": false
       }
     },
+    "simulator": {
+      "distribution": "internal",
+      "environment": "production",
+      "node": "22.22.2",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://dispute-api-live.onrender.com"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
     "production": {
       "distribution": "store",
       "environment": "production",
