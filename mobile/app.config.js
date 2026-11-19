@@ -23,6 +23,10 @@ module.exports = {
   ...app,
   expo: {
     ...app.expo,
+    plugins: [
+      ...app.expo.plugins,
+      "./plugins/withReactNativeMapsGoogleIos",
+    ],
     android: {
       ...app.expo.android,
       config: { googleMaps: { apiKey: googleMapsApiKey } },
