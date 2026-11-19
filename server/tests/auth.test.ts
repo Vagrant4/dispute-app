@@ -324,6 +324,27 @@ describe('auth API', () => {
     expect(response.headers.get('set-cookie')).toContain('claimproof_session=');
   });
 
+  it('logs in with a trimmed, case-insensitive email address', async () => {
+    const registered = await postJson('/auth/register', {
+      email: 'worker@example.com',
+      password: 'Password123!',
+      fullName: 'Local Worker',
+      phone: '+65 9000 0000'
+    });
+    const registeredBody = await jsonBody<AuthUserResponse>(registered);
+    await postJson('/auth/verify-email', {
+      email: 'worker@example.com',
+      code: registeredBody.devVerificationCode
+    });
+
+    const response = await postJson('/auth/login', {
+      email: '  WORKER@EXAMPLE.COM  ',
+      password: 'Password123!'
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   it('verifies email from the emailed token link', async () => {
     const registered = await postJson('/auth/register', {
       email: 'worker@example.com',

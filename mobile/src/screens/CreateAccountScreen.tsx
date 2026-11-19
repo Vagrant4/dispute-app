@@ -3,6 +3,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 
 import {
   registerRemoteAccount,
+  normalizeEmailAddress,
   type PendingEmailVerification,
 } from "../auth/remoteAuth";
 import { styles, theme } from "../styles";
@@ -36,7 +37,7 @@ export function CreateAccountScreen({
     try {
       const result = await registerRemoteAccount({
         name,
-        email,
+        email: normalizeEmailAddress(email),
         phone: formatPhoneNumber(countryCode, phone),
         password,
       });
@@ -79,10 +80,12 @@ export function CreateAccountScreen({
         <TextInput
           accessibilityLabel="Create account email"
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="name@example.com"
           placeholderTextColor={theme.colors.placeholder}
+          spellCheck={false}
           style={styles.textInput}
           value={email}
         />

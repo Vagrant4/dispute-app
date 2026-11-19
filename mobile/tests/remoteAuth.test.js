@@ -189,6 +189,25 @@ test("loginRemoteAccount restores the server signup profile without storing a pa
   assert.equal("password" in result.account, false);
 });
 
+test("loginRemoteAccount sends the same trimmed lowercase email used by registration and verification", async () => {
+  const { loginRemoteAccount } = loadRemoteAuthModule();
+  const calls = [];
+  const result = await loginRemoteAccount({
+    email: "  Worker@Example.COM  ",
+    password: "Password123!",
+  }, async (url, init) => {
+    calls.push({ url, init });
+    return Response.json({ user: { id: "user_123", email: "worker@example.com", status: "ACTIVE" } });
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.account.email, "worker@example.com");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    email: "worker@example.com",
+    password: "Password123!",
+  });
+});
+
 test("network failures do not expose the local development server URL to users", async () => {
   const { loginRemoteAccount, registerRemoteAccount } = loadRemoteAuthModule();
   const failingFetcher = async () => {

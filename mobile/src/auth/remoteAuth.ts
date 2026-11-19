@@ -55,6 +55,10 @@ const apiBaseUrl =
     ? configuredApiBaseUrl
     : liveApiBaseUrl;
 
+export function normalizeEmailAddress(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export function getAuthApiBaseUrl() {
   return apiBaseUrl;
 }
@@ -81,7 +85,7 @@ export async function registerRemoteAccount(
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: input.email.trim().toLowerCase(),
+        email: normalizeEmailAddress(input.email),
         password: input.password,
         fullName: input.name.trim(),
         phone: input.phone.trim(),
@@ -100,7 +104,7 @@ export async function registerRemoteAccount(
     return {
       ok: true,
       pending: {
-        email: input.email.trim().toLowerCase(),
+        email: normalizeEmailAddress(input.email),
         name: input.name.trim(),
         phone: input.phone.trim(),
         message:
@@ -125,7 +129,7 @@ export async function requestRemoteEmailVerification(
   },
   fetcher: FetchLike = fetch,
 ): Promise<RemoteRegistrationResult> {
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmailAddress(input.email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, message: "Enter a valid email address." };
   }
@@ -243,7 +247,7 @@ export async function loginRemoteAccount(
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: input.email.trim().toLowerCase(),
+        email: normalizeEmailAddress(input.email),
         password: input.password,
       }),
     });
@@ -257,7 +261,7 @@ export async function loginRemoteAccount(
       ok: true,
       account: {
         id: getNestedString(body, ["user", "id"]) ?? input.email,
-        email: input.email.trim().toLowerCase(),
+        email: normalizeEmailAddress(input.email),
         name:
           getNestedString(body, ["profile", "fullName"]) ??
           getNestedString(body, ["user", "email"])?.split("@")[0] ??
@@ -279,7 +283,7 @@ export async function requestRemotePasswordReset(
   input: { email: string },
   fetcher: FetchLike = fetch,
 ): Promise<RemotePasswordResetRequestResult> {
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmailAddress(input.email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, message: "Enter your registered email address." };
   }
@@ -322,7 +326,7 @@ export async function resetRemotePassword(
   },
   fetcher: FetchLike = fetch,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmailAddress(input.email);
   const code = input.code.trim();
   if (!/^\d{6}$/.test(code)) {
     return { ok: false, message: "Enter the 6-digit password reset code." };

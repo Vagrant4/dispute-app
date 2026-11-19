@@ -9,6 +9,7 @@ import {
 } from "../auth/localAuthStorageExpo";
 import {
   loginRemoteAccount,
+  normalizeEmailAddress,
   type PendingEmailVerification,
   requestRemoteEmailVerification,
 } from "../auth/remoteAuth";
@@ -75,12 +76,13 @@ export function LoginScreen({
 
     setIsSubmitting(true);
     try {
-      const result = await loginRemoteAccount({ email, password });
+      const normalizedEmail = normalizeEmailAddress(email);
+      const result = await loginRemoteAccount({ email: normalizedEmail, password });
       setStatus(result.message);
       setCanContinueVerification(isEmailVerificationRequired(result.message));
       if (result.ok) {
         if (rememberLoginDetails) {
-          await saveSavedLoginDetails({ email, password });
+          await saveSavedLoginDetails({ email: normalizedEmail, password });
         } else {
           await clearSavedLoginDetails();
         }
@@ -100,7 +102,7 @@ export function LoginScreen({
 
     setIsContinuingVerification(true);
     try {
-      const result = await requestRemoteEmailVerification({ email });
+      const result = await requestRemoteEmailVerification({ email: normalizeEmailAddress(email) });
       if (result.ok) {
         setStatus(result.pending.message);
         onVerificationRequired(result.pending);
@@ -132,10 +134,12 @@ export function LoginScreen({
         <TextInput
           accessibilityLabel="Login email"
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="name@example.com"
           placeholderTextColor={theme.colors.placeholder}
+          spellCheck={false}
           style={styles.textInput}
           value={email}
         />

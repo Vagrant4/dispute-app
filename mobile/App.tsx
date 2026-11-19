@@ -194,6 +194,7 @@ export default function App() {
         </View> : <KeyboardAwareScroll
           style={styles.content}
           contentContainerStyle={account && activeTab === "home" ? styles.todayContentInner : styles.contentInner}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {account ? (
