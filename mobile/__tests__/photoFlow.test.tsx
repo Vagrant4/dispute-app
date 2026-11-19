@@ -5,6 +5,7 @@ import { Platform, StyleSheet } from "react-native";
 Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
 
 const mockCamera = jest.fn();
+const mockCameraAvailable = jest.fn();
 const mockImport = jest.fn();
 const mockGps = jest.fn();
 const mockSeal = jest.fn();
@@ -22,6 +23,7 @@ const mockGetLocalRepositories = jest.fn(async () => ({
 jest.mock("expo-image-picker", () => ({
   requestCameraPermissionsAsync: async () => ({ granted: true }),
   requestMediaLibraryPermissionsAsync: async () => ({ granted: true }),
+  isAvailableAsync: (...args: unknown[]) => mockCameraAvailable(...args),
   launchCameraAsync: (...args: unknown[]) => mockCamera(...args),
   launchImageLibraryAsync: jest.fn(),
 }));
@@ -46,6 +48,7 @@ import { styles } from "../src/styles";
 beforeEach(() => {
   mockSavedRows = [];
   mockCamera.mockReset();
+  mockCameraAvailable.mockReset().mockResolvedValue(true);
   mockGetLocalRepositories.mockClear();
   mockImport.mockReset().mockResolvedValue({ localUri: "file:///evidence/photo.jpg", copied: true });
   mockGps.mockReset().mockResolvedValue({ coordinates: null, message: "No GPS", blocked: false });
@@ -66,6 +69,27 @@ test("camera asset shows proof preview, saves, and appears in the list", async (
   expect(screen.getByLabelText(/Open photo:/)).toBeTruthy();
   expect(screen.getByTestId("photo-seal-icon")).toBeTruthy();
   expect(screen.getByTestId("photo-delete-icon")).toBeTruthy();
+});
+
+test("unavailable or failed camera keeps the app open and offers gallery import", async () => {
+  mockCameraAvailable.mockResolvedValue(false);
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => screen.getByLabelText("Take photo"));
+  fireEvent.press(screen.getByLabelText("Take photo"));
+  await waitFor(() => expect(screen.getAllByText("Camera isn't available on this device. Choose from gallery instead.").length).toBeGreaterThan(0));
+  expect(mockCamera).not.toHaveBeenCalled();
+  expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy();
+  expect(screen.getByText("Import from gallery")).toBeTruthy();
+});
+
+test("camera launch errors keep the app open and offer gallery import", async () => {
+  mockCamera.mockRejectedValue(new Error("no camera"));
+  const screen = render(<PhotoEvidenceScreen account={{ id: "u1", email: "worker@example.com" } as never} />);
+  await waitFor(() => screen.getByLabelText("Take photo"));
+  fireEvent.press(screen.getByLabelText("Take photo"));
+  await waitFor(() => expect(screen.getAllByText("Camera couldn't open. Choose from gallery instead.").length).toBeGreaterThan(0));
+  expect(screen.getByTestId("photo-proof-sheet")).toBeTruthy();
+  expect(screen.getByText("Import from gallery")).toBeTruthy();
 });
 
 test("camera proof sheet puts full-size gallery, save, and cancel actions in order", async () => {

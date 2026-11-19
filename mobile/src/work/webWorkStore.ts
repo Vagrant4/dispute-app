@@ -47,7 +47,7 @@ export const webWorkStore = {
   async completeStartLocation(params: LocationParams & { userId: string; entryId: string }): Promise<boolean> {
     const state = readState(params.userId);
     const entry = state.entries.find((item) => item.id === params.entryId);
-    if (!entry || entry.endTime || entry.clockInLocationSource !== "none") return false;
+    if (!entry || entry.endTime || (entry.clockInLocationSource !== "none" && entry.locationText)) return false;
     const reading = locationReading(params, "start");
     Object.assign(entry, { locationText: reading.address, clockInLocationSource: reading.source, clockInGpsLatitude: reading.latitude, clockInGpsLongitude: reading.longitude, clockInGpsAccuracyM: reading.accuracy, clockInLocatedAt: reading.locatedAt });
     writeState(state, params.userId);

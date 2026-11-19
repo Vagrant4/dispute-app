@@ -40,9 +40,11 @@ test("Today uses the timer card with lime reserved for actions and the wordmark"
 test("Clock in directs missing requirements to GPS or the picker", () => {
   const home = source("src/screens/HomeScreen.tsx");
   const handler = home.slice(home.indexOf("async function handleClockIn"), home.indexOf("async function handleLocateMe"));
-  assert.match(handler, /readiness.missing === "location" \|\| readiness.missing === "both"/);
+  assert.match(handler, /readiness.missing === "project" \|\| readiness.missing === "both"/);
+  assert.match(handler, /Choose a project or add a new project before clocking in\./);
+  assert.match(handler, /readiness.missing === "location"/);
   assert.match(handler, /await handleLocateMe\(\)/);
-  assert.match(handler, /readiness.missing === "project"\) \{ setProjectPickerOpen\(true\)/);
+  assert.match(handler, /setProjectPickerOpen\(true\)/);
   assert.match(home, /pendingLocations.current.push\(fix\)/);
   assert.match(home, /store.refreshLocation\(params\)/);
   assert.match(home, /Linking.openSettings\(\)/);

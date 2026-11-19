@@ -7,7 +7,7 @@ test("Home has a GPS chip without typed location input", () => {
   assert.doesNotMatch(home, /TextInput/);
   assert.doesNotMatch(home, /formatLocationRow\(locationFix,/);
   assert.doesNotMatch(home, /GPS attached:|toFixed\(5\)/);
-  assert.ok(home.indexOf("await store.clockIn(") < home.indexOf("await getWorkLocationWithTimeout(20_000)"));
+  assert.ok(home.indexOf("await store.clockIn(") < home.indexOf("await getWorkLocationWithTimeout(20_000"));
 });
 for (const kind of ["sqlite", "web"]) {
   test(`${kind}: no fix means none and no address, late start fix cannot change a stopped entry`, async () => {

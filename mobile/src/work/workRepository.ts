@@ -359,7 +359,7 @@ WHERE id = ? AND user_id = ? AND end_time IS NULL
   async completeStartLocation(params: LocationParams & { userId: string; entryId: string }): Promise<boolean> {
     const reading = locationReading(params, "start");
     const result = await this.database.runAsync(
-      `UPDATE time_entries SET location_text = ?, clock_in_location_source = ?, clock_in_gps_latitude = ?, clock_in_gps_longitude = ?, clock_in_gps_accuracy_m = ?, clock_in_located_at = ? WHERE id = ? AND user_id = ? AND end_time IS NULL AND clock_in_location_source = 'none'`,
+      `UPDATE time_entries SET location_text = ?, clock_in_location_source = ?, clock_in_gps_latitude = ?, clock_in_gps_longitude = ?, clock_in_gps_accuracy_m = ?, clock_in_located_at = ? WHERE id = ? AND user_id = ? AND end_time IS NULL AND (clock_in_location_source = 'none' OR location_text IS NULL OR trim(location_text) = '')`,
       [reading.address, reading.source, reading.latitude, reading.longitude, reading.accuracy, reading.locatedAt, params.entryId, params.userId],
     );
     return result.changes > 0;

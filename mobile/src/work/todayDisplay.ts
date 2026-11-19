@@ -20,6 +20,13 @@ export function formatWorkedClock(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   return `${Math.floor(total / 3600)}:${String(Math.floor(total / 60) % 60).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
+
+export function formatDurationMinutes(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(total / 60);
+  const remainingMinutes = total % 60;
+  return hours ? `${hours} h ${remainingMinutes} min` : `${remainingMinutes} min`;
+}
 export function formatLocationRow(reading: LocationReading | null, options: { working: boolean; locating: boolean; locationOff: boolean }): { title: string; subtitle: string } {
   const time = reading?.locatedAt ? formatClockTime(new Date(reading.locatedAt)) : "time unknown";
   if (!reading || reading.source !== "gps") return { title: "Add your location", subtitle: options.working ? `Saved at ${time}` : options.locating ? "Locating…" : options.locationOff ? "Location is off · Open settings" : "Tap to take a GPS reading" };

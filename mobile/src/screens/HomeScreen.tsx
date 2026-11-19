@@ -21,7 +21,7 @@ import type { WorkDayType, WorkHomeState, WorkProject, WorkTask } from "../work/
 import { locationReading, type LocationReading } from "../work/locationEvidence";
 import { getWorkLocationWithTimeout, locationRetryAction, type WorkLocationReason } from "../work/workLocation";
 import { summarizeBreaks } from "../work/shiftTimeline";
-import { formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
+import { formatDurationMinutes, formatWorkedClock, workedSecondsToday, formatClockTime } from "../work/todayDisplay";
 import { startReadiness } from "../work/startReadiness";
 import { listActiveProjects } from "../work/activeProjects";
 import type { LocalAccount } from "../auth/localAuth";
@@ -47,6 +47,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
   const userId = account.id ?? account.email.trim().toLowerCase();
   const [clockInAt, setClockInAt] = useState<Date | null>(null);
   const [clockOutAt, setClockOutAt] = useState<Date | null>(null);
+  const [clockOutSummary, setClockOutSummary] = useState<{ project: string; clockInAt: Date; clockOutAt: Date; durationMinutes: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [homeState, setHomeState] = useState<WorkHomeState | null>(null);
   const [projects, setProjects] = useState<WorkProject[]>([]);
@@ -157,11 +158,15 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
 
   async function handleClockIn() {
     if (savingStart.current) return;
-    if (readiness.missing === "location" || readiness.missing === "both") {
+    if (readiness.missing === "project" || readiness.missing === "both") {
+      setWorkStatus("Choose a project or add a new project before clocking in.");
+      setProjectPickerOpen(true);
+      return;
+    }
+    if (readiness.missing === "location") {
       if ((locationRetryAction?.(locationReason) ?? (locationReason === "denied" || locationReason === "services_off" ? "settings" : "retry")) === "settings") void Linking.openSettings(); else await handleLocateMe();
       return;
     }
-    if (readiness.missing === "project") { setProjectPickerOpen(true); return; }
     if (!access.hasCurrentCreateAccess()) {
       setWorkStatus("An active trial or subscription is required to create new time records.");
       return;
@@ -172,7 +177,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
     try {
       const store = await getWorkStore(userId);
       const projectId = selectedProjectId!;
-      const entry = await store.clockIn({ userId, projectId, clockInAt: nextClockIn, dayType, taskId: selectedTaskId });
+      const entry = await store.clockIn({ userId, projectId, clockInAt: nextClockIn, dayType, taskId: selectedTaskId, locationText: locationFix?.address ?? undefined, addressParts: locationFix?.addressParts, gpsLatitude: locationFix?.latitude ?? null, gpsLongitude: locationFix?.longitude ?? null, gpsAccuracyM: locationFix?.accuracy ?? null, locatedAt: locationFix?.locatedAt ?? null });
       for (const fix of pendingLocations.current) {
         await store.refreshLocation({ userId, entryId: entry.id, phase: "start", locationText: fix.address ?? undefined, gpsLatitude: fix.latitude, gpsLongitude: fix.longitude, gpsAccuracyM: fix.accuracy, locatedAt: fix.locatedAt });
       }
@@ -183,11 +188,12 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       setLocating(true);
       setClockInAt(nextClockIn);
       setClockOutAt(null);
+      setClockOutSummary(null);
       setNow(nextClockIn);
       setWorkStatus("");
       await refreshWorkState();
       try {
-        const location = await getWorkLocationWithTimeout(20_000);
+        const location = await getWorkLocationWithTimeout(20_000, { geocode: true });
         const params = { userId, entryId: entry.id, phase: "start" as const, locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude ?? null, gpsLongitude: location?.longitude ?? null, gpsAccuracyM: location?.accuracy ?? null, locatedAt: location?.timestamp ?? null };
         if (request !== locationRequest.current) return;
         if (await store.completeStartLocation(params)) setLocationFix(locationReading(params, "start"));
@@ -254,7 +260,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       setWorkStatus("Stopping work and getting location...");
       setLocating(true);
       const location = await getWorkLocationWithTimeout(10_000, { prompt: false });
-      await store.clockOut({
+      const completedEntry = await store.clockOut({
         userId,
         entryId: homeState.activeEntry.id,
         clockOutAt: nextClockOut,
@@ -269,6 +275,9 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       setLocationPhase("stop");
       setLocationFix(locationReading({ locationText: location?.address ?? undefined, addressParts: location?.addressParts, gpsLatitude: location?.latitude, gpsLongitude: location?.longitude, gpsAccuracyM: location?.accuracy, locatedAt: location?.timestamp }, "stop"));
       setClockOutAt(nextClockOut);
+      if (completedEntry.startTime && completedEntry.endTime) {
+        setClockOutSummary({ project: completedEntry.projectName, clockInAt: new Date(completedEntry.startTime), clockOutAt: new Date(completedEntry.endTime), durationMinutes: completedEntry.durationMinutes });
+      }
       setDayType(defaultDayType(nextClockOut));
       setNow(nextClockOut);
       setWorkStatus("");
@@ -306,6 +315,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
         {isRunning && clockInAt ? `Started ${formatClockTime(clockInAt)}` : "Not clocked in"}
       </Text>
       {workStatus ? <Text style={styles.todayStatusLine} testID="today-work-status">{workStatus}</Text> : null}
+      {clockOutSummary ? <View style={styles.todayClockOutSummary} testID="clock-out-summary"><Text style={styles.todayClockOutSummaryTitle}>Clocked out</Text><Text style={styles.todayClockOutSummaryText}>{clockOutSummary.project} · {formatClockTime(clockOutSummary.clockInAt)}–{formatClockTime(clockOutSummary.clockOutAt)} · {formatDurationMinutes(clockOutSummary.durationMinutes)}</Text></View> : null}
       {onBreak ? <Text style={styles.todayStarted}>On break · {formatWorkedClock(breakSummary.seconds)}</Text> : null}
       {trialDaysLeft != null && trialDaysLeft > 0 && trialDaysLeft <= 3 ? <Text style={styles.todayTrial}>{trialDaysLeft} days left in your free trial</Text> : null}
       <View style={styles.todayProjectActions} testID="today-project-actions">
@@ -367,7 +377,7 @@ export function HomeScreen({ account, onOpenPhotos }: { account: LocalAccount; o
       </View>
       <View>
         {projectPickerOpen ? <ProjectPickerSheet
-          footer={<Pressable style={[(!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => { setProjectPickerOpen(false); setProjectSheetOpen(true); }}><Text style={[styles.body, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable>}
+          footer={<Pressable accessibilityRole="button" style={[styles.actionButtonSecondary, (!access.canCreateRecords) && styles.disabledButton]} disabled={!access.canCreateRecords} onPress={() => { setProjectPickerOpen(false); setProjectSheetOpen(true); }}><Text style={[styles.actionButtonSecondaryText, (!access.canCreateRecords) && styles.disabledButtonText]}>+ New project</Text></Pressable>}
           onClose={() => setProjectPickerOpen(false)}
           onSelect={(projectId) => { setSelectedProjectId(projectId); setSelectedTaskId(null); setProjectPickerOpen(false); void getWorkStore(userId).then((store) => store.listTasks(userId, projectId)).then(setTasks); }}
           projects={projects.filter((project) => project.status !== "archived")}

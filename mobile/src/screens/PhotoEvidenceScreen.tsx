@@ -26,6 +26,9 @@ import { ProjectNameSheet } from "./ProjectNameSheet";
 import { getLocalRepositories } from "../db/repositories";
 
 type PhotoAction = "camera" | "gallery";
+type ImagePickerWithAvailability = typeof ImagePicker & {
+  isAvailableAsync?: () => Promise<boolean>;
+};
 const SIMPLE_EVIDENCE_TYPES: PhotoEvidenceType[] = [
   "DURING_WORK",
   "COMPLETED_WORK",
@@ -95,6 +98,15 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
     try {
       if (!access.hasCurrentCreateAccess()) throw new Error("An active trial or subscription is required to capture new evidence.");
       if (!projectId) throw new Error("Choose a project before adding evidence.");
+      const imagePicker = ImagePicker as ImagePickerWithAvailability;
+      if (action === "camera" && imagePicker.isAvailableAsync) {
+        const cameraAvailable = await imagePicker.isAvailableAsync().catch(() => false);
+        if (!cameraAvailable) {
+          setStatus("Camera isn't available on this device. Choose from gallery instead.");
+          setCaptureSheetOpen(true);
+          return;
+        }
+      }
       const permission = action === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -105,7 +117,7 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
       const result = action === "camera"
         ? await ImagePicker.launchCameraAsync({ quality: 0.85 })
         : await ImagePicker.launchImageLibraryAsync({ quality: 0.85, exif: true });
-      if (result.canceled || result.assets.length === 0) {
+      if (result.canceled || !result.assets?.length) {
         setStatus("");
         return;
       }
@@ -138,8 +150,13 @@ export function PhotoEvidenceScreen({ account, initialProjectId, projectScoped =
       setPendingGps(gps);
     } catch (error) {
       console.warn("[DISPUTE photo] failed", { code: failureCode });
-      setStatus(getErrorMessage(error, "open the camera"));
-      setCaptureSheetOpen(false);
+      if (action === "camera") {
+        setStatus("Camera couldn't open. Choose from gallery instead.");
+        setCaptureSheetOpen(true);
+      } else {
+        setStatus(getErrorMessage(error, "open the photo library"));
+        setCaptureSheetOpen(false);
+      }
     }
   }
 
