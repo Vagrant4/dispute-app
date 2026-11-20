@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { type, space, radius, control, today, todayLayout } from "./theme/tokens";
+import { auth, type, space, radius, control, today, todayLayout } from "./theme/tokens";
 export { type, space, radius, control } from "./theme/tokens";
 
 export const theme = {
@@ -329,22 +329,42 @@ export const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   socialAuthButton: {
+    alignItems: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: control.radius,
     borderWidth: 1,
-    height: control.height,
+    height: auth.buttonHeight,
     justifyContent: "center",
+    paddingHorizontal: auth.buttonHorizontalPadding,
   },
   socialAuthButtonContent: {
     alignItems: "center",
     flexDirection: "row",
-    gap: theme.spacing.md,
+    gap: auth.socialGap,
   },
   socialAuthButtonText: {
     color: theme.colors.text,
-    ...type.label,
+    ...auth.socialLabel,
   },
+  googleMark: {
+    height: 22,
+    position: "relative",
+    width: 22,
+  },
+  googleMarkClip: {
+    height: 11,
+    overflow: "hidden",
+    position: "absolute",
+    width: 11,
+  },
+  googleMarkTopLeft: { left: 0, top: 0 },
+  googleMarkTopRight: { left: 11, top: 0 },
+  googleMarkBottomLeft: { left: 0, top: 11 },
+  googleMarkBottomRight: { left: 11, top: 11 },
+  googleMarkGlyph: { left: 0, position: "absolute", top: 0 },
+  googleMarkGlyphRight: { left: -11 },
+  googleMarkGlyphBottom: { top: -11 },
   socialAuthStatus: {
     color: theme.colors.textMuted,
     ...type.caption,
@@ -610,6 +630,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
   },
+  authInputLabel: {
+    color: theme.colors.text,
+    ...auth.inputLabel,
+  },
   passwordInputRow: {
     alignItems: "stretch",
     position: "relative",
@@ -779,6 +803,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 0,
   },
+  authActionButton: {
+    alignItems: "center",
+    height: auth.buttonHeight,
+    paddingHorizontal: auth.buttonHorizontalPadding,
+  },
   actionButtonSecondary: {
     alignItems: "stretch",
     backgroundColor: theme.colors.surfaceMuted,
@@ -829,6 +858,11 @@ export const styles = StyleSheet.create({
     color: theme.colors.ink,
     ...type.caption,
     marginTop: 2,
+  },
+  authActionButtonText: {
+    color: theme.colors.ink,
+    ...auth.primaryButtonLabel,
+    textAlign: "center",
   },
   actionButtonSecondaryText: {
     color: theme.colors.text,

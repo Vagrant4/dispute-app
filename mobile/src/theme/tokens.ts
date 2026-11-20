@@ -11,6 +11,16 @@ export const space = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 export const radius = { sm: 8, md: 14, lg: 20, pill: 999 } as const;
 export const control = { height: 52, radius: radius.md } as const;
 
+// Auth controls intentionally read larger than compact in-app controls.
+export const auth = {
+  buttonHeight: 58,
+  buttonHorizontalPadding: 18,
+  socialGap: 12,
+  socialLabel: { fontSize: 17, fontWeight: "600", lineHeight: 22 },
+  inputLabel: { fontSize: 16, fontWeight: "600", lineHeight: 22 },
+  primaryButtonLabel: { fontSize: 18, fontWeight: "700", lineHeight: 24 },
+} as const;
+
 export const todayLayout = {
   gap: 16,
   horizontalPadding: 16,

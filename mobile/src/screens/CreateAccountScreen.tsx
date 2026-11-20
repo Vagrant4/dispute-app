@@ -240,18 +240,18 @@ function ModernCreateAccountScreen({
     <SocialAuthButtons onAuthenticated={onLogin} />
     <View style={styles.authDivider} accessibilityLabel="Or continue with email"><View style={styles.authDividerLine} /><Text style={styles.authDividerText}>OR</Text><View style={styles.authDividerLine} /></View>
     <View style={styles.authFormCard}>
-      <Text style={styles.inputLabel}>Full name</Text>
+      <Text style={styles.authInputLabel}>Full name</Text>
       <TextInput accessibilityLabel="Create account name" autoCapitalize="words" onChangeText={setName} placeholder="Your name" placeholderTextColor={theme.colors.placeholder} style={styles.textInput} value={name} />
-      <Text style={styles.inputLabel}>Email</Text>
+      <Text style={styles.authInputLabel}>Email</Text>
       <TextInput accessibilityLabel="Create account email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={setEmail} placeholder="name@example.com" placeholderTextColor={theme.colors.placeholder} spellCheck={false} style={styles.textInput} value={email} />
-      <Text style={styles.inputLabel}>Password</Text>
+      <Text style={styles.authInputLabel}>Password</Text>
       <View style={styles.passwordInputRow}>
         <TextInput accessibilityLabel="Create account password" onChangeText={setPassword} placeholder="Minimum 8 characters" placeholderTextColor={theme.colors.placeholder} secureTextEntry={!showPassword} style={[styles.textInput, styles.passwordTextInput]} value={password} />
         <Pressable accessibilityLabel={showPassword ? "Hide password" : "Show password"} accessibilityRole="button" onPress={() => setShowPassword((current) => !current)} style={styles.passwordToggleButton}>
           <Ionicons color={theme.colors.textMuted} name={showPassword ? "eye-off-outline" : "eye-outline"} size={23} />
         </Pressable>
       </View>
-      <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => void submit()} style={[styles.actionButton, isSubmitting && styles.disabledButton]}><Text style={[styles.actionButtonText, isSubmitting && styles.disabledButtonText]}>{isSubmitting ? "Creating..." : "Create account"}</Text></Pressable>
+      <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={() => void submit()} style={[styles.actionButton, styles.authActionButton, isSubmitting && styles.disabledButton]}><Text style={[styles.actionButtonText, styles.authActionButtonText, isSubmitting && styles.disabledButtonText]}>{isSubmitting ? "Creating..." : "Create account"}</Text></Pressable>
       {status ? <Text style={styles.muted}>{status}</Text> : null}
     </View>
     <View style={styles.authFooterRow}><Text style={styles.authFooterText}>Already have an account? </Text><Pressable accessibilityRole="button" onPress={onShowLogin}><Text style={styles.authFooterLink}>Login</Text></Pressable></View>

@@ -1,5 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
+import { StyleSheet } from "react-native";
 
 jest.mock("../src/auth/localAuthStorageExpo", () => ({
   clearSavedLoginDetails: jest.fn(),
@@ -16,6 +17,7 @@ jest.mock("../src/subscription/guestTrial", () => ({
 
 import { CreateAccountScreen } from "../src/screens/CreateAccountScreen";
 import { LoginScreen } from "../src/screens/LoginScreen";
+import { styles } from "../src/styles";
 
 const loginProps = {
   onLogin: jest.fn(),
@@ -42,4 +44,17 @@ test("create account has only name, email and password fields", () => {
   expect(screen.queryByLabelText("Create account mobile number")).toBeNull();
   fireEvent.press(screen.getByLabelText("Show password"));
   expect(screen.getByLabelText("Create account password").props.secureTextEntry).toBe(false);
+});
+
+test("auth controls use the larger centred review dimensions", () => {
+  expect(StyleSheet.flatten(styles.socialAuthButton)).toMatchObject({
+    alignItems: "center",
+    height: 58,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  });
+  expect(StyleSheet.flatten(styles.socialAuthButtonContent)).toMatchObject({ gap: 12 });
+  expect(StyleSheet.flatten(styles.socialAuthButtonText)).toMatchObject({ fontSize: 17, fontWeight: "600" });
+  expect(StyleSheet.flatten(styles.authActionButtonText)).toMatchObject({ fontSize: 18, fontWeight: "700" });
+  expect(StyleSheet.flatten(styles.authInputLabel)).toMatchObject({ fontSize: 16, fontWeight: "600" });
 });

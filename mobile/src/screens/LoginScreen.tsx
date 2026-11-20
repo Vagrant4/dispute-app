@@ -138,7 +138,7 @@ export function LoginScreen({
         <View style={styles.authDividerLine} />
       </View>
       <View style={styles.authFormCard}>
-        <Text style={styles.inputLabel}>Email</Text>
+        <Text style={styles.authInputLabel}>Email</Text>
         <TextInput
           accessibilityLabel="Login email"
           autoCapitalize="none"
@@ -152,7 +152,7 @@ export function LoginScreen({
           value={email}
         />
 
-        <Text style={styles.inputLabel}>Password</Text>
+        <Text style={styles.authInputLabel}>Password</Text>
         <View style={styles.passwordInputRow}>
           <TextInput
             accessibilityLabel="Login password"
@@ -199,9 +199,9 @@ export function LoginScreen({
         accessibilityRole="button"
         disabled={isSubmitting}
         onPress={handleLogin}
-        style={[styles.actionButton, isSubmitting && styles.disabledButton]}
+        style={[styles.actionButton, styles.authActionButton, isSubmitting && styles.disabledButton]}
       >
-        <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
+        <Text style={[styles.actionButtonText, styles.authActionButtonText, (isSubmitting) && styles.disabledButtonText]}>
           {isSubmitting ? "Checking..." : "Login"}
         </Text>
       </Pressable>
