@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma, UserStatus, type User } from '@prisma/client';
 import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
+import { isValidInternationalPhone } from '../../utils/phone.js';
 import { isEmailDeliveryConfigured, sendPasswordResetEmail, sendVerificationEmail } from '../email/email.service.js';
 import { createTrialSubscriptionForUser } from '../subscription/subscription.service.js';
 import {
@@ -592,8 +593,8 @@ function normalizeSignupProfile(
   const normalizedPhone = phone?.trim() ?? '';
   if (!normalizedName) throw new AuthServiceError('Full name is required', 400);
   if (!normalizedPhone) return { fullName: normalizedName, phone: null, normalizedPhone: null };
+  if (!isValidInternationalPhone(normalizedPhone)) throw new AuthServiceError('Enter a valid mobile number with a country code', 400);
   const abuseControlPhone = normalizePhoneForAbuseControl(normalizedPhone);
-  if (abuseControlPhone.length < 8) throw new AuthServiceError('Enter a valid mobile number', 400);
   return { fullName: normalizedName, phone: normalizedPhone, normalizedPhone: abuseControlPhone };
 }
 

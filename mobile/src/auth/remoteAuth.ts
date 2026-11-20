@@ -536,10 +536,20 @@ export function validateRegistrationInput(input: {
   if (!input.phone.trim()) {
     return { ok: false, message: "Enter your mobile number." };
   }
+  if (!isValidInternationalPhone(input.phone)) {
+    return { ok: false, message: "Enter a valid mobile number with a country code." };
+  }
   if (input.password.length < 8) {
     return { ok: false, message: "Use at least 8 characters for the password." };
   }
   return { ok: true, pending: {} as PendingEmailVerification };
+}
+
+// Picker-provided calling codes are authoritative; retain formatted values for
+// compatibility with existing server records while enforcing E.164 length.
+function isValidInternationalPhone(value: string): boolean {
+  const compact = value.trim().replace(/[\s().-]/g, "");
+  return /^\+[1-9]\d{6,14}$/.test(compact);
 }
 
 function getErrorMessage(body: Record<string, unknown>, fallback: string) {

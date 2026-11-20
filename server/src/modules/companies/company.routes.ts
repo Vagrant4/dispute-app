@@ -3,13 +3,14 @@ import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
 import { requireRecordMutationAccess } from '../../middleware/requireRecordMutationAccess.js';
+import { isValidInternationalPhone } from '../../utils/phone.js';
 
 const companySchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
   uen: z.string().trim().min(1).nullable().optional(),
   contactPerson: z.string().trim().min(1, 'contactPerson is required'),
   email: z.string().trim().email('email must be valid'),
-  phone: z.string().trim().min(1, 'phone is required'),
+  phone: z.string().trim().refine(isValidInternationalPhone, 'phone must be a valid international number'),
   address: z.string().trim().min(1, 'address is required'),
   notes: z.string().trim().optional().default('')
 });

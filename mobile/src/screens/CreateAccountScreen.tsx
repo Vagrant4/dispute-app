@@ -9,6 +9,8 @@ import {
   type PendingEmailVerification,
 } from "../auth/remoteAuth";
 import { SocialAuthButtons } from "../components/SocialAuthButtons";
+import { CountryCodePicker } from "../components/CountryCodePicker";
+import { COUNTRY_CALLING_CODE_OPTIONS, formatPhoneWithCountry, getDefaultCountryCallingCode } from "../phone/countryPickerData";
 import { styles, theme } from "../styles";
 import { saveGuestTrial, startGuestTrial } from "../subscription/guestTrial";
 
@@ -18,15 +20,7 @@ type CreateAccountScreenProps = {
   onLogin: (account: LocalAccount) => void;
 };
 
-const COUNTRY_CODE_OPTIONS = [
-  { code: "+65", country: "Singapore" },
-  { code: "+63", country: "Philippines" },
-  { code: "+60", country: "Malaysia" },
-  { code: "+62", country: "Indonesia" },
-  { code: "+91", country: "India" },
-  { code: "+880", country: "Bangladesh" },
-  { code: "+95", country: "Myanmar" },
-] as const;
+const COUNTRY_CODE_OPTIONS = COUNTRY_CALLING_CODE_OPTIONS.map((option) => ({ code: option.dialCode, country: option.name }));
 
 export function CreateAccountScreen({
   onVerificationRequired,
@@ -36,6 +30,7 @@ export function CreateAccountScreen({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+65");
+  const [countryOption, setCountryOption] = useState(getDefaultCountryCallingCode);
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -51,7 +46,7 @@ export function CreateAccountScreen({
       const result = await registerRemoteAccount({
         name,
         email: normalizeEmailAddress(email),
-        phone: formatPhoneNumber(countryCode, phone),
+        phone: formatPhoneWithCountry(countryOption, phone),
         password,
       });
       if (!result.ok) {
@@ -80,7 +75,7 @@ export function CreateAccountScreen({
       <Text style={styles.authInputLabel}>Email</Text>
       <TextInput accessibilityLabel="Create account email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={setEmail} placeholder="name@example.com" placeholderTextColor={theme.colors.placeholder} spellCheck={false} style={styles.textInput} value={email} />
       <Text style={styles.authInputLabel}>Mobile number</Text>
-      <View style={styles.dropdownContainer}>
+      {false ? <View style={styles.dropdownContainer}>
         <Pressable accessibilityLabel="Country code dropdown" accessibilityRole="button" accessibilityState={{ expanded: countryDropdownOpen }} onPress={() => setCountryDropdownOpen((current) => !current)} style={styles.dropdownBox}>
           <Text style={styles.dropdownValue}>{getCountryCodeLabel(countryCode)}</Text>
           <Text style={styles.dropdownChevron}>{countryDropdownOpen ? "▲" : "▼"}</Text>
@@ -93,7 +88,8 @@ export function CreateAccountScreen({
             </Pressable>;
           })}
         </View> : null}
-      </View>
+      </View> : null}
+      <View style={styles.dropdownContainer}><CountryCodePicker onChange={setCountryOption} value={countryOption} /></View>
       <TextInput accessibilityLabel="Create account mobile number" keyboardType="phone-pad" onChangeText={setPhone} placeholder="9000 0000" placeholderTextColor={theme.colors.placeholder} style={styles.textInput} value={phone} />
       <Text style={styles.authInputLabel}>Password</Text>
       <View style={styles.passwordInputRow}>

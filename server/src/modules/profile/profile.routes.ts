@@ -4,10 +4,11 @@ import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
 import { requireUser } from '../../middleware/requireUser.js';
 import { nullableMoney } from '../../utils/validation.js';
+import { isValidInternationalPhone } from '../../utils/phone.js';
 
 const profileSchema = z.object({
   fullName: z.string().trim().min(1, 'fullName is required'),
-  phone: z.string().trim().min(1, 'phone is required'),
+  phone: z.string().trim().refine(isValidInternationalPhone, 'phone must be a valid international number'),
   workerIdentifier: z.string().trim().min(1).nullable().optional(),
   finNric: z.string().trim().min(1).nullable().optional(),
   trade: z.string().trim().min(1, 'trade is required'),
