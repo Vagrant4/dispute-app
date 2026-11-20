@@ -282,7 +282,7 @@ export async function loginRemoteAccount(
 }
 
 export async function loginWithSocialIdentity(
-  input: { provider: SocialProvider; idToken: string; fullName?: string },
+  input: { provider: SocialProvider; idToken?: string; appleRelayResult?: string; fullName?: string },
   fetcher: FetchLike = fetch,
 ): Promise<RemoteAuthResult> {
   try {
@@ -305,6 +305,26 @@ export async function loginWithSocialIdentity(
       },
       message: getString(body, "message") ?? "Login successful.",
     };
+  } catch {
+    return { ok: false, message: "Unable to reach Dispute server. Check internet connection and try again." };
+  }
+}
+
+export async function startAppleAuthRelay(
+  fetcher: FetchLike = fetch,
+): Promise<{ ok: true; state: string; nonce: string } | { ok: false; message: string }> {
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/apple/relay/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const body = await readJsonBody(response);
+    const state = getString(body, "state");
+    const nonce = getString(body, "nonce");
+    if (!response.ok || !state || !nonce) {
+      return { ok: false, message: getErrorMessage(body, "Unable to start Apple sign-in.") };
+    }
+    return { ok: true, state, nonce };
   } catch {
     return { ok: false, message: "Unable to reach Dispute server. Check internet connection and try again." };
   }

@@ -193,43 +193,44 @@ export function LoginScreen({
           <Text style={styles.checkboxLabel}>Remember login details</Text>
         </Pressable>
 
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        disabled={isSubmitting}
+        onPress={handleLogin}
+        style={[styles.actionButton, isSubmitting && styles.disabledButton]}
+      >
+        <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
+          {isSubmitting ? "Checking..." : "Login"}
+        </Text>
+      </Pressable>
+
+      {status ? <Text style={styles.muted}>{status}</Text> : null}
+
+      {canContinueVerification ? (
         <Pressable
+          accessibilityLabel="Continue email verification"
           accessibilityRole="button"
-          disabled={isSubmitting}
-          onPress={handleLogin}
-          style={[styles.actionButton, isSubmitting && styles.disabledButton]}
+          disabled={isSubmitting || isContinuingVerification}
+          onPress={handleContinueVerification}
+          style={[styles.authLinkButton, (isSubmitting || isContinuingVerification) && styles.disabledButton]}
         >
-          <Text style={[styles.actionButtonText, (isSubmitting) && styles.disabledButtonText]}>
-            {isSubmitting ? "Checking..." : "Login"}
+          <Text style={[styles.authLinkText, (isSubmitting || isContinuingVerification) && styles.disabledButtonText]}>
+            {isContinuingVerification
+              ? "Sending verification code..."
+              : "Continue verification"}
           </Text>
         </Pressable>
+      ) : null}
 
-        {status ? <Text style={styles.muted}>{status}</Text> : null}
-
-        {canContinueVerification ? (
-          <Pressable
-            accessibilityLabel="Continue email verification"
-            accessibilityRole="button"
-            disabled={isSubmitting || isContinuingVerification}
-            onPress={handleContinueVerification}
-            style={[styles.authLinkButton, (isSubmitting || isContinuingVerification) && styles.disabledButton]}
-          >
-            <Text style={[styles.authLinkText, (isSubmitting || isContinuingVerification) && styles.disabledButtonText]}>
-              {isContinuingVerification
-                ? "Sending verification code..."
-                : "Continue verification"}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={onForgotPassword}
-          style={styles.forgotPasswordLink}
-        >
-          <Text style={styles.forgotPasswordLinkText}>Forgot password?</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onForgotPassword}
+        style={styles.forgotPasswordLink}
+      >
+        <Text style={styles.forgotPasswordLinkText}>Forgot password?</Text>
+      </Pressable>
 
       <View style={styles.authFooterRow}>
         <Text style={styles.authFooterText}>New to Dispute? </Text>

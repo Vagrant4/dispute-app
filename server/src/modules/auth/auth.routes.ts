@@ -6,6 +6,7 @@ import { clearAuthCookie, setAuthCookie, type AuthUser } from '../../middleware/
 import { requireUser } from '../../middleware/requireUser.js';
 import { escapeHtml } from '../../utils/html.js';
 import { ACCOUNT_DELETION_CONFIRMATION } from './accountDeletion.constants.js';
+import { completeAppleAuthRelay, consumeAppleAuthRelayResult, startAppleAuthRelay } from './appleAuthRelay.service.js';
 import { deleteAccountForAuthenticatedUser } from './accountDeletion.service.js';
 import {
   AuthServiceError,
@@ -104,9 +105,13 @@ authRouter.post('/social-login', credentialLimiter, async (req, res, next) => {
     if (provider !== 'google' && provider !== 'apple') {
       throw new AuthServiceError('Unsupported social sign-in provider', 400);
     }
+    const appleRelayResult = req.body?.appleRelayResult ? String(req.body.appleRelayResult) : undefined;
+    if (appleRelayResult && provider !== 'apple') {
+      throw new AuthServiceError('Apple relay results can only be used for Apple sign-in', 400);
+    }
     const user = await loginWithSocialIdentity({
       provider,
-      idToken: String(req.body?.idToken ?? ''),
+      idToken: appleRelayResult ? await consumeAppleAuthRelayResult(appleRelayResult) : String(req.body?.idToken ?? ''),
       fullName: req.body?.fullName ? String(req.body.fullName) : undefined
     });
     setAuthCookie(res, toAuthUser(user));
@@ -117,20 +122,29 @@ authRouter.post('/social-login', credentialLimiter, async (req, res, next) => {
   }
 });
 
-// Apple posts the web-flow identity token to its registered HTTPS return URL.
-// The token is not trusted here: the mobile client submits it to /social-login,
-// where signature, issuer, audience, expiry and email-verification are checked.
-authRouter.post('/apple/callback', (req, res) => {
-  const idToken = typeof req.body?.id_token === 'string' ? req.body.id_token : '';
-  const state = typeof req.body?.state === 'string' ? req.body.state : '';
-  if (!idToken) {
-    res.status(400).type('html').send(renderVerificationPage('Apple sign-in failed', 'Apple did not return an identity token. Return to DISPUTE and try again.'));
-    return;
+authRouter.post('/apple/relay/start', credentialLimiter, async (_req, res, next) => {
+  try {
+    res.json(await startAppleAuthRelay());
+  } catch (error) {
+    next(error);
   }
-  const redirect = new URL('dispute://oauth');
-  redirect.searchParams.set('id_token', idToken);
-  if (state) redirect.searchParams.set('state', state);
-  res.redirect(303, redirect.toString());
+});
+
+// Apple posts form_post here. The only deep-link data is a short-lived opaque id;
+// the identity token stays server-side and the callback state/nonce are verified first.
+authRouter.post('/apple/callback', async (req, res) => {
+  try {
+    const result = await completeAppleAuthRelay({ state: req.body?.state, idToken: req.body?.id_token });
+    const state = String(req.body.state);
+    const redirect = new URL('dispute://oauth/apple');
+    redirect.searchParams.set('result', result);
+    redirect.searchParams.set('state', state);
+    res.redirect(303, redirect.toString());
+  } catch (error) {
+    const statusCode = authErrorStatus(error) ?? 400;
+    const message = error instanceof Error ? error.message : 'Apple sign-in failed.';
+    res.status(statusCode).type('html').send(renderVerificationPage('Apple sign-in failed', message));
+  }
 });
 
 authRouter.post('/forgot-password', accountActionLimiter, async (req, res, next) => {

@@ -10,8 +10,12 @@ import { styles } from "./src/styles";
 
 // Web is a review surface for the mobile authentication flow. Native builds use App.tsx.
 export default function WebAuthPreview() {
-  const [screen, setScreen] = useState<"login" | "create" | "verify">("login");
-  const [pending, setPending] = useState<PendingEmailVerification | null>(null);
+  const previewScreen = typeof window === "undefined" ? "login" : new URLSearchParams(window.location.search).get("screen");
+  const initialScreen = previewScreen === "create" || previewScreen === "verify" ? previewScreen : "login";
+  const [screen, setScreen] = useState<"login" | "create" | "verify">(initialScreen);
+  const [pending, setPending] = useState<PendingEmailVerification | null>(
+    initialScreen === "verify" ? { email: "name@example.com", name: "Dispute user", phone: "", message: "Verification email sent." } : null,
+  );
   const finish = (_account: LocalAccount) => setScreen("login");
   const content = screen === "create"
     ? <CreateAccountScreen onLogin={finish} onShowLogin={() => setScreen("login")} onVerificationRequired={(next) => { setPending(next); setScreen("verify"); }} />

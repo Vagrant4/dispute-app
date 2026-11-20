@@ -3,7 +3,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as AuthSession from "expo-auth-session";
 import { Platform } from "react-native";
 
-import { loginWithSocialIdentity, type SocialProvider } from "./remoteAuth";
+import { loginWithSocialIdentity, startAppleAuthRelay, type SocialProvider } from "./remoteAuth";
 
 const expoEnv = (globalThis as unknown as {
   process?: { env?: Record<string, string | undefined> };
@@ -73,6 +73,8 @@ export async function signInWithApple() {
       return loginWithSocialIdentity({ provider: "apple", idToken: credential.identityToken, fullName: fullName || undefined });
     }
 
+    const relay = await startAppleAuthRelay();
+    if (!relay.ok) return relay;
     const redirectUri = appleRedirectUri;
     const request = await AuthSession.loadAsync({
       clientId: appleServicesId,
@@ -80,12 +82,16 @@ export async function signInWithApple() {
       responseType: AuthSession.ResponseType.IdToken,
       scopes: ["name", "email"],
       usePKCE: false,
-      extraParams: { response_mode: "form_post" },
+      state: relay.state,
+      extraParams: { response_mode: "form_post", nonce: relay.nonce },
     }, "https://appleid.apple.com");
     const result = await request.promptAsync({ authorizationEndpoint: "https://appleid.apple.com/auth/authorize" });
-    const idToken = result.type === "success" ? result.params.id_token : undefined;
-    if (!idToken) return { ok: false as const, message: result.type === "cancel" ? "Apple sign-in was cancelled." : "Apple sign-in did not complete. Please try again." };
-    return loginWithSocialIdentity({ provider: "apple", idToken });
+    const relayResult = result.type === "success" ? result.params.result : undefined;
+    if (result.type === "success" && result.params.state !== relay.state) {
+      return { ok: false as const, message: "Apple sign-in response did not match this request. Please try again." };
+    }
+    if (!relayResult) return { ok: false as const, message: result.type === "cancel" ? "Apple sign-in was cancelled." : "Apple sign-in did not complete. Please try again." };
+    return loginWithSocialIdentity({ provider: "apple", appleRelayResult: relayResult });
   } catch {
     return { ok: false as const, message: "Unable to continue with Apple. Please try again." };
   }

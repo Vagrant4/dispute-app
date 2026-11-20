@@ -329,14 +329,16 @@ export const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   socialAuthButton: {
-    alignItems: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: control.radius,
     borderWidth: 1,
-    flexDirection: "row",
     height: control.height,
     justifyContent: "center",
+  },
+  socialAuthButtonContent: {
+    alignItems: "center",
+    flexDirection: "row",
     gap: theme.spacing.md,
   },
   socialAuthButtonText: {
@@ -610,21 +612,19 @@ export const styles = StyleSheet.create({
   },
   passwordInputRow: {
     alignItems: "stretch",
-    flexDirection: "row",
-    gap: theme.spacing.sm,
+    position: "relative",
   },
   passwordTextInput: {
-    flex: 1,
+    paddingRight: control.height,
   },
   passwordToggleButton: {
     alignItems: "center",
-    backgroundColor: theme.colors.surfaceMuted,
-    borderColor: theme.colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    bottom: 0,
     justifyContent: "center",
-    minHeight: 54,
-    minWidth: 62,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: control.height,
   },
   passwordToggleSymbol: {
     color: theme.colors.primary,
@@ -823,6 +823,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     color: theme.colors.ink,
     ...type.label,
+    textAlign: "center",
     },
   actionButtonSubtext: {
     color: theme.colors.ink,

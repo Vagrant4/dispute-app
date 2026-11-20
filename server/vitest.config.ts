@@ -9,7 +9,8 @@ export default defineConfig({
     globals: false,
     globalSetup: './tests/globalSetup.ts',
     env: {
-      DATABASE_URL: 'file:./test.db'
+      DATABASE_URL: 'file:./test.db',
+      APPLE_OAUTH_AUDIENCES: 'services-id'
     },
     include: ['tests/**/*.test.ts']
   }

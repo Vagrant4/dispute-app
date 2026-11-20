@@ -226,6 +226,20 @@ test("network failures do not expose the local development server URL to users",
   assert.doesNotMatch(registerResult.message, /127\.0\.0\.1|4000|http/);
 });
 
+test("startAppleAuthRelay obtains opaque state and nonce without receiving an identity token", async () => {
+  const { startAppleAuthRelay } = loadRemoteAuthModule();
+  const calls = [];
+  const result = await startAppleAuthRelay(async (url, init) => {
+    calls.push({ url, init });
+    return Response.json({ state: "opaque-state", nonce: "opaque-nonce" });
+  });
+
+  assert.deepEqual(result, { ok: true, state: "opaque-state", nonce: "opaque-nonce" });
+  assert.equal(calls[0].url, "https://dispute-api-live.onrender.com/auth/apple/relay/start");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, undefined);
+});
+
 test("deleteRemoteAccount requires confirmation and sends authenticated permanent deletion", async () => {
   const { deleteRemoteAccount } = loadRemoteAuthModule();
   const calls = [];

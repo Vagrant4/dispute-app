@@ -82,6 +82,14 @@ test("phone app has separate create account and login pages before main tabs", (
   assert.match(loginSource, /saveSavedLoginDetails/);
   assert.match(loginSource, /New to Dispute\?/);
   assert.match(loginSource, /authFooterLink}>Create account/);
+  assert.match(loginSource, /styles\.authFormCard[\s\S]*Remember login details[\s\S]*<\/View>\s*\n\s*<Pressable[\s\S]*onPress=\{handleLogin\}/);
+  assert.match(loginSource, /styles\.passwordInputRow/);
+  const socialButtonsSource = readFileSync(path.join(__dirname, "..", "src", "components", "SocialAuthButtons.tsx"), "utf8");
+  assert.match(socialButtonsSource, /socialAuthButtonContent/);
+  assert.match(socialButtonsSource, /#EA4335/);
+  assert.match(socialButtonsSource, /#FBBC05/);
+  assert.match(socialButtonsSource, /#4285F4/);
+  assert.match(socialButtonsSource, /#34A853/);
   assert.match(settingsSource, /Privacy & data/);
   assert.match(deleteAccountSource, /styles.todayTitle}>Delete account</);
   assert.match(deleteAccountSource, /Manage subscription/);
@@ -108,6 +116,7 @@ test("remote auth validates account creation verification and login fields", () 
   assert.match(remoteAuthSource, /verifyRemoteEmail/);
   assert.match(remoteAuthSource, /loginRemoteAccount/);
   assert.match(remoteAuthSource, /loginWithSocialIdentity/);
+  assert.match(remoteAuthSource, /startAppleAuthRelay/);
   assert.match(remoteAuthSource, /Passwords do not match/);
   assert.match(remoteAuthSource, /6-digit verification code/);
 });

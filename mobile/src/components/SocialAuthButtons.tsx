@@ -26,14 +26,29 @@ export function SocialAuthButtons({ onAuthenticated }: SocialAuthButtonsProps) {
   return (
     <View style={styles.socialAuthGroup}>
       <Pressable accessibilityLabel="Continue with Google" accessibilityRole="button" disabled={isSubmitting} onPress={() => void continueWith("google")} style={[styles.socialAuthButton, isSubmitting && styles.disabledButton]}>
-        <FontAwesome color="#4285F4" name="google" size={25} />
-        <Text style={[styles.socialAuthButtonText, isSubmitting && styles.disabledButtonText]}>Continue with Google</Text>
+        <View style={styles.socialAuthButtonContent}>
+          <GoogleMark />
+          <Text style={[styles.socialAuthButtonText, isSubmitting && styles.disabledButtonText]}>Continue with Google</Text>
+        </View>
       </Pressable>
       <Pressable accessibilityLabel="Continue with Apple" accessibilityRole="button" disabled={isSubmitting} onPress={() => void continueWith("apple")} style={[styles.socialAuthButton, isSubmitting && styles.disabledButton]}>
-        <FontAwesome color="#FFFFFF" name="apple" size={29} />
-        <Text style={[styles.socialAuthButtonText, isSubmitting && styles.disabledButtonText]}>Continue with Apple</Text>
+        <View style={styles.socialAuthButtonContent}>
+          <FontAwesome color="#FFFFFF" name="apple" size={29} />
+          <Text style={[styles.socialAuthButtonText, isSubmitting && styles.disabledButtonText]}>Continue with Apple</Text>
+        </View>
       </Pressable>
       {status ? <Text accessibilityLiveRegion="polite" style={styles.socialAuthStatus}>{status}</Text> : null}
     </View>
   );
+}
+
+function GoogleMark() {
+  return <Text accessibilityLabel="Google logo" style={{ color: "#4285F4", fontSize: 29, fontWeight: "800" }}>
+    <Text style={{ color: "#EA4335" }}>G</Text>
+    <Text style={{ color: "#FBBC05" }}>o</Text>
+    <Text style={{ color: "#4285F4" }}>o</Text>
+    <Text style={{ color: "#34A853" }}>g</Text>
+    <Text style={{ color: "#EA4335" }}>l</Text>
+    <Text style={{ color: "#4285F4" }}>e</Text>
+  </Text>;
 }
