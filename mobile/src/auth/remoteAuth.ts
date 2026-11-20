@@ -12,6 +12,8 @@ export type RemoteAuthResult =
   | { ok: true; account: LocalAccount; message: string }
   | { ok: false; message: string };
 
+export type SocialProvider = "google" | "apple";
+
 export type RemoteRegistrationResult =
   | { ok: true; pending: PendingEmailVerification }
   | { ok: false; message: string };
@@ -67,7 +69,7 @@ export async function registerRemoteAccount(
   input: {
     email: string;
     name: string;
-    phone: string;
+    phone?: string;
     password: string;
     firstUseAt?: string;
     referralCode?: string;
@@ -88,7 +90,7 @@ export async function registerRemoteAccount(
         email: normalizeEmailAddress(input.email),
         password: input.password,
         fullName: input.name.trim(),
-        phone: input.phone.trim(),
+        ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}),
         ...(input.firstUseAt ? { firstUseAt: input.firstUseAt } : {}),
         ...(input.referralCode?.trim()
           ? { referralCode: input.referralCode.trim().toUpperCase() }
@@ -106,7 +108,7 @@ export async function registerRemoteAccount(
       pending: {
         email: normalizeEmailAddress(input.email),
         name: input.name.trim(),
-        phone: input.phone.trim(),
+        phone: input.phone?.trim() ?? "",
         message:
           getString(body, "message") ??
           "Verification email sent. Enter the 6-digit code from Gmail.",
@@ -276,6 +278,35 @@ export async function loginRemoteAccount(
       ok: false,
       message: "Unable to reach Dispute server. Check internet connection and try again.",
     };
+  }
+}
+
+export async function loginWithSocialIdentity(
+  input: { provider: SocialProvider; idToken: string; fullName?: string },
+  fetcher: FetchLike = fetch,
+): Promise<RemoteAuthResult> {
+  try {
+    const response = await fetcher(`${apiBaseUrl}/auth/social-login`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const body = await readJsonBody(response);
+    if (!response.ok) return { ok: false, message: getErrorMessage(body, "Social sign-in failed.") };
+    return {
+      ok: true,
+      account: {
+        id: getNestedString(body, ["user", "id"]) ?? "",
+        email: getNestedString(body, ["user", "email"]) ?? "",
+        name: getNestedString(body, ["profile", "fullName"]) ?? "Dispute user",
+        phone: getNestedString(body, ["profile", "phone"]) ?? "",
+        emailVerified: true,
+      },
+      message: getString(body, "message") ?? "Login successful.",
+    };
+  } catch {
+    return { ok: false, message: "Unable to reach Dispute server. Check internet connection and try again." };
   }
 }
 
@@ -472,7 +503,7 @@ async function readJsonBody(response: Response): Promise<Record<string, unknown>
 export function validateRegistrationInput(input: {
   email: string;
   name: string;
-  phone: string;
+  phone?: string;
   password: string;
   confirmPassword?: string;
 }): RemoteRegistrationResult {
@@ -481,9 +512,6 @@ export function validateRegistrationInput(input: {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     return { ok: false, message: "Enter a valid email address." };
-  }
-  if (!input.phone.trim()) {
-    return { ok: false, message: "Enter your mobile number." };
   }
   if (input.password.length < 8) {
     return { ok: false, message: "Use at least 8 characters for the password." };

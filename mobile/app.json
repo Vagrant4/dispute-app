@@ -2,7 +2,8 @@
   "expo": {
     "name": "dispute",
     "slug": "claimproof-sg",
-    "version": "0.3.31",
+    "version": "0.3.32",
+    "scheme": "dispute",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -12,7 +13,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "sg.claimproof.mobile",
-      "buildNumber": "33",
+      "buildNumber": "34",
       "icon": "./assets/icon-ios.png",
       "infoPlist": {
         "CFBundleDisplayName": "DISPUTE Test 2",
@@ -26,7 +27,7 @@
     },
     "android": {
       "package": "sg.claimproof.mobile",
-      "versionCode": 33,
+      "versionCode": 34,
       "allowBackup": false,
       "permissions": [
         "android.permission.CAMERA",

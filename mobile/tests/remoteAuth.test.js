@@ -15,7 +15,7 @@ function loadRemoteAuthModule() {
   return module.exports;
 }
 
-test("registerRemoteAccount sends backend registration and returns pending email verification", async () => {
+test("registerRemoteAccount sends signup without a mobile number and returns pending email verification", async () => {
   const { registerRemoteAccount } = loadRemoteAuthModule();
   const calls = [];
   const fetcher = async (url, init) => {
@@ -34,10 +34,7 @@ test("registerRemoteAccount sends backend registration and returns pending email
   const result = await registerRemoteAccount({
     name: "Local Worker",
     email: "Worker@Example.com",
-    phone: "+65 9000 0000",
     password: "Password123!",
-    confirmPassword: "Password123!",
-    referralCode: "dsp-a1b2c3d4e5",
   }, fetcher);
 
   assert.equal(result.ok, true);
@@ -48,8 +45,6 @@ test("registerRemoteAccount sends backend registration and returns pending email
     email: "worker@example.com",
     password: "Password123!",
     fullName: "Local Worker",
-    phone: "+65 9000 0000",
-    referralCode: "DSP-A1B2C3D4E5",
   });
 });
 
@@ -76,7 +71,6 @@ test("verifyRemoteEmail posts the Gmail code and saves verified phone account", 
   const result = await verifyRemoteEmail({
     email: "worker@example.com",
     name: "Local Worker",
-    phone: "+65 9000 0000",
     password: "Password123!",
     message: "Verification email sent.",
   }, "971986", storage, fetcher);

@@ -156,6 +156,14 @@ export default function App() {
     setAccount(null);
   }
 
+  async function completeAuthenticatedAccount(authenticatedAccount: LocalAccount) {
+    const moved = await claimLegacyLocalRepositoriesForUser(authenticatedAccount.id ?? authenticatedAccount.email);
+    await setGuestSessionActive(false);
+    setAuthNotice(moved ? "Moved your records to your account" : "");
+    await establishAccount(authenticatedAccount);
+    setActiveTab("home");
+  }
+
   if (!authReady) {
     return (
       <SafeAreaProvider>
@@ -239,6 +247,7 @@ export default function App() {
                 setAuthMode("verify");
               }}
               onShowLogin={() => setAuthMode("login")}
+              onLogin={(socialAccount) => { void completeAuthenticatedAccount(socialAccount); }}
             />
           ) : authMode === "verify" && pendingVerification ? (
             <VerifyEmailScreen
@@ -246,14 +255,8 @@ export default function App() {
               onBackToCreate={() => setAuthMode("create")}
               onShowLogin={() => setAuthMode("login")}
               onVerified={(verifiedAccount) => {
-                void (async () => {
-                  const moved = await claimLegacyLocalRepositoriesForUser(verifiedAccount.id ?? verifiedAccount.email);
-                  await setGuestSessionActive(false);
-                  setAuthNotice(moved ? "Moved your records to your account" : "");
-                  await establishAccount(verifiedAccount);
-                })();
+                void completeAuthenticatedAccount(verifiedAccount);
                 setPendingVerification(null);
-                setActiveTab("home");
               }}
             />
           ) : authMode === "forgot" ? (
@@ -268,13 +271,7 @@ export default function App() {
               ) : null}
               <LoginScreen
                 onLogin={(loggedInAccount) => {
-                  void (async () => {
-                    const moved = await claimLegacyLocalRepositoriesForUser(loggedInAccount.id ?? loggedInAccount.email);
-                    await setGuestSessionActive(false);
-                    setAuthNotice(moved ? "Moved your records to your account" : "");
-                    await establishAccount(loggedInAccount);
-                    setActiveTab("home");
-                  })();
+                  void completeAuthenticatedAccount(loggedInAccount);
                 }}
                 onVerificationRequired={(pending) => {
                   setPendingVerification(pending);

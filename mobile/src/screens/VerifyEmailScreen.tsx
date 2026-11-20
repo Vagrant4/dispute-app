@@ -78,7 +78,7 @@ export function VerifyEmailScreen({
 
   return (
     <View style={styles.authPage}>
-      <View style={styles.heroPanel}>
+      <View style={styles.verifyHero}>
         <Text style={styles.eyebrow}>Verify code</Text>
         <Text style={styles.heroTitle}>Enter the email code.</Text>
         <Text style={styles.heroBody}>
@@ -86,7 +86,7 @@ export function VerifyEmailScreen({
         </Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={styles.authFormCard}>
         <Text style={styles.inputLabel}>Verification code</Text>
         <TextInput
           accessibilityLabel="Email verification code"
@@ -110,7 +110,7 @@ export function VerifyEmailScreen({
           </Text>
         </Pressable>
 
-        <Text style={styles.muted}>{status}</Text>
+        {status ? <Text style={styles.muted}>{status}</Text> : null}
         <Pressable
           accessibilityLabel="Resend verification code"
           accessibilityRole="button"
@@ -124,7 +124,7 @@ export function VerifyEmailScreen({
         </Pressable>
       </View>
 
-      <View style={styles.actionRow}>
+      <View style={styles.verifyFooter}>
         <Pressable
           accessibilityRole="button"
           onPress={onBackToCreate}

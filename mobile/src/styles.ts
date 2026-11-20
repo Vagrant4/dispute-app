@@ -254,6 +254,7 @@ export const styles = StyleSheet.create({
   todayContentInner: { flexGrow: 1 },
   authPage: {
     gap: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
   },
   logoPage: {
     alignItems: "center",
@@ -310,23 +311,95 @@ export const styles = StyleSheet.create({
     padding: space.md,
   },
   heroPanel: {
-    alignItems: "stretch",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    alignItems: "center",
     gap: theme.spacing.sm,
-    padding: space.md,
+    paddingVertical: theme.spacing.md,
   },
   heroTitle: {
     color: theme.colors.text,
     ...type.title,
-    textAlign: "left",
+    textAlign: "center",
   },
   authLogoImage: {
     borderRadius: radius.lg,
-    height: 112,
-    width: 112,
+    height: 82,
+    width: 82,
+  },
+  socialAuthGroup: {
+    gap: theme.spacing.sm,
+  },
+  socialAuthButton: {
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: control.radius,
+    borderWidth: 1,
+    flexDirection: "row",
+    height: control.height,
+    justifyContent: "center",
+    gap: theme.spacing.md,
+  },
+  socialAuthButtonText: {
+    color: theme.colors.text,
+    ...type.label,
+  },
+  socialAuthStatus: {
+    color: theme.colors.textMuted,
+    ...type.caption,
+    textAlign: "center",
+  },
+  authDivider: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.md,
+  },
+  authDividerLine: {
+    backgroundColor: theme.colors.border,
+    flex: 1,
+    height: 1,
+  },
+  authDividerText: {
+    color: theme.colors.text,
+    ...type.caption,
+  },
+  authFormCard: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: theme.spacing.md,
+    padding: space.md,
+  },
+  authFooterRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  authFooterText: {
+    color: theme.colors.text,
+    ...type.body,
+  },
+  authFooterLink: {
+    color: theme.colors.primary,
+    ...type.body,
+    textDecorationLine: "underline",
+  },
+  forgotPasswordLink: {
+    alignItems: "center",
+    paddingVertical: theme.spacing.xs,
+  },
+  forgotPasswordLinkText: {
+    color: theme.colors.primary,
+    ...type.body,
+    textDecorationLine: "underline",
+  },
+  verifyHero: {
+    gap: theme.spacing.md,
+    paddingTop: theme.spacing.lg,
+  },
+  verifyFooter: {
+    alignItems: "center",
+    gap: theme.spacing.sm,
   },
   heroBody: {
     color: theme.colors.textMuted,

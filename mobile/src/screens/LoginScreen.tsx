@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
 
@@ -14,6 +15,7 @@ import {
   requestRemoteEmailVerification,
 } from "../auth/remoteAuth";
 import { styles, theme } from "../styles";
+import { SocialAuthButtons } from "../components/SocialAuthButtons";
 
 type LoginScreenProps = {
   onLogin: (account: LocalAccount) => void;
@@ -129,7 +131,13 @@ export function LoginScreen({
         <Text style={styles.heroTitle}>Welcome back.</Text>
       </View>
 
-      <View style={styles.card}>
+      <SocialAuthButtons onAuthenticated={onLogin} />
+      <View style={styles.authDivider} accessibilityLabel="Or continue with email">
+        <View style={styles.authDividerLine} />
+        <Text style={styles.authDividerText}>OR</Text>
+        <View style={styles.authDividerLine} />
+      </View>
+      <View style={styles.authFormCard}>
         <Text style={styles.inputLabel}>Email</Text>
         <TextInput
           accessibilityLabel="Login email"
@@ -161,9 +169,7 @@ export function LoginScreen({
             onPress={() => setShowPassword((current) => !current)}
             style={styles.passwordToggleButton}
           >
-            <Text style={styles.passwordToggleSymbol}>
-              {showPassword ? "Hide" : "Show"}
-            </Text>
+            <Ionicons color={theme.colors.textMuted} name={showPassword ? "eye-off-outline" : "eye-outline"} size={23} />
           </Pressable>
         </View>
 
@@ -219,19 +225,18 @@ export function LoginScreen({
         <Pressable
           accessibilityRole="button"
           onPress={onForgotPassword}
-          style={styles.authLinkButton}
+          style={styles.forgotPasswordLink}
         >
-          <Text style={styles.authLinkText}>Forgot password?</Text>
+          <Text style={styles.forgotPasswordLinkText}>Forgot password?</Text>
         </Pressable>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={onShowCreateAccount}
-        style={styles.authLinkButton}
-      >
-        <Text style={styles.authLinkText}>New user? Create account</Text>
-      </Pressable>
+      <View style={styles.authFooterRow}>
+        <Text style={styles.authFooterText}>New to Dispute? </Text>
+        <Pressable accessibilityRole="button" onPress={onShowCreateAccount}>
+          <Text style={styles.authFooterLink}>Create account</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -18,6 +18,10 @@ const bareAndroidKey = raw
   .find((line) => line && !line.startsWith("#") && !line.includes("=")) ?? "";
 const googleMapsApiKey = (process.env.GOOGLE_MAPS_API_KEY || fileValues.GOOGLE_MAPS_API_KEY || bareAndroidKey).trim();
 const googleMapsIosApiKey = (process.env.GOOGLE_MAPS_IOS_API_KEY || fileValues.GOOGLE_MAPS_IOS_API_KEY || "").trim();
+const googleIosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "").trim();
+const googleIosUrlScheme = googleIosClientId
+  ? `com.googleusercontent.apps.${googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, "")}`
+  : "";
 
 module.exports = {
   ...app,
@@ -26,6 +30,11 @@ module.exports = {
     plugins: [
       ...app.expo.plugins,
       "./plugins/withReactNativeMapsGoogleIos",
+      "expo-web-browser",
+      "expo-apple-authentication",
+      ...(googleIosUrlScheme
+        ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }]]
+        : []),
     ],
     android: {
       ...app.expo.android,
@@ -33,6 +42,7 @@ module.exports = {
     },
     ios: {
       ...app.expo.ios,
+      usesAppleSignIn: true,
       config: { googleMapsApiKey: googleMapsIosApiKey },
     },
   },

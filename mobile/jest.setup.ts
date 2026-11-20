@@ -13,8 +13,12 @@ jest.mock("@expo/vector-icons", () => {
   const React = require("react");
   const { Text } = require("react-native");
   const MaterialIcons = ({ name, ...props }: { name: string }) => React.createElement(Text, props, name);
+  const Ionicons = ({ name, ...props }: { name: string }) => React.createElement(Text, props, name);
+  const FontAwesome = ({ name, ...props }: { name: string }) => React.createElement(Text, props, name);
   MaterialIcons.font = {};
-  return { MaterialIcons };
+  Ionicons.font = {};
+  FontAwesome.font = {};
+  return { MaterialIcons, Ionicons, FontAwesome };
 });
 
 jest.mock("react-native-maps", () => {
