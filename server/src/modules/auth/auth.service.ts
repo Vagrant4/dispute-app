@@ -11,6 +11,7 @@ import {
   normalizePhoneForAbuseControl,
   normalizeReferralCode
 } from '../referrals/referral.service.js';
+import { verifyIdentityToken, type SocialProvider } from './identityToken.service.js';
 
 export class AuthServiceError extends Error {
   constructor(
@@ -43,7 +44,7 @@ export async function registerUser(input: {
   email: string;
   password: string;
   fullName: string;
-  phone: string;
+  phone?: string;
   referralCode?: string;
   firstUseAt?: string;
 }): Promise<RegistrationResult> {
@@ -68,7 +69,10 @@ export async function registerUser(input: {
     throw new AuthServiceError('Administrator accounts cannot be created through public sign-up', 403);
   }
 
-  const existingPhone = requestedReferralCode
+  if (requestedReferralCode && !profile.normalizedPhone) {
+    throw new AuthServiceError('A mobile number is required when using a referral code', 400);
+  }
+  const existingPhone = requestedReferralCode && profile.normalizedPhone
     ? await prisma.workerProfile.findFirst({
         where: {
           normalizedPhone: profile.normalizedPhone,
@@ -296,6 +300,90 @@ export async function loginUser(input: { email: string; password: string }): Pro
   return toSafeUser(user);
 }
 
+export async function loginWithSocialIdentity(input: {
+  provider: SocialProvider;
+  idToken: string;
+  fullName?: string;
+}, dependencies: {
+  verifyToken?: typeof verifyIdentityToken;
+} = {}): Promise<SafeUser> {
+  const audiences = input.provider === 'google'
+    ? [env.socialAuth.googleWebClientId].filter(Boolean)
+    : env.socialAuth.appleAudiences;
+  const identity = await (dependencies.verifyToken ?? verifyIdentityToken)({
+    provider: input.provider,
+    idToken: input.idToken,
+    audiences
+  });
+  const now = new Date();
+  const existingIdentity = await prisma.authIdentity.findUnique({
+    where: { provider_providerUserId: { provider: identity.provider, providerUserId: identity.providerUserId } },
+    include: { user: true }
+  });
+  if (existingIdentity) {
+    if (existingIdentity.user.status !== UserStatus.ACTIVE || !existingIdentity.user.emailVerifiedAt) {
+      throw new AuthServiceError('This social account is not available. Contact support.', 403);
+    }
+    return toSafeUser(await prisma.user.update({
+      where: { id: existingIdentity.userId },
+      data: { lastSeenAt: now }
+    }));
+  }
+
+  const sameEmail = await prisma.user.findUnique({ where: { email: identity.email } });
+  if (sameEmail && (sameEmail.status !== UserStatus.ACTIVE || !sameEmail.emailVerifiedAt)) {
+    throw new AuthServiceError('Verify this email with its existing account before linking social sign-in', 409);
+  }
+
+  const user = await prisma.$transaction(async (tx) => {
+    if (sameEmail) {
+      await tx.authIdentity.create({
+        data: {
+          userId: sameEmail.id,
+          provider: identity.provider,
+          providerUserId: identity.providerUserId,
+          providerEmail: identity.email
+        }
+      });
+      return tx.user.update({ where: { id: sameEmail.id }, data: { lastSeenAt: now } });
+    }
+
+    const fullName = input.fullName?.trim() || identity.email.split('@')[0] || 'Dispute user';
+    const created = await tx.user.create({
+      data: {
+        email: identity.email,
+        referralCode: await generateUniqueReferralCode(),
+        passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+        role: 'WORKER',
+        status: 'ACTIVE',
+        emailVerifiedAt: now,
+        appFirstUseAt: now,
+        lastSeenAt: now,
+        appSetting: { create: {} },
+        profile: {
+          create: {
+            fullName,
+            phone: null,
+            normalizedPhone: null,
+            trade: 'Not specified',
+            employmentType: 'FREELANCER'
+          }
+        },
+        authIdentities: {
+          create: {
+            provider: identity.provider,
+            providerUserId: identity.providerUserId,
+            providerEmail: identity.email
+          }
+        }
+      }
+    });
+    await createTrialSubscriptionForUser(created.id, now, tx);
+    return created;
+  });
+  return toSafeUser(user);
+}
+
 
 export async function loginAdminUser(input: { email: string; password: string }): Promise<SafeUser> {
   const email = normalizeEmail(input.email);
@@ -498,12 +586,12 @@ function validateCredentials(email: string, password: string): void {
 
 function normalizeSignupProfile(
   fullName: string,
-  phone: string
-): { fullName: string; phone: string; normalizedPhone: string } {
+  phone?: string
+): { fullName: string; phone: string | null; normalizedPhone: string | null } {
   const normalizedName = fullName.trim();
-  const normalizedPhone = phone.trim();
+  const normalizedPhone = phone?.trim() ?? '';
   if (!normalizedName) throw new AuthServiceError('Full name is required', 400);
-  if (!normalizedPhone) throw new AuthServiceError('Mobile number is required', 400);
+  if (!normalizedPhone) return { fullName: normalizedName, phone: null, normalizedPhone: null };
   const abuseControlPhone = normalizePhoneForAbuseControl(normalizedPhone);
   if (abuseControlPhone.length < 8) throw new AuthServiceError('Enter a valid mobile number', 400);
   return { fullName: normalizedName, phone: normalizedPhone, normalizedPhone: abuseControlPhone };

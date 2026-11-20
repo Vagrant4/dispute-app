@@ -9,6 +9,7 @@ import { ACCOUNT_DELETION_CONFIRMATION } from './accountDeletion.constants.js';
 import { deleteAccountForAuthenticatedUser } from './accountDeletion.service.js';
 import {
   AuthServiceError,
+  loginWithSocialIdentity,
   loginUser,
   registerUser,
   resendVerificationEmail,
@@ -95,6 +96,41 @@ authRouter.post('/login', credentialLimiter, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+authRouter.post('/social-login', credentialLimiter, async (req, res, next) => {
+  try {
+    const provider = String(req.body?.provider ?? '');
+    if (provider !== 'google' && provider !== 'apple') {
+      throw new AuthServiceError('Unsupported social sign-in provider', 400);
+    }
+    const user = await loginWithSocialIdentity({
+      provider,
+      idToken: String(req.body?.idToken ?? ''),
+      fullName: req.body?.fullName ? String(req.body.fullName) : undefined
+    });
+    setAuthCookie(res, toAuthUser(user));
+    const profile = await prisma.workerProfile.findUnique({ where: { userId: user.id } });
+    res.json({ user, profile, message: 'Login successful.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Apple posts the web-flow identity token to its registered HTTPS return URL.
+// The token is not trusted here: the mobile client submits it to /social-login,
+// where signature, issuer, audience, expiry and email-verification are checked.
+authRouter.post('/apple/callback', (req, res) => {
+  const idToken = typeof req.body?.id_token === 'string' ? req.body.id_token : '';
+  const state = typeof req.body?.state === 'string' ? req.body.state : '';
+  if (!idToken) {
+    res.status(400).type('html').send(renderVerificationPage('Apple sign-in failed', 'Apple did not return an identity token. Return to DISPUTE and try again.'));
+    return;
+  }
+  const redirect = new URL('dispute://oauth');
+  redirect.searchParams.set('id_token', idToken);
+  if (state) redirect.searchParams.set('state', state);
+  res.redirect(303, redirect.toString());
 });
 
 authRouter.post('/forgot-password', accountActionLimiter, async (req, res, next) => {

@@ -124,7 +124,7 @@ describe('auth API', () => {
     });
   });
 
-  it('requires full name and mobile number during registration', async () => {
+  it('requires a full name but accepts registration without a mobile number', async () => {
     const missingProfile = await postJson('/auth/register', {
       email: 'missing-profile@example.com',
       password: 'Password123!'
@@ -136,7 +136,10 @@ describe('auth API', () => {
       password: 'Password123!',
       fullName: 'Missing Phone'
     });
-    expect(missingPhone.status).toBe(400);
+    expect(missingPhone.status).toBe(201);
+    const body = await jsonBody<AuthUserResponse>(missingPhone);
+    const profile = await prisma.workerProfile.findUnique({ where: { userId: body.user.id } });
+    expect(profile?.phone).toBeNull();
   });
 
   it('resends verification code without re-registering or changing the password', async () => {

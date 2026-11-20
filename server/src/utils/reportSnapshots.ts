@@ -6,7 +6,7 @@ type DecimalLike = Prisma.Decimal | number | string | null | undefined;
 export interface ProgressClaimSnapshotInput {
   worker: {
     fullName: string;
-    phone: string;
+    phone: string | null;
     workerIdentifier: string | null;
     finNric: string | null;
     trade: string;

@@ -36,6 +36,8 @@ type EnvSource = Partial<
     | 'REVENUECAT_ENTITLEMENT_ID'
     | 'REVENUECAT_ALLOW_SANDBOX_EVENTS'
     | 'REVENUECAT_ALLOW_APPLE_SANDBOX_EVENTS'
+    | 'GOOGLE_OAUTH_WEB_CLIENT_ID'
+    | 'APPLE_OAUTH_AUDIENCES'
   >
 >;
 
@@ -100,6 +102,10 @@ export function createEnv(source: EnvSource = process.env) {
         source.REVENUECAT_ALLOW_APPLE_SANDBOX_EVENTS,
         false
       )
+    },
+    socialAuth: {
+      googleWebClientId: source.GOOGLE_OAUTH_WEB_CLIENT_ID?.trim() ?? '',
+      appleAudiences: parseCsv(source.APPLE_OAUTH_AUDIENCES)
     }
   } as const;
 }
