@@ -34,14 +34,15 @@ test("login uses an in-field eye control to reveal and conceal the password", ()
   expect(screen.queryByText("Show")).toBeNull();
 });
 
-test("create account has only name, email and password fields", () => {
+test("create account requires a phone number with a country-code picker", () => {
   const screen = render(
     <CreateAccountScreen onLogin={jest.fn()} onShowLogin={jest.fn()} onVerificationRequired={jest.fn()} />,
   );
   expect(screen.getByLabelText("Create account name")).toBeTruthy();
   expect(screen.getByLabelText("Create account email")).toBeTruthy();
   expect(screen.getByLabelText("Create account password").props.secureTextEntry).toBe(true);
-  expect(screen.queryByLabelText("Create account mobile number")).toBeNull();
+  expect(screen.getByLabelText("Country code dropdown")).toBeTruthy();
+  expect(screen.getByLabelText("Create account mobile number")).toBeTruthy();
   fireEvent.press(screen.getByLabelText("Show password"));
   expect(screen.getByLabelText("Create account password").props.secureTextEntry).toBe(false);
 });

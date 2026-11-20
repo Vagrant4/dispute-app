@@ -5,15 +5,11 @@ import { Platform } from "react-native";
 
 import { loginWithSocialIdentity, startAppleAuthRelay, type SocialProvider } from "./remoteAuth";
 
-const expoEnv = (globalThis as unknown as {
-  process?: { env?: Record<string, string | undefined> };
-}).process?.env;
-
-const googleIosClientId = expoEnv?.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ?? "";
-const googleAndroidClientId = expoEnv?.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim() ?? "";
-const googleWebClientId = expoEnv?.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ?? "";
-const appleServicesId = expoEnv?.EXPO_PUBLIC_APPLE_SERVICES_ID?.trim() ?? "";
-const appleRedirectUri = expoEnv?.EXPO_PUBLIC_APPLE_REDIRECT_URI?.trim() ?? "";
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ?? "";
+const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim() ?? "";
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ?? "";
+const appleServicesId = process.env.EXPO_PUBLIC_APPLE_SERVICES_ID?.trim() ?? "";
+const appleRedirectUri = process.env.EXPO_PUBLIC_APPLE_REDIRECT_URI?.trim() ?? "";
 
 export function socialAuthConfigurationMessage(provider: SocialProvider): string | null {
   if (provider === "google") {

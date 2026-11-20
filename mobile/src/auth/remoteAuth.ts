@@ -69,7 +69,7 @@ export async function registerRemoteAccount(
   input: {
     email: string;
     name: string;
-    phone?: string;
+    phone: string;
     password: string;
     firstUseAt?: string;
     referralCode?: string;
@@ -90,7 +90,7 @@ export async function registerRemoteAccount(
         email: normalizeEmailAddress(input.email),
         password: input.password,
         fullName: input.name.trim(),
-        ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}),
+        phone: input.phone.trim(),
         ...(input.firstUseAt ? { firstUseAt: input.firstUseAt } : {}),
         ...(input.referralCode?.trim()
           ? { referralCode: input.referralCode.trim().toUpperCase() }
@@ -108,7 +108,7 @@ export async function registerRemoteAccount(
       pending: {
         email: normalizeEmailAddress(input.email),
         name: input.name.trim(),
-        phone: input.phone?.trim() ?? "",
+        phone: input.phone.trim(),
         message:
           getString(body, "message") ??
           "Verification email sent. Enter the 6-digit code from Gmail.",
@@ -523,7 +523,7 @@ async function readJsonBody(response: Response): Promise<Record<string, unknown>
 export function validateRegistrationInput(input: {
   email: string;
   name: string;
-  phone?: string;
+  phone: string;
   password: string;
   confirmPassword?: string;
 }): RemoteRegistrationResult {
@@ -532,6 +532,9 @@ export function validateRegistrationInput(input: {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     return { ok: false, message: "Enter a valid email address." };
+  }
+  if (!input.phone.trim()) {
+    return { ok: false, message: "Enter your mobile number." };
   }
   if (input.password.length < 8) {
     return { ok: false, message: "Use at least 8 characters for the password." };

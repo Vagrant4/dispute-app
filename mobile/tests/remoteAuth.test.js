@@ -15,7 +15,7 @@ function loadRemoteAuthModule() {
   return module.exports;
 }
 
-test("registerRemoteAccount sends signup without a mobile number and returns pending email verification", async () => {
+test("registerRemoteAccount sends the required old-server mobile-number signup shape", async () => {
   const { registerRemoteAccount } = loadRemoteAuthModule();
   const calls = [];
   const fetcher = async (url, init) => {
@@ -34,6 +34,7 @@ test("registerRemoteAccount sends signup without a mobile number and returns pen
   const result = await registerRemoteAccount({
     name: "Local Worker",
     email: "Worker@Example.com",
+    phone: "+65 9000 0000",
     password: "Password123!",
   }, fetcher);
 
@@ -45,7 +46,25 @@ test("registerRemoteAccount sends signup without a mobile number and returns pen
     email: "worker@example.com",
     password: "Password123!",
     fullName: "Local Worker",
+    phone: "+65 9000 0000",
   });
+});
+
+test("registerRemoteAccount blocks submit without a valid mobile number", async () => {
+  const { registerRemoteAccount } = loadRemoteAuthModule();
+  let called = false;
+  const result = await registerRemoteAccount({
+    name: "Local Worker",
+    email: "worker@example.com",
+    phone: "  ",
+    password: "Password123!",
+  }, async () => {
+    called = true;
+    return Response.json({});
+  });
+
+  assert.deepEqual(result, { ok: false, message: "Enter your mobile number." });
+  assert.equal(called, false);
 });
 
 test("verifyRemoteEmail posts the Gmail code and saves verified phone account", async () => {

@@ -52,9 +52,10 @@ test("phone app has separate create account and login pages before main tabs", (
   assert.match(logoSource, /Login/);
   assert.match(logoSource, /Create account/);
   assert.match(createAccountSource, /Create account/);
-  const activeCreateAccountSource = createAccountSource.split("function ModernCreateAccountScreen")[1];
-  assert.ok(activeCreateAccountSource, "active create account form is present");
-  assert.doesNotMatch(activeCreateAccountSource, /Mobile number|Country code|Referral code/);
+  const activeCreateAccountSource = createAccountSource;
+  assert.match(activeCreateAccountSource, /Mobile number/);
+  assert.match(activeCreateAccountSource, /Country code dropdown/);
+  assert.doesNotMatch(activeCreateAccountSource, /Referral code/);
   assert.match(createAccountSource, /registerRemoteAccount/);
   assert.match(createAccountSource, /Create your account/);
   assert.match(createAccountSource, /Show password/);

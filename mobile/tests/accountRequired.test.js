@@ -23,8 +23,8 @@ test("app clears a legacy guest session and stays on welcome", () => {
 
 test("trial starts only in the successful create-account path", () => {
   const create = src("src/screens/CreateAccountScreen.tsx");
-  const success = create.slice(create.indexOf("if (result.ok)"));
+  const success = create.slice(create.indexOf("if (!result.ok)"));
   assert.match(success, /saveGuestTrial\(startGuestTrial\(Date\.now\(\)\)\)/);
   assert.ok(success.indexOf("saveGuestTrial") < success.indexOf("onVerificationRequired"));
-  assert.doesNotMatch(create.slice(create.indexOf("export function"), create.indexOf("if (result.ok)")), /startGuestTrial|saveGuestTrial/);
+  assert.doesNotMatch(create.slice(create.indexOf("export function"), create.indexOf("if (!result.ok)")), /startGuestTrial|saveGuestTrial/);
 });
