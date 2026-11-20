@@ -9,7 +9,7 @@ const read = (file) => readFileSync(path.join(mobile, file), "utf8");
 test("iOS config declares the App ID, assets, and evidence permissions", () => {
   const app = JSON.parse(read("app.json")).expo;
   assert.equal(app.ios.bundleIdentifier, "sg.claimproof.mobile");
-  assert.equal(app.ios.buildNumber, "34");
+  assert.equal(app.ios.buildNumber, "35");
   assert.equal(app.ios.icon, "./assets/icon-ios.png");
   assert.equal(app.ios.infoPlist.CFBundleDisplayName, "DISPUTE Test 2");
   assert.equal(app.plugins[0], "./plugins/withDisputeTest2Android");
