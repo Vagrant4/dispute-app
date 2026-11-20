@@ -20,7 +20,7 @@ export default function WebAuthPreview() {
   const content = screen === "create"
     ? <CreateAccountScreen onLogin={finish} onShowLogin={() => setScreen("login")} onVerificationRequired={(next) => { setPending(next); setScreen("verify"); }} />
     : screen === "verify" && pending
-      ? <VerifyEmailScreen pending={pending} onBackToCreate={() => setScreen("create")} onShowLogin={() => setScreen("login")} onVerified={finish} />
+      ? <VerifyEmailScreen pending={pending} onShowLogin={() => setScreen("login")} onVerified={finish} />
       : <LoginScreen onLogin={finish} onForgotPassword={() => undefined} onShowCreateAccount={() => setScreen("create")} onVerificationRequired={(next) => { setPending(next); setScreen("verify"); }} />;
   return <View style={styles.app}><ScrollView contentContainerStyle={styles.contentInner}>{content}</ScrollView></View>;
 }

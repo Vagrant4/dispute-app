@@ -252,7 +252,6 @@ export default function App() {
           ) : authMode === "verify" && pendingVerification ? (
             <VerifyEmailScreen
               pending={pendingVerification}
-              onBackToCreate={() => setAuthMode("create")}
               onShowLogin={() => setAuthMode("login")}
               onVerified={(verifiedAccount) => {
                 void completeAuthenticatedAccount(verifiedAccount);

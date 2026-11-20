@@ -13,14 +13,12 @@ import { styles, theme } from "../styles";
 type VerifyEmailScreenProps = {
   pending: PendingEmailVerification;
   onVerified: (account: LocalAccount) => void;
-  onBackToCreate: () => void;
   onShowLogin: () => void;
 };
 
 export function VerifyEmailScreen({
   pending,
   onVerified,
-  onBackToCreate,
   onShowLogin,
 }: VerifyEmailScreenProps) {
   const [currentPending, setCurrentPending] = useState(pending);
@@ -125,13 +123,6 @@ export function VerifyEmailScreen({
       </View>
 
       <View style={styles.verifyFooter}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onBackToCreate}
-          style={styles.authLinkButton}
-        >
-          <Text style={styles.authLinkText}>Edit registration details</Text>
-        </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onShowLogin}
